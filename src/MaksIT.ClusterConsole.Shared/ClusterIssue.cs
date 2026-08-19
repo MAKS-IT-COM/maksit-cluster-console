@@ -28,7 +28,12 @@ public static class ClusterIssues {
   private static readonly HashSet<string> HealthyNodeConditions = new(StringComparer.Ordinal) {
     "Ready",
     "HostUpgrades",
-    "SchedulingDisabled"
+    "SchedulingDisabled",
+    "EtcdIsVoter"
+  };
+
+  private static readonly HashSet<string> UnhealthyWhenFalseNodeConditions = new(StringComparer.Ordinal) {
+    "EtcdIsVoter"
   };
 
   public static ClusterIssueSet Collect(
@@ -92,7 +97,7 @@ public static class ClusterIssues {
 
     foreach (var condition in conditions.OfType<JsonObject>()) {
       var type = Text(condition["type"]);
-      if (!IsTrue(condition["status"]) || HealthyNodeConditions.Contains(type))
+      if (!IsUnhealthyNodeCondition(type, condition["status"]))
         continue;
 
       var message = Text(condition["message"]);
@@ -232,12 +237,25 @@ public static class ClusterIssues {
       ? value.TryGetValue<string>(out var text) ? text ?? string.Empty : value.ToString() ?? string.Empty
       : node?.ToString() ?? string.Empty;
 
-  private static bool IsTrue(JsonNode? node) {
+  private static bool IsUnhealthyNodeCondition(string type, JsonNode? status) {
+    if (UnhealthyWhenFalseNodeConditions.Contains(type))
+      return IsFalse(status);
+
+    return IsTrue(status) && !HealthyNodeConditions.Contains(type);
+  }
+
+  private static bool IsTrue(JsonNode? node) =>
+    IsConditionStatus(node, true, "True");
+
+  private static bool IsFalse(JsonNode? node) =>
+    IsConditionStatus(node, false, "False");
+
+  private static bool IsConditionStatus(JsonNode? node, bool flagValue, string textValue) {
     if (node is not JsonValue value)
       return false;
     if (value.TryGetValue<bool>(out var flag))
-      return flag;
+      return flag == flagValue;
     return value.TryGetValue<string>(out var text)
-      && text.Equals("True", StringComparison.OrdinalIgnoreCase);
+      && text.Equals(textValue, StringComparison.OrdinalIgnoreCase);
   }
 }

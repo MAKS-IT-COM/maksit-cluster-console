@@ -13,7 +13,8 @@ public class ClusterIssuesTests {
     var nodes = new[] {
       Node("k3ssrv0001", "n1", nodeCreated, [
         Condition("Ready", "True"),
-        Condition("EtcdIsVoter", "True", "Node is a voting member of the etcd cluster")
+        Condition("EtcdIsVoter", "True", "Node is a voting member of the etcd cluster"),
+        Condition("MemoryPressure", "True", "kubelet has memory pressure")
       ])
     };
     var events = new[] {
@@ -27,7 +28,7 @@ public class ClusterIssuesTests {
     Assert.Empty(set.Errors);
     var node = Assert.Single(set.Warnings, w => w.Kind == "Node");
     Assert.Equal("k3ssrv0001", node.ObjectName);
-    Assert.Contains("etcd", node.Message);
+    Assert.Contains("memory pressure", node.Message);
     Assert.Equal(ClusterIssues.Active, node.State);
     Assert.Equal("120d", node.Age);
 
@@ -35,6 +36,44 @@ public class ClusterIssuesTests {
     Assert.StartsWith("invalid capacity", warning.Message);
     Assert.Equal(ClusterIssues.Resolved, warning.State);
     Assert.Equal("2h56m", warning.Age);
+  }
+
+  [Fact]
+  public void Collect_skips_healthy_etcd_voter_condition() {
+    var now = DateTimeOffset.Parse("2026-08-19T15:00:00Z");
+    var nodes = new[] {
+      Node("k3ssrv0001", "n1", now.AddDays(-121), [
+        Condition("Ready", "True"),
+        Condition("EtcdIsVoter", "True", "Node is a voting member of the etcd cluster")
+      ])
+    };
+
+    var set = ClusterIssues.Collect(nodes, [], [], now);
+
+    Assert.Empty(set.Warnings);
+    Assert.Empty(set.Errors);
+  }
+
+  [Fact]
+  public void Collect_warns_when_etcd_is_not_a_voter() {
+    var now = DateTimeOffset.Parse("2026-08-19T15:00:00Z");
+    var nodeCreated = now.AddDays(-121);
+    var nodes = new[] {
+      Node("k3ssrv0001", "n1", nodeCreated, [
+        Condition("Ready", "True"),
+        Condition("EtcdIsVoter", "False", "this server has not yet been promoted from learner to voting member")
+      ])
+    };
+
+    var set = ClusterIssues.Collect(nodes, [], [], now);
+
+    var warning = Assert.Single(set.Warnings);
+    Assert.Equal("Node", warning.Kind);
+    Assert.Equal("k3ssrv0001", warning.ObjectName);
+    Assert.Contains("learner", warning.Message);
+    Assert.Equal(ClusterIssues.Active, warning.State);
+    Assert.Equal("121d", warning.Age);
+    Assert.Empty(set.Errors);
   }
 
   [Fact]
