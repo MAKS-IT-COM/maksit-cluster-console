@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        x:Class="MaksIT.ClusterConsole.UI.ConnectionsWindow"
+        x:DataType="vm:ConnectionsViewModel"
+        Title="Connections"
+        Icon="/Assets/icon.ico"
+        Width="780"
+        Height="520"
+        MinWidth="640"
+        MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,12">
+      <TextBlock Text="Kubeconfig connections" FontSize="18" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding KubeConfigPath}" Classes="hint" TextTrimming="CharacterEllipsis" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
+      <TextBlock Text="{Binding Status}" Classes="hint" TextWrapping="Wrap" />
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Add…" Command="{Binding AddCommand}" />
+          <Button Content="Use for kubectl" Command="{Binding UseForKubectlCommand}" IsEnabled="{Binding HasSelection}" />
+          <Button Content="Connect" Command="{Binding ConnectCommand}" IsEnabled="{Binding HasSelection}" />
+          <Button Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding HasSelection}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <CheckBox Content="Cleanup unused cluster/user on delete"
+                    IsChecked="{Binding CleanupUnused}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,12,0" />
+          <Button Content="Close" Command="{Binding CloseCommand}" />
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+
+    <Grid ColumnDefinitions="280,12,*">
+      <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ConnectionItemViewModel">
+            <StackPanel Margin="0,2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}" Classes="hint" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBox Grid.Column="2"
+               Text="{Binding DetailsText}"
+               IsReadOnly="True"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               FontFamily="Consolas, Cascadia Mono, monospace" />
+    </Grid>
+  </DockPanel>
+</Window>

@@ -1,0 +1,750 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
+        xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+        xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
+        x:Class="MaksIT.ClusterConsole.UI.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="MaksIT.ClusterConsole"
+        Icon="/Assets/icon.ico"
+        Width="1400"
+        Height="860"
+        MinWidth="960"
+        MinHeight="640">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="8,6" Background="#15171a">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Status}" Classes="hint" VerticalAlignment="Center" />
+        <ItemsControl Grid.Column="1" ItemsSource="{Binding ActivePage.PortForwards}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PortForwardItemViewModel">
+              <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
+                <TextBlock Text="{Binding Display}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <Button Content="Stop" Click="OnStopPortForwardClick" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+    </Border>
+
+    <Grid Name="ShellGrid" ColumnDefinitions="248,4,228,4,*">
+      <DockPanel Name="CatalogPane" Background="#121416">
+        <StackPanel DockPanel.Dock="Top" Margin="12,12,12,8">
+          <TextBlock Text="MaksIT.ClusterConsole" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="Catalog" Classes="hint" Margin="0,4,0,0" />
+          <TextBlock Text="* kubectl current-context" Classes="hint" Margin="0,2,0,0" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="12" Spacing="6">
+          <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsClusterOpen}" HorizontalAlignment="Stretch" />
+          <Button Content="Connections…" Command="{Binding OpenConnectionsCommand}" HorizontalAlignment="Stretch" />
+          <Button Content="Reload kubeconfig" Command="{Binding LoadCatalogCommand}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+        <ScrollViewer Margin="8,0,8,8">
+          <ItemsControl ItemsSource="{Binding Catalog}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CatalogItemViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                  <Button Classes="catalog-item"
+                          Command="{Binding ActivateCommand}"
+                          Classes.selected="{Binding IsActive}"
+                          Classes.connected="{Binding IsConnected}">
+                    <StackPanel>
+                      <Grid ColumnDefinitions="Auto,Auto,*">
+                        <TextBlock Text="*"
+                                   Margin="0,0,4,0"
+                                   Classes="kubectl-current"
+                                   IsVisible="{Binding IsKubectlCurrent}"
+                                   ToolTip.Tip="kubectl current-context" />
+                        <TextBlock Grid.Column="1" Text="●" Margin="0,0,6,0" Classes="connected-dot" IsVisible="{Binding IsConnected}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                      <TextBlock Text="{Binding Cluster}" Classes="hint" Margin="18,2,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="1"
+                          Content="×"
+                          Classes="catalog-close"
+                          Command="{Binding DisconnectCommand}"
+                          IsVisible="{Binding IsConnected}"
+                          ToolTip.Tip="Disconnect this cluster" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+
+      <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
+
+      <DockPanel Name="NavigatorPane" Grid.Column="2" Background="#16181b" IsVisible="{Binding IsClusterOpen}">
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding ClusterTitle}"
+                   FontWeight="SemiBold"
+                   Margin="12,12,12,8"
+                   TextTrimming="CharacterEllipsis" />
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding ActivePage.Navigator}" Margin="8">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:NavGroupViewModel">
+                <StackPanel Margin="0,0,0,2">
+                  <Button Classes="nav-section" Command="{Binding ToggleCommand}">
+                    <Grid ColumnDefinitions="14,20,*">
+                      <TextBlock Text="{Binding Chevron}" Classes="nav-chevron" VerticalAlignment="Center" />
+                      <Path Grid.Column="1"
+                            Width="14"
+                            Height="14"
+                            Stretch="Uniform"
+                            Data="{Binding IconData}"
+                            IsVisible="{Binding HasIcon}"
+                            VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2"
+                                 Text="{Binding Section}"
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                  </Button>
+                  <StackPanel IsVisible="{Binding IsExpanded}" Margin="10,0,0,2">
+                    <ItemsControl ItemsSource="{Binding Items}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavItemViewModel">
+                          <Button Classes="nav-item"
+                                  Command="{Binding ActivateCommand}"
+                                  Classes.selected="{Binding IsSelected}">
+                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding Groups}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavGroupViewModel">
+                          <StackPanel Margin="0,2,0,0">
+                            <Button Classes="nav-section" Command="{Binding ToggleCommand}">
+                              <Grid ColumnDefinitions="14,*">
+                                <TextBlock Text="{Binding Chevron}" Classes="nav-chevron" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Section}"
+                                           Classes="nav-group"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                              </Grid>
+                            </Button>
+                            <ItemsControl ItemsSource="{Binding Items}"
+                                          Margin="12,0,0,0"
+                                          IsVisible="{Binding IsExpanded}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NavItemViewModel">
+                                  <Button Classes="nav-item"
+                                          Command="{Binding ActivateCommand}"
+                                          Classes.selected="{Binding IsSelected}">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                  </Button>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+
+      <GridSplitter Grid.Column="3" Classes="shell-split" ResizeDirection="Columns" IsVisible="{Binding IsClusterOpen}" />
+
+      <TextBlock Grid.Column="4"
+                 Text="Select a cluster from the catalog to connect. Open clusters stay connected until you disconnect them."
+                 Classes="hint"
+                 Margin="24"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding !IsClusterOpen}" />
+
+      <Grid Grid.Column="4" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsClusterOpen}">
+        <Grid ColumnDefinitions="*,Auto" Margin="10,8" IsVisible="{Binding !ActivePage.IsClusterDashboard}">
+          <TextBox PlaceholderText="Search" Text="{Binding ActivePage.Filter}" MinWidth="180" Margin="0,0,8,0" />
+          <Button Grid.Column="1" Content="Refresh" Command="{Binding ActivePage.RefreshRowsCommand}" />
+        </Grid>
+
+        <Grid Grid.Row="1" IsVisible="{Binding ActivePage.IsClusterDashboard}" Margin="16" RowDefinitions="Auto,*">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding ClusterTitle}" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ActivePage.OverviewText}" Classes="hint" />
+            <TextBlock Text="{Binding ActivePage.MetricsHint}" Classes="hint" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+              <Button Content="Cluster"
+                      Classes="scope-toggle"
+                      Classes.selected="{Binding !ActivePage.OverviewPerNode}"
+                      Command="{Binding ActivePage.ShowClusterOverviewCommand}" />
+              <Button Content="Nodes"
+                      Classes="scope-toggle"
+                      Classes.selected="{Binding ActivePage.OverviewPerNode}"
+                      Command="{Binding ActivePage.ShowNodesOverviewCommand}" />
+            </StackPanel>
+          </StackPanel>
+
+          <Grid Grid.Row="1" Margin="0,16,0,0" RowDefinitions="*,Auto">
+          <Grid IsVisible="{Binding !ActivePage.OverviewPerNode}"
+                ColumnDefinitions="*,*"
+                RowDefinitions="Auto,Auto">
+            <Border Background="#25282c" Padding="16" CornerRadius="6" Margin="0,0,8,8" ClipToBounds="True">
+              <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="CPU" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding ActivePage.CpuCaption}" Classes="hint" />
+                </Grid>
+                <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.CpuPercent}" Height="8" Margin="0,8,0,8" />
+                <controls:Sparkline Grid.Row="2"
+                                    Height="72"
+                                    HorizontalAlignment="Stretch"
+                                    Values="{Binding ActivePage.CpuHistory}"
+                                    LineBrush="#00a7a0" />
+                <controls:ResourceBar Grid.Row="3"
+                                      Height="20"
+                                      Margin="0,8,0,8"
+                                      HorizontalAlignment="Stretch"
+                                      Used="{Binding ActivePage.CpuSlice.Used}"
+                                      Requests="{Binding ActivePage.CpuSlice.Requests}"
+                                      Limits="{Binding ActivePage.CpuSlice.Limits}"
+                                      Allocatable="{Binding ActivePage.CpuSlice.Allocatable}"
+                                      Capacity="{Binding ActivePage.CpuSlice.Capacity}" />
+                <WrapPanel Grid.Row="4" Orientation="Horizontal">
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.CpuSlice.UsageLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#ff9f0a" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.CpuSlice.RequestsLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#ff4d6d" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.CpuSlice.LimitsLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.CpuSlice.AllocatableLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.CpuSlice.CapacityLine}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding ActivePage.CpuSlice.LimitsWarning}"
+                             Classes="warning"
+                             IsVisible="{Binding ActivePage.CpuSlice.LimitsExceedCapacity}" />
+                </WrapPanel>
+              </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Background="#25282c" Padding="16" CornerRadius="6" Margin="8,0,0,8" ClipToBounds="True">
+              <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Memory" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding ActivePage.MemoryCaption}" Classes="hint" />
+                </Grid>
+                <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.MemoryPercent}" Height="8" Margin="0,8,0,8" />
+                <controls:Sparkline Grid.Row="2"
+                                    Height="72"
+                                    HorizontalAlignment="Stretch"
+                                    Values="{Binding ActivePage.MemoryHistory}"
+                                    LineBrush="#C93DCE" />
+                <controls:ResourceBar Grid.Row="3"
+                                      Height="20"
+                                      Margin="0,8,0,8"
+                                      HorizontalAlignment="Stretch"
+                                      Used="{Binding ActivePage.MemorySlice.Used}"
+                                      Requests="{Binding ActivePage.MemorySlice.Requests}"
+                                      Limits="{Binding ActivePage.MemorySlice.Limits}"
+                                      Allocatable="{Binding ActivePage.MemorySlice.Allocatable}"
+                                      Capacity="{Binding ActivePage.MemorySlice.Capacity}" />
+                <WrapPanel Grid.Row="4" Orientation="Horizontal">
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.MemorySlice.UsageLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#ff9f0a" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.MemorySlice.RequestsLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#ff4d6d" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.MemorySlice.LimitsLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.MemorySlice.AllocatableLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+                    <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.MemorySlice.CapacityLine}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding ActivePage.MemorySlice.LimitsWarning}"
+                             Classes="warning"
+                             IsVisible="{Binding ActivePage.MemorySlice.LimitsExceedCapacity}" />
+                </WrapPanel>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#25282c" Padding="16" CornerRadius="6" Margin="0,8,0,0">
+              <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Pods" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding ActivePage.PodCaption}" Classes="hint" />
+                </Grid>
+                <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.PodPercent}" Height="8" Margin="0,8,0,8" />
+                <controls:ResourceBar Grid.Row="2"
+                                      Height="20"
+                                      HorizontalAlignment="Stretch"
+                                      Used="{Binding ActivePage.PodSlice.Used}"
+                                      Allocatable="{Binding ActivePage.PodSlice.Allocatable}"
+                                      Capacity="{Binding ActivePage.PodSlice.Capacity}"
+                                      ShowRequests="False" />
+                <WrapPanel Grid.Row="3" Margin="0,8,0,0" Orientation="Horizontal">
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,0">
+                    <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.PodSlice.UsageLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,0">
+                    <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.PodSlice.AllocatableLine}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ActivePage.PodSlice.CapacityLine}" />
+                  </StackPanel>
+                </WrapPanel>
+              </Grid>
+            </Border>
+          </Grid>
+
+          <ScrollViewer IsVisible="{Binding ActivePage.OverviewPerNode}"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding ActivePage.NodeUsages}" HorizontalAlignment="Stretch">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:NodeUsageViewModel">
+                  <Border Background="#25282c" Padding="16" CornerRadius="6" Margin="0,0,0,16" HorizontalAlignment="Stretch">
+                    <Grid RowDefinitions="Auto,*">
+                      <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+                      <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="*,Auto">
+                        <StackPanel Spacing="6" Margin="0,0,8,0">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="CPU" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding Cpu.Caption}" Classes="hint" />
+                          </Grid>
+                          <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuPercent}" Height="8" />
+                          <controls:Sparkline Height="72" HorizontalAlignment="Stretch" Values="{Binding CpuHistory}" LineBrush="#00a7a0" />
+                          <controls:ResourceBar Height="16"
+                                                HorizontalAlignment="Stretch"
+                                                Used="{Binding Cpu.Used}"
+                                                Requests="{Binding Cpu.Requests}"
+                                                Limits="{Binding Cpu.Limits}"
+                                                Allocatable="{Binding Cpu.Allocatable}"
+                                                Capacity="{Binding Cpu.Capacity}" />
+                          <TextBlock Text="{Binding Cpu.UsageLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Cpu.RequestsLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Cpu.LimitsLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Cpu.LimitsWarning}" Classes="warning" IsVisible="{Binding Cpu.LimitsExceedCapacity}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6" Margin="8,0,0,0">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Memory" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding Memory.Caption}" Classes="hint" />
+                          </Grid>
+                          <ProgressBar Minimum="0" Maximum="100" Value="{Binding MemoryPercent}" Height="8" />
+                          <controls:Sparkline Height="72" HorizontalAlignment="Stretch" Values="{Binding MemoryHistory}" LineBrush="#C93DCE" />
+                          <controls:ResourceBar Height="16"
+                                                HorizontalAlignment="Stretch"
+                                                Used="{Binding Memory.Used}"
+                                                Requests="{Binding Memory.Requests}"
+                                                Limits="{Binding Memory.Limits}"
+                                                Allocatable="{Binding Memory.Allocatable}"
+                                                Capacity="{Binding Memory.Capacity}" />
+                          <TextBlock Text="{Binding Memory.UsageLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Memory.RequestsLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Memory.LimitsLine}" Classes="hint" />
+                          <TextBlock Text="{Binding Memory.LimitsWarning}" Classes="warning" IsVisible="{Binding Memory.LimitsExceedCapacity}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="6" Margin="0,12,0,0">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Pods" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding Pods.Caption}" Classes="hint" />
+                          </Grid>
+                          <ProgressBar Minimum="0" Maximum="100" Value="{Binding PodPercent}" Height="8" />
+                          <controls:ResourceBar Height="16"
+                                                HorizontalAlignment="Stretch"
+                                                Used="{Binding Pods.Used}"
+                                                Allocatable="{Binding Pods.Allocatable}"
+                                                Capacity="{Binding Pods.Capacity}"
+                                                ShowRequests="False" />
+                          <TextBlock Text="{Binding Pods.UsageLine}" Classes="hint" />
+                        </StackPanel>
+                      </Grid>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <StackPanel Grid.Row="1" Margin="0,8,0,0" Spacing="8">
+          <Border Background="#25282c"
+                  Padding="12,10"
+                  CornerRadius="6"
+                  MaxHeight="220"
+                  IsVisible="{Binding ActivePage.HasContainerLimits}">
+            <Grid RowDefinitions="Auto,*">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                <TextBlock Text="{Binding ActivePage.LimitsCaption}"
+                           FontWeight="SemiBold"
+                           Classes.warning="{Binding ActivePage.HasLimitOvercommit}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                  <Button Content="Apply selected" Command="{Binding ActivePage.ApplySelectedLimitCommand}" />
+                  <Button Content="Apply edits" Command="{Binding ActivePage.ApplyChangedLimitsCommand}" />
+                </StackPanel>
+              </Grid>
+              <DataGrid Name="OverviewLimitsGrid"
+                        Grid.Row="1"
+                        MinHeight="120"
+                        ItemsSource="{Binding ActivePage.LimitRows}"
+                        SelectedItem="{Binding ActivePage.SelectedLimitRow}"
+                        AutoGenerateColumns="False"
+                        CanUserResizeColumns="True"
+                        CanUserSortColumns="True"
+                        HeadersVisibility="Column"
+                        GridLinesVisibility="Horizontal"
+                        x:CompileBindings="False">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Workload" Binding="{Binding Workload}" IsReadOnly="True" Width="180" />
+                  <DataGridTextColumn Header="Namespace" Binding="{Binding Namespace}" IsReadOnly="True" Width="120" />
+                  <DataGridTextColumn Header="Container" Binding="{Binding Container}" IsReadOnly="True" Width="120" />
+                  <DataGridTextColumn Header="Pods" Binding="{Binding Pods}" IsReadOnly="True" Width="60" />
+                  <DataGridTextColumn Header="CPU req" Binding="{Binding CpuRequest}" IsReadOnly="True" Width="80" />
+                  <DataGridTextColumn Header="CPU limit" Binding="{Binding CpuLimit}" Width="90" />
+                  <DataGridTextColumn Header="CPU share" Binding="{Binding CpuShare}" IsReadOnly="True" Width="80" />
+                  <DataGridTextColumn Header="MEM req" Binding="{Binding MemoryRequest}" IsReadOnly="True" Width="80" />
+                  <DataGridTextColumn Header="MEM limit" Binding="{Binding MemoryLimit}" Width="90" />
+                  <DataGridTextColumn Header="MEM share" Binding="{Binding MemoryShare}" IsReadOnly="True" Width="90" />
+                </DataGrid.Columns>
+              </DataGrid>
+            </Grid>
+          </Border>
+
+            <Border Background="#25282c" Padding="12,10,12,0" CornerRadius="6"
+                    MaxHeight="180"
+                    IsVisible="{Binding ActivePage.HasOverviewErrors}">
+              <Grid RowDefinitions="Auto,*">
+                <TextBlock Text="{Binding ActivePage.OverviewErrorsCaption}" Classes="issue-errors" Margin="0,0,0,8" />
+                <DataGrid Name="OverviewErrorsGrid"
+                          Grid.Row="1"
+                          MinHeight="100"
+                          ItemsSource="{Binding ActivePage.OverviewErrors}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserResizeColumns="True"
+                          CanUserSortColumns="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          x:CompileBindings="False">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                    <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="180" />
+                    <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80" />
+                    <DataGridTemplateColumn Header="Status" Width="90" SortMemberPath="State">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding State}"
+                                     FontWeight="SemiBold"
+                                     VerticalAlignment="Center"
+                                     Margin="6,0"
+                                     Foreground="{Binding State, Converter={x:Static converters:IssueStateBrushConverter.Instance}, ConverterParameter=Error}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Age" Binding="{Binding Age}" SortMemberPath="OccurredAt" Width="80" />
+                  </DataGrid.Columns>
+                </DataGrid>
+              </Grid>
+            </Border>
+
+            <Border Background="#25282c" Padding="12,10" CornerRadius="6">
+              <StackPanel>
+                <TextBlock Text="{Binding ActivePage.OverviewWarningsCaption}"
+                           Classes="issue-warnings"
+                           Margin="0,0,0,8"
+                           IsVisible="{Binding ActivePage.HasOverviewWarnings}" />
+                <DataGrid Name="OverviewWarningsGrid"
+                          MinHeight="100"
+                          MaxHeight="160"
+                          ItemsSource="{Binding ActivePage.OverviewWarnings}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserResizeColumns="True"
+                          CanUserSortColumns="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          IsVisible="{Binding ActivePage.HasOverviewWarnings}"
+                          x:CompileBindings="False">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                    <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="180" />
+                    <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80" />
+                    <DataGridTemplateColumn Header="Status" Width="90" SortMemberPath="State">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding State}"
+                                     FontWeight="SemiBold"
+                                     VerticalAlignment="Center"
+                                     Margin="6,0"
+                                     Foreground="{Binding State, Converter={x:Static converters:IssueStateBrushConverter.Instance}}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Age" Binding="{Binding Age}" SortMemberPath="OccurredAt" Width="80" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel HorizontalAlignment="Center"
+                            IsVisible="{Binding !ActivePage.HasOverviewWarnings}">
+                  <TextBlock Text="No issues found" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                  <TextBlock Text="Everything is fine in the Cluster" Classes="hint" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+          </Grid>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding ActivePage.IsWorkloadsDashboard}" Padding="16">
+          <StackPanel Spacing="16" MaxWidth="920">
+            <TextBlock Text="Workloads" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ActivePage.OverviewText}" Classes="hint" />
+            <ItemsControl ItemsSource="{Binding ActivePage.WorkloadCounts}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:WorkloadKindCount">
+                  <Button Width="210"
+                          Margin="0,0,12,12"
+                          Padding="16"
+                          Background="#25282c"
+                          Command="{Binding ActivateCommand}">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="{Binding Title}" Classes="hint" />
+                      <TextBlock Text="{Binding Count}" FontSize="28" FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+
+        <Grid Name="ResourceTableGrid" Grid.Row="1" ColumnDefinitions="*,4,420" IsVisible="{Binding ActivePage.IsResourceTable}">
+          <DataGrid Name="ResourceGrid"
+                    ItemsSource="{Binding ActivePage.Rows}"
+                    SelectedItem="{Binding ActivePage.SelectedRow}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    DoubleTapped="OnResourceGridDoubleTapped" />
+          <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
+          <DockPanel Name="DetailsPane" Grid.Column="2" Margin="8,0,8,8">
+            <Border DockPanel.Dock="Top" Classes="details-toolbar" IsVisible="{Binding ActivePage.HasSelectedRow}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding ActivePage.DetailsTitle}"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding ActivePage.DetailsTitle}" />
+                <Button Content="Browse files"
+                        Command="{Binding ActivePage.BrowseFilesCommand}"
+                        IsVisible="{Binding ActivePage.CanBrowseFiles}"
+                        HorizontalAlignment="Left" />
+                <Grid ColumnDefinitions="72,*" IsVisible="{Binding ActivePage.ShowPodPicker}">
+                  <TextBlock Text="Pod" Classes="hint" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding ActivePage.RelatedPods}"
+                            SelectedItem="{Binding ActivePage.SelectedRelatedPod}"
+                            PlaceholderText="Select pod">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="shared:ResourceRow">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+                <Grid ColumnDefinitions="72,*" IsVisible="{Binding ActivePage.ShowContainerPicker}">
+                  <TextBlock Text="Container" Classes="hint" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding ActivePage.Containers}"
+                            SelectedItem="{Binding ActivePage.SelectedContainer}"
+                            PlaceholderText="Select container">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="shared:PodContainer">
+                        <StackPanel Spacing="1">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Text="{Binding Kind}" Classes="hint" Margin="8,0,0,0" />
+                          </Grid>
+                          <TextBlock Text="{Binding ImageLabel}" Classes="hint" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+              </StackPanel>
+            </Border>
+            <TabControl Margin="0,8,0,0">
+              <TabItem Header="Overview">
+                <TextBox Text="{Binding ActivePage.OverviewText}" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
+              </TabItem>
+              <TabItem Header="YAML">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6">
+                    <Button Content="New" Command="{Binding ActivePage.NewResourceCommand}" />
+                    <Button Content="Reload" Command="{Binding ActivePage.ReloadYamlCommand}" />
+                    <Button Content="Apply YAML" Command="{Binding ActivePage.ApplyYamlCommand}" />
+                    <TextBlock Text="Unsaved YAML" Classes="hint" IsVisible="{Binding ActivePage.IsDirty}" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBox Text="{Binding ActivePage.YamlText}" AcceptsReturn="True" FontFamily="Consolas, monospace" TextWrapping="NoWrap" />
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Data" IsVisible="{Binding ActivePage.IsDataEditor}">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6">
+                    <Button Content="Add key" Command="{Binding ActivePage.AddDataEntryCommand}" />
+                    <Button Content="Apply data" Command="{Binding ActivePage.ApplyDataCommand}" />
+                    <TextBlock Text="Decoded secret values are saved back as stringData." Classes="hint" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <DataGrid Name="DataEntriesGrid"
+                            ItemsSource="{Binding ActivePage.DataEntries}"
+                            AutoGenerateColumns="False"
+                            CanUserResizeColumns="True"
+                            IsReadOnly="False"
+                            x:CompileBindings="False">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="140" />
+                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+                      <DataGridCheckBoxColumn Header="Binary" Binding="{Binding IsBinary}" Width="80" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Events" IsVisible="{Binding ActivePage.ShowEventsTab}">
+                <TextBox Text="{Binding ActivePage.EventsText}" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
+              </TabItem>
+              <TabItem Header="Pods" IsVisible="{Binding ActivePage.ShowPodsTab}">
+                <ListBox ItemsSource="{Binding ActivePage.RelatedPods}"
+                         SelectedItem="{Binding ActivePage.SelectedRelatedPod}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="shared:ResourceRow">
+                      <StackPanel Spacing="1" Margin="0,2">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="hint" TextTrimming="CharacterEllipsis">
+                          <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0}  ·  {1}">
+                              <Binding Path="Namespace" />
+                              <Binding Path="Status" />
+                            </MultiBinding>
+                          </TextBlock.Text>
+                        </TextBlock>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </TabItem>
+              <TabItem Header="Logs" IsVisible="{Binding ActivePage.ShowLogsTab}">
+                <DockPanel>
+                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <CheckBox DockPanel.Dock="Left" Content="Follow" IsChecked="{Binding ActivePage.FollowLogs}" />
+                    <TextBlock Text="{Binding ActivePage.SelectedContainer.Display}"
+                               Classes="hint"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0"
+                               ToolTip.Tip="{Binding ActivePage.SelectedContainer.Display}" />
+                  </DockPanel>
+                  <TextBox Text="{Binding ActivePage.LogsText}" AcceptsReturn="True" IsReadOnly="True" FontFamily="Consolas, monospace" />
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Terminal" IsVisible="{Binding ActivePage.ShowTerminalTab}">
+                <DockPanel>
+                  <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                    <Button DockPanel.Dock="Right" Content="Exec" Command="{Binding ActivePage.ExecCommand}" />
+                    <TextBox Text="{Binding ActivePage.TerminalCommand}" Margin="0,0,6,0" />
+                  </DockPanel>
+                  <TextBox Text="{Binding ActivePage.TerminalText}" AcceptsReturn="True" IsReadOnly="True" FontFamily="Consolas, monospace" />
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Chat">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+                    <TextBlock Text="{Binding ActivePage.ChatStatus}" Classes="hint" TextWrapping="Wrap" />
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right"
+                              Content="Send"
+                              Command="{Binding ActivePage.SendChatCommand}"
+                              Margin="6,0,0,0" />
+                      <TextBox Text="{Binding ActivePage.ChatInput}"
+                               PlaceholderText="Ask about this cluster or the selected resource"
+                               AcceptsReturn="False" />
+                    </DockPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Content="Ask about selection" Command="{Binding ActivePage.AskAboutSelectionCommand}" />
+                      <Button Content="Clear" Command="{Binding ActivePage.ClearChatCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                  <TextBlock DockPanel.Dock="Top"
+                             Text="{Binding ActivePage.ChatModelCaption}"
+                             Classes="hint"
+                             Margin="0,0,0,8"
+                             TextWrapping="Wrap" />
+                  <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding ActivePage.ChatMessages}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChatMessageViewModel">
+                          <Border Classes="chat-bubble"
+                                  Classes.user="{Binding IsUser}"
+                                  Classes.assistant="{Binding IsAssistant}"
+                                  Classes.tool="{Binding IsTool}">
+                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </DockPanel>
+              </TabItem>
+            </TabControl>
+          </DockPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,8" Spacing="4" IsVisible="{Binding ActivePage.IsResourceTable}">
+          <Button Content="Delete" Command="{Binding ActivePage.DeleteCommand}" IsVisible="{Binding ActivePage.CanDelete}" />
+          <Button Content="Force delete" Command="{Binding ActivePage.ForceDeleteCommand}" IsVisible="{Binding ActivePage.CanForceDelete}" />
+          <Button Content="Force delete namespace" Command="{Binding ActivePage.DeleteNamespaceCommand}" IsVisible="{Binding ActivePage.CanDeleteNamespace}" />
+          <NumericUpDown Value="{Binding ActivePage.ScaleReplicas}" Minimum="0" Maximum="100" Width="80" IsVisible="{Binding ActivePage.CanScale}" />
+          <Button Content="Scale" Command="{Binding ActivePage.ScaleCommand}" IsVisible="{Binding ActivePage.CanScale}" />
+          <Button Content="Restart" Command="{Binding ActivePage.RestartCommand}" IsVisible="{Binding ActivePage.CanRestart}" />
+          <Button Content="Cordon" Command="{Binding ActivePage.CordonCommand}" IsVisible="{Binding ActivePage.CanCordon}" />
+          <Button Content="Uncordon" Command="{Binding ActivePage.UncordonCommand}" IsVisible="{Binding ActivePage.CanCordon}" />
+          <Button Content="Drain" Command="{Binding ActivePage.DrainCommand}" IsVisible="{Binding ActivePage.CanDrain}" />
+          <Button Content="Trigger" Command="{Binding ActivePage.TriggerCronCommand}" IsVisible="{Binding ActivePage.CanTrigger}" />
+          <NumericUpDown Value="{Binding ActivePage.ForwardLocalPort}" Minimum="1" Maximum="65535" Width="90" IsVisible="{Binding ActivePage.CanPortForward}" />
+          <NumericUpDown Value="{Binding ActivePage.ForwardContainerPort}" Minimum="1" Maximum="65535" Width="90" IsVisible="{Binding ActivePage.CanPortForward}" />
+          <Button Content="Port-forward" Command="{Binding ActivePage.StartPortForwardCommand}" IsVisible="{Binding ActivePage.CanPortForward}" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</Window>

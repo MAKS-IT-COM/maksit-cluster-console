@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+        x:Class="MaksIT.ClusterConsole.UI.VolumeFilesWindow"
+        x:DataType="vm:VolumeFilesViewModel"
+        Title="{Binding WindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="960"
+        Height="640"
+        MinWidth="720"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,12">
+      <TextBlock Text="{Binding WindowTitle}" FontSize="18" FontWeight="SemiBold" />
+      <ComboBox HorizontalAlignment="Stretch"
+                ItemsSource="{Binding Mounts}"
+                SelectedItem="{Binding SelectedMount}"
+                PlaceholderText="No running pod mounts this PVC">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="shared:VolumeMountTarget">
+            <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="{Binding Status}" Classes="hint" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,12,0,0">
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="Up" Command="{Binding GoUpCommand}" />
+      <Button Content="Open"
+              Command="{Binding OpenEntryCommand}"
+              CommandParameter="{Binding SelectedEntry}" />
+      <Button Content="Download" Command="{Binding DownloadCommand}" />
+      <Button Content="Upload" Command="{Binding UploadCommand}" />
+      <Button Content="Save" Command="{Binding SaveCommand}" />
+      <TextBlock Text="Unsaved" Classes="hint" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" Margin="8,0,0,0" />
+    </StackPanel>
+
+    <Grid ColumnDefinitions="280,12,*">
+      <ListBox ItemsSource="{Binding Entries}"
+               SelectedItem="{Binding SelectedEntry}"
+               Background="#25282c"
+               Foreground="#e6e6e6"
+               DoubleTapped="OnEntriesDoubleTapped">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="shared:VolumeEntry">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+              <TextBlock Text="{Binding Display}" Foreground="#e6e6e6" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="1" Text="{Binding SizeText}" Classes="hint" Margin="12,0,0,0" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <DockPanel Grid.Column="2">
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding EditorHint}"
+                   Classes="hint"
+                   Margin="0,0,0,8"
+                   TextWrapping="Wrap" />
+        <TextBox Text="{Binding EditorText}"
+                 AcceptsReturn="True"
+                 FontFamily="Consolas, Cascadia Mono, monospace"
+                 TextWrapping="NoWrap"
+                 IsReadOnly="{Binding EditorReadOnly}" />
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>
