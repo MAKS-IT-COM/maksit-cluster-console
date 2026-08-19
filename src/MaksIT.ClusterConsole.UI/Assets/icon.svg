@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="MaksIT ClusterConsole">
+  <!-- Original MaksIT mark: console on a rounded tile. Not the Kubernetes wheel. -->
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#2F3A8F"/>
+  <rect x="40" y="52" width="176" height="152" rx="20" fill="#151A3A"/>
+  <rect x="40" y="52" width="176" height="36" rx="20" fill="#2EC4B6"/>
+  <rect x="40" y="70" width="176" height="18" fill="#2EC4B6"/>
+  <circle cx="64" cy="70" r="7" fill="#151A3A"/>
+  <circle cx="86" cy="70" r="7" fill="#151A3A"/>
+  <circle cx="108" cy="70" r="7" fill="#151A3A"/>
+  <path d="M72 128 L100 148 L72 168" fill="none" stroke="#E8EEFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="118" y="136" width="78" height="16" rx="4" fill="#2EC4B6"/>
+</svg>

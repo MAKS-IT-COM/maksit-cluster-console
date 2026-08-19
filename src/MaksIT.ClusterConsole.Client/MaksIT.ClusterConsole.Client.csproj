@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MaksIT.ClusterConsole.Client</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MaksIT.ClusterConsole.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="KubernetesClient" Version="19.0.2" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <PackageReference Include="MaksIT.Core" Version="1.6.8" />
+    <PackageReference Include="MaksIT.Results" Version="2.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>

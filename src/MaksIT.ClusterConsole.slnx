@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MaksIT.ClusterConsole.Client/MaksIT.ClusterConsole.Client.csproj" />
+  <Project Path="MaksIT.ClusterConsole.Shared/MaksIT.ClusterConsole.Shared.csproj" />
+  <Project Path="MaksIT.ClusterConsole.UI/MaksIT.ClusterConsole.UI.csproj" />
+  <Project Path="MaksIT.ClusterConsole.Tests/MaksIT.ClusterConsole.Tests.csproj" />
+</Solution>

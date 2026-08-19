@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+             x:Class="MaksIT.ClusterConsole.UI.Controls.ColumnFilterHeader"
+             x:DataType="vm:ColumnFilterViewModel">
+  <Grid ColumnDefinitions="*,Auto">
+    <TextBlock Text="{Binding Header}"
+               VerticalAlignment="Center"
+               TextTrimming="CharacterEllipsis"
+               Margin="0,0,4,0" />
+    <Button Grid.Column="1"
+            Classes="column-filter"
+            Classes.filtered="{Binding IsActive}"
+            ToolTip.Tip="Filter column"
+            PointerPressed="OnFilterPointerPressed">
+      <Button.Flyout>
+        <Flyout Placement="BottomEdgeAlignedRight">
+          <StackPanel Width="240" Spacing="6">
+            <TextBox PlaceholderText="Filter…" Text="{Binding Text}" />
+            <ScrollViewer MaxHeight="240" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding VisibleValues}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ColumnFilterValueViewModel">
+                    <Border Background="Transparent"
+                            ToolTip.Tip="Double-click to keep only this value"
+                            PointerPressed="OnValuePointerPressed">
+                      <CheckBox Margin="0,1"
+                                IsChecked="{Binding IsIncluded}"
+                                Content="{Binding Display}"
+                                IsHitTestVisible="False" />
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+            <Button Content="Clear filter" Command="{Binding ClearCommand}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Flyout>
+      </Button.Flyout>
+      <TextBlock Text="▾" FontSize="12" />
+    </Button>
+  </Grid>
+</UserControl>

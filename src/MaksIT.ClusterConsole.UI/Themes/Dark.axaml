@@ -1,0 +1,168 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls">
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#1e2124" />
+    <Setter Property="Foreground" Value="#e6e6e6" />
+    <Setter Property="FontFamily" Value="Segoe UI, Ubuntu, sans-serif" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="TextBlock.hint">
+    <Setter Property="Foreground" Value="#9aa0a6" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.warning">
+    <Setter Property="Foreground" Value="#ff4d6d" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.issue-warnings">
+    <Setter Property="Foreground" Value="#ff9f0a" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="TextBlock.issue-errors">
+    <Setter Property="Foreground" Value="#ff4d6d" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+  </Style>
+  <Style Selector="Button.scope-toggle">
+    <Setter Property="Padding" Value="12,5" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="Background" Value="#2a2e33" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.scope-toggle.selected">
+    <Setter Property="Background" Value="#3d5afe" />
+  </Style>
+  <Style Selector="Button.nav-section">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="6,5" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.nav-section:pointerover">
+    <Setter Property="Background" Value="#2a2e33" />
+  </Style>
+  <Style Selector="Button.nav-section Path">
+    <Setter Property="Fill" Value="#9aa0a6" />
+  </Style>
+  <Style Selector="TextBlock.nav-chevron">
+    <Setter Property="Foreground" Value="#9aa0a6" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style Selector="TextBlock.nav-group">
+    <Setter Property="Foreground" Value="#9aa0a6" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.nav-item">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.nav-item:pointerover">
+    <Setter Property="Background" Value="#2a2e33" />
+  </Style>
+  <Style Selector="Button.nav-item.selected">
+    <Setter Property="Background" Value="#3d5afe" />
+  </Style>
+  <Style Selector="Button.catalog-item">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.catalog-item:pointerover">
+    <Setter Property="Background" Value="#2a2e33" />
+  </Style>
+  <Style Selector="Button.catalog-item.selected">
+    <Setter Property="Background" Value="#3d5afe" />
+  </Style>
+  <Style Selector="Button.catalog-close">
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+  </Style>
+  <Style Selector="Button.catalog-close:pointerover">
+    <Setter Property="Background" Value="#3a2a2a" />
+  </Style>
+  <Style Selector="TextBlock.kubectl-current">
+    <Setter Property="Foreground" Value="#7ee787" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ListBoxItem:selected">
+    <Setter Property="Background" Value="#3d5afe" />
+  </Style>
+  <Style Selector="GridSplitter.shell-split">
+    <Setter Property="Width" Value="4" />
+    <Setter Property="Background" Value="#2a2e33" />
+    <Setter Property="MinWidth" Value="4" />
+  </Style>
+  <Style Selector="GridSplitter.shell-split:pointerover">
+    <Setter Property="Background" Value="#3d5afe" />
+  </Style>
+  <Style Selector="Border.details-toolbar">
+    <Setter Property="Background" Value="#1a1d20" />
+    <Setter Property="BorderBrush" Value="#2a2e33" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="8,8,8,10" />
+    <Setter Property="Margin" Value="0,0,0,0" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="28" />
+  </Style>
+  <Style Selector="Border.chat-bubble">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="Background" Value="#25282c" />
+  </Style>
+  <Style Selector="Border.chat-bubble.user">
+    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Margin" Value="24,0,0,8" />
+  </Style>
+  <Style Selector="Border.chat-bubble.assistant">
+    <Setter Property="Background" Value="#25282c" />
+    <Setter Property="Margin" Value="0,0,24,8" />
+  </Style>
+  <Style Selector="Border.chat-bubble.tool">
+    <Setter Property="Background" Value="#1a1d20" />
+    <Setter Property="Margin" Value="12,0,12,6" />
+  </Style>
+  <Style Selector="Border.chat-bubble.tool TextBlock">
+    <Setter Property="Foreground" Value="#9aa0a6" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="#25282c" />
+    <Setter Property="GridLinesVisibility" Value="Horizontal" />
+    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    <Setter Property="controls:DataGridColumns.IndependentResize" Value="True" />
+  </Style>
+  <Style Selector="Button.column-filter">
+    <Setter Property="Padding" Value="4,0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="#9aa0a6" />
+  </Style>
+  <Style Selector="Button.column-filter.filtered">
+    <Setter Property="Foreground" Value="#00a7a0" />
+  </Style>
+</Styles>

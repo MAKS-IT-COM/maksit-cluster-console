@@ -1,0 +1,115 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        x:Class="MaksIT.ClusterConsole.UI.ConnectionWizardWindow"
+        x:DataType="vm:ConnectionWizardViewModel"
+        Title="Add connection"
+        Icon="/Assets/icon.ico"
+        Width="560"
+        Height="560"
+        MinWidth="480"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding StepTitle}"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding Error}"
+               Classes="warning"
+               Margin="0,8,0,0"
+               TextWrapping="Wrap" />
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Cancel" Click="OnCancelClick" />
+      <Button Content="Back" Command="{Binding BackCommand}" IsEnabled="{Binding CanGoBack}" />
+      <Button Content="{Binding NextLabel}" Click="OnNextClick" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+        <StackPanel IsVisible="{Binding IsIdentityStep}" Spacing="8">
+          <TextBlock Text="Context name" />
+          <TextBox Text="{Binding ContextName}" PlaceholderText="required" />
+          <TextBlock Text="Cluster name" />
+          <TextBox Text="{Binding ClusterName}" PlaceholderText="{Binding ClusterWatermark}" />
+          <TextBlock Text="User name" />
+          <TextBox Text="{Binding UserName}" PlaceholderText="{Binding UserWatermark}" />
+          <TextBlock Text="Namespace" />
+          <TextBox Text="{Binding NamespaceName}" PlaceholderText="optional" />
+          <TextBlock Text="Server URL" />
+          <TextBox Text="{Binding Server}" PlaceholderText="https://host:6443" />
+        </StackPanel>
+
+        <StackPanel IsVisible="{Binding IsTlsStep}" Spacing="8">
+          <TextBlock Text="Certificate authority file" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding CaFile}" PlaceholderText="optional" />
+            <Button Grid.Column="1" Content="Browse…" Click="OnBrowseCaClick" />
+          </Grid>
+          <CheckBox Content="Embed cluster CA into kubeconfig (certificate-authority-data)"
+                    IsChecked="{Binding EmbedClusterCa}" />
+          <CheckBox Content="Insecure skip TLS verify"
+                    IsChecked="{Binding InsecureSkipTlsVerify}" />
+          <TextBlock Classes="hint"
+                     TextWrapping="Wrap"
+                     Text="Leave CA empty for k3s data on the next step, or for skip-TLS lab clusters." />
+        </StackPanel>
+
+        <StackPanel IsVisible="{Binding IsAuthStep}" Spacing="8">
+          <TextBlock Text="Auth type" />
+          <ComboBox ItemsSource="{Binding AuthKinds}"
+                    SelectedItem="{Binding SelectedAuthKind}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthKindChoice">
+                <TextBlock Text="{Binding Title}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <StackPanel IsVisible="{Binding IsTokenAuth}" Spacing="8">
+            <TextBlock Text="Bearer token" />
+            <TextBox Text="{Binding Token}" PasswordChar="●" />
+          </StackPanel>
+
+          <StackPanel IsVisible="{Binding IsCertAuth}" Spacing="8">
+            <TextBlock Text="Client certificate file" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding ClientCertFile}" />
+              <Button Grid.Column="1" Content="Browse…" Click="OnBrowseCertClick" />
+            </Grid>
+            <TextBlock Text="Client key file" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding ClientKeyFile}" />
+              <Button Grid.Column="1" Content="Browse…" Click="OnBrowseKeyClick" />
+            </Grid>
+            <CheckBox Content="Embed client certs (client-certificate-data / client-key-data)"
+                      IsChecked="{Binding EmbedClientCerts}" />
+          </StackPanel>
+
+          <StackPanel IsVisible="{Binding IsK3sDataAuth}" Spacing="8">
+            <TextBlock Text="certificate-authority-data" />
+            <TextBox Text="{Binding CaData}" AcceptsReturn="True" Height="64" TextWrapping="Wrap" />
+            <TextBlock Text="client-certificate-data" />
+            <TextBox Text="{Binding ClientCertData}" AcceptsReturn="True" Height="64" TextWrapping="Wrap" />
+            <TextBlock Text="client-key-data" />
+            <TextBox Text="{Binding ClientKeyData}" AcceptsReturn="True" Height="64" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <StackPanel IsVisible="{Binding IsBasicAuth}" Spacing="8">
+            <TextBlock Text="Username" />
+            <TextBox Text="{Binding BasicUser}" />
+            <TextBlock Text="Password" />
+            <TextBox Text="{Binding BasicPassword}" PasswordChar="●" />
+          </StackPanel>
+
+          <CheckBox Content="Use this context for kubectl after adding"
+                    IsChecked="{Binding UseAfterAdd}"
+                    Margin="0,8,0,0" />
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

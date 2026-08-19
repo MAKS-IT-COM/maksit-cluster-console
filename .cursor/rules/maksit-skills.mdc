@@ -1,0 +1,18 @@
+---
+description: Load MaksIT agent skills from homelab common/
+globs: "**/*.{cs,csproj,slnx,json,md,ps1,yml,yaml,.editorconfig}"
+alwaysApply: true
+---
+
+# MaksIT skills (maksit-cluster-console)
+
+Maintainer-local skill paths (homelab). Forks without that tree can ignore this rule.
+
+Complementary skills (no precedence). Read each `SKILL.md` when relevant:
+
+1. `E:\Users\maksym\source\repos\private\homelab\ai\skills\common\csharp\SKILL.md`
+2. `E:\Users\maksym\source\repos\private\homelab\ai\skills\common\maksit-repo-maintenance\SKILL.md`
+
+Manifest: `.cursor/maksit-skills.json`.
+
+**C# style:** `common/csharp` SKILL.md (Style) + repo-root `.editorconfig` when present — usings (System → Microsoft → 3rd party → MaksIT, length-sorted in group), file-scoped namespaces, two blank lines after last `using`, `var`, K&R braces, single-line `if` without `{}`.
