@@ -21,6 +21,8 @@ public sealed class Configuration {
 
   public LayoutSettings Layout { get; set; } = new();
 
+  public List<PersistedPortForward> PortForwards { get; set; } = [];
+
   public void EnsureDefaults() {
     OpenContexts ??= [];
     NamespacesByContext ??= new Dictionary<string, string>(StringComparer.Ordinal);
@@ -29,6 +31,7 @@ public sealed class Configuration {
     Layout.ColumnWidths ??= new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal);
     Layout.ColumnFilters ??= new Dictionary<string, Dictionary<string, SavedColumnFilter>>(StringComparer.Ordinal);
     Layout.SearchByResource ??= new Dictionary<string, string>(StringComparer.Ordinal);
+    PortForwards ??= [];
     if (string.IsNullOrWhiteSpace(OllamaEndpoint))
       OllamaEndpoint = ClusterChatService.DefaultEndpoint;
     if (string.IsNullOrWhiteSpace(OllamaModel))
@@ -64,4 +67,41 @@ public sealed class Configuration {
     SelectedNamespace = ns;
     ActiveContext = contextName;
   }
+
+  public IReadOnlyList<PersistedPortForward> PortForwardsFor(string context) =>
+    (PortForwards ?? [])
+      .Where(p => string.Equals(p.Context, context, StringComparison.Ordinal))
+      .ToList();
+
+  public void UpsertPortForward(PersistedPortForward forward) {
+    ArgumentNullException.ThrowIfNull(forward);
+    PortForwards ??= [];
+    PortForwards.RemoveAll(p => SamePortForward(p, forward.Context, forward.LocalPort));
+    PortForwards.Add(forward);
+  }
+
+  public void RemovePortForward(string context, int localPort) {
+    PortForwards?.RemoveAll(p => SamePortForward(p, context, localPort));
+  }
+
+  private static bool SamePortForward(PersistedPortForward item, string context, int localPort) =>
+    string.Equals(item.Context, context, StringComparison.Ordinal) && item.LocalPort == localPort;
+}
+
+public sealed class PersistedPortForward {
+  public string Context { get; set; } = "";
+
+  public string Kind { get; set; } = "Pod";
+
+  public string Name { get; set; } = "";
+
+  public string Namespace { get; set; } = "default";
+
+  public string PodName { get; set; } = "";
+
+  public int LocalPort { get; set; }
+
+  public int RemotePort { get; set; }
+
+  public Dictionary<string, string>? MatchLabels { get; set; }
 }

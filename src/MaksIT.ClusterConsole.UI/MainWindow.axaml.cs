@@ -54,15 +54,15 @@ public partial class MainWindow : Window {
   private void OnResourceGridDoubleTapped(object? sender, TappedEventArgs e) {
     if (e.Source is not Control { DataContext: ResourceRow })
       return;
-    if (DataContext is MainViewModel { ActivePage: { } page }
-        && page.BrowseFilesCommand.CanExecute(null))
-      page.BrowseFilesCommand.Execute(null);
-  }
+    if (DataContext is not MainViewModel { ActivePage: { } page })
+      return;
+    if (page.IsPortForwardingView) {
+      page.OpenSelectedPortForwardCommand.Execute(null);
+      return;
+    }
 
-  private void OnStopPortForwardClick(object? sender, RoutedEventArgs e) {
-    if (sender is Control { DataContext: PortForwardItemViewModel item }
-        && DataContext is MainViewModel { ActivePage: { } page })
-      page.StopPortForwardCommand.Execute(item);
+    if (page.BrowseFilesCommand.CanExecute(null))
+      page.BrowseFilesCommand.Execute(null);
   }
 
   private void RebuildColumns(MainViewModel viewModel) {

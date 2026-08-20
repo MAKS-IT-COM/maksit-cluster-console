@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
 
 
@@ -39,6 +40,68 @@ public class ResourceCatalogTests {
     var sections = ResourceCatalog.Sections.ToList();
     Assert.True(sections.IndexOf(ResourceCatalog.Nodes) < sections.IndexOf(ResourceCatalog.Applications));
     Assert.True(sections.IndexOf(ResourceCatalog.Applications) < sections.IndexOf(ResourceCatalog.Workloads));
+  }
+
+  [Fact]
+  public void Port_forwarding_is_a_navigator_table_not_a_builtin_gvr() {
+    Assert.Same(ResourceCatalog.PortForwardingDescriptor, ResourceCatalog.Find(ResourceCatalog.PortForwardingId));
+    Assert.DoesNotContain(ResourceCatalog.BuiltIns, d => d.Id == ResourceCatalog.PortForwardingId);
+    Assert.Null(ResourceCatalog.FindByGvk("v1", "PortForward"));
+    Assert.Contains("Pod", ResourceCatalog.PortForwardingDescriptor.Columns.Select(c => c.Header));
+    Assert.Contains("Local", ResourceCatalog.PortForwardingDescriptor.Columns.Select(c => c.Header));
+    Assert.Contains("Remote", ResourceCatalog.PortForwardingDescriptor.Columns.Select(c => c.Header));
+    Assert.False(ResourceCatalog.PortForwardingDescriptor.Actions.CanApply);
+    Assert.False(ResourceCatalog.PortForwardingDescriptor.Actions.CanDelete);
+
+    var workspace = new ClusterWorkspace();
+    var item = Assert.Single(workspace.Navigator, n => n.Id == ResourceCatalog.PortForwardingId);
+    Assert.True(item.IsSpecial);
+    Assert.Same(ResourceCatalog.PortForwardingDescriptor, item.Descriptor);
+    Assert.Equal(ResourceCatalog.Network, item.Section);
+  }
+
+  [Fact]
+  public void PortForwardRow_maps_handle_into_table_cells() {
+    using var handle = new PortForwardHandle("web-1", "apps", 8080, 18080, Stream.Null);
+    var row = PortForwardRow.From(handle, "pf-1");
+    Assert.Equal("pf-1", row.Uid);
+    Assert.Equal("localhost:18080", row.Name);
+    Assert.Equal("apps", row.Namespace);
+    Assert.Equal("web-1", row.Cells["Pod"]);
+    Assert.Equal("18080", row.Cells["Local"]);
+    Assert.Equal("8080", row.Cells["Remote"]);
+    Assert.Equal("Active", row.Cells["Status"]);
+    Assert.True(PortForwardRow.TryLocalPort(row, out var localPort));
+    Assert.Equal(18080, localPort);
+    Assert.True(PortForwardRow.TryLocalUrl(row, out var url));
+    Assert.Equal("http://127.0.0.1:18080/", url);
+    Assert.Equal("http://127.0.0.1:18080/", PortForwardRow.LocalUrl(18080));
+    Assert.Equal(
+      "Port-forward started: http://127.0.0.1:18080 → apps/web-1:8080.",
+      PortForwardRow.StartedMessage(handle));
+    using var rebound = new PortForwardHandle("web-1", "apps", 8080, 18081, Stream.Null);
+    Assert.Equal(
+      "Port-forward rebound: localhost:18080 → http://127.0.0.1:18081 → apps/web-1:8080.",
+      PortForwardRow.ReboundMessage(18080, rebound));
+    Assert.Equal("Port-forward failed: bind failed", PortForwardRow.FailedMessage(["bind failed"]));
+  }
+
+  [Fact]
+  public void PortForwardRow_shows_requested_service_port_not_mapped_container_port() {
+    using var handle = new PortForwardHandle(
+      "longhorn-ui-1",
+      "longhorn-system",
+      8000,
+      80,
+      Stream.Null,
+      requestedPort: 80);
+    var row = PortForwardRow.From(handle, "pf-80");
+    Assert.Equal("localhost:80", row.Name);
+    Assert.Equal("80", row.Cells["Local"]);
+    Assert.Equal("80", row.Cells["Remote"]);
+    Assert.Equal(
+      "Port-forward started: http://127.0.0.1:80 → longhorn-system/longhorn-ui-1:80.",
+      PortForwardRow.StartedMessage(handle));
   }
 
   [Fact]

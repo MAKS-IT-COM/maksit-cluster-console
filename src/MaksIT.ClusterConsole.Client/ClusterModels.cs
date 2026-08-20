@@ -100,26 +100,44 @@ public sealed record HelmReleaseInfo(
   string AppVersion,
   DateTimeOffset? Updated);
 
+public sealed record PortForwardEndpoint(string PodName, string Namespace, int ContainerPort);
+
 public sealed class PortForwardHandle : IDisposable {
   private readonly IDisposable _inner;
   private readonly Action? _onDispose;
 
-  public PortForwardHandle(string podName, string @namespace, int containerPort, int localPort, IDisposable inner, Action? onDispose = null) {
+  public PortForwardHandle(
+    string podName,
+    string @namespace,
+    int containerPort,
+    int localPort,
+    IDisposable inner,
+    Action? onDispose = null,
+    int requestedPort = 0) {
     PodName = podName;
     Namespace = @namespace;
     ContainerPort = containerPort;
     LocalPort = localPort;
+    RequestedPort = requestedPort > 0 ? requestedPort : containerPort;
     _inner = inner;
     _onDispose = onDispose;
   }
 
-  public string PodName { get; }
+  public string PodName { get; private set; }
 
-  public string Namespace { get; }
+  public string Namespace { get; private set; }
 
-  public int ContainerPort { get; }
+  public int ContainerPort { get; private set; }
+
+  public int RequestedPort { get; }
 
   public int LocalPort { get; }
+
+  public void Retarget(string podName, string @namespace, int containerPort) {
+    PodName = podName;
+    Namespace = @namespace;
+    ContainerPort = containerPort;
+  }
 
   public void Dispose() {
     _onDispose?.Invoke();
