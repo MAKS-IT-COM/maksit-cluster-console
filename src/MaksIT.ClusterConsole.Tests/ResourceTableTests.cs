@@ -30,6 +30,17 @@ public class ResourceTableTests {
   }
 
   [Fact]
+  public void Ip_columns_sort_as_addresses_not_text() {
+    Assert.True(ResourceColumnSort.Compare("Cluster IP", "10.1.1.2", "10.1.1.10") < 0);
+    Assert.True(ResourceColumnSort.Compare("Cluster IP", "10.1.1.10", "10.1.1.2") > 0);
+    Assert.Equal(0, ResourceColumnSort.Compare("External IP", "192.168.0.1", "192.168.0.1"));
+    Assert.True(ResourceColumnSort.Compare("Cluster IP", "None", "10.0.0.1") < 0);
+    Assert.True(ResourceColumnSort.Compare("External IP", "10.0.0.2,10.0.0.10", "10.0.0.2,10.0.0.3") > 0);
+    Assert.True(ResourceColumnSort.Compare("Cluster IP", "127.0.0.1", "::1") < 0);
+    Assert.True(ResourceColumnSort.Compare("Cluster IP", "2001:db8::1", "2001:db8::10") < 0);
+  }
+
+  [Fact]
   public void Ready_and_restarts_sort_numerically() {
     Assert.True(ResourceColumnSort.Compare("Ready", "1/2", "2/2") < 0);
     Assert.True(ResourceColumnSort.Compare("Restarts", "12", "3") > 0);

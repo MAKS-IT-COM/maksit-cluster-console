@@ -1,3 +1,4 @@
+using System.Net;
 using System.Collections;
 using System.Globalization;
 using MaksIT.ClusterConsole.Client;
@@ -48,6 +49,7 @@ public static class ResourceColumnSort {
       "Memory" => KubeQuantity.ToBytes(left).CompareTo(KubeQuantity.ToBytes(right)),
       "Replicas" or "Desired" or "Current" or "Min" or "Max" or "Port" =>
         ParseInt(left).CompareTo(ParseInt(right)),
+      _ when IsIpHeader(header) => CompareIpList(left, right),
       _ => string.Compare(left, right, StringComparison.OrdinalIgnoreCase)
     };
   }
@@ -81,6 +83,67 @@ public static class ResourceColumnSort {
     }
 
     return total;
+  }
+
+  private static bool IsIpHeader(string header) =>
+    header.Equals("IP", StringComparison.OrdinalIgnoreCase)
+    || header.EndsWith(" IP", StringComparison.OrdinalIgnoreCase);
+
+  private static int CompareIpList(string left, string right) {
+    var leftParts = SplitIpCell(left);
+    var rightParts = SplitIpCell(right);
+    var count = Math.Min(leftParts.Length, rightParts.Length);
+    for (var i = 0; i < count; i++) {
+      var cmp = CompareIpToken(leftParts[i], rightParts[i]);
+      if (cmp != 0)
+        return cmp;
+    }
+
+    return leftParts.Length.CompareTo(rightParts.Length);
+  }
+
+  private static string[] SplitIpCell(string text) =>
+    text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+  private static int CompareIpToken(string left, string right) {
+    var leftMissing = IsMissingIp(left);
+    var rightMissing = IsMissingIp(right);
+    if (leftMissing && rightMissing)
+      return 0;
+    if (leftMissing)
+      return -1;
+    if (rightMissing)
+      return 1;
+
+    if (IPAddress.TryParse(left, out var leftIp)) {
+      if (IPAddress.TryParse(right, out var rightIp))
+        return CompareAddress(leftIp, rightIp);
+
+      return -1;
+    }
+
+    if (IPAddress.TryParse(right, out _))
+      return 1;
+
+    return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+  }
+
+  private static bool IsMissingIp(string text) =>
+    text.Equals("None", StringComparison.OrdinalIgnoreCase)
+    || text.Equals("<none>", StringComparison.OrdinalIgnoreCase);
+
+  private static int CompareAddress(IPAddress left, IPAddress right) {
+    var family = left.AddressFamily.CompareTo(right.AddressFamily);
+    if (family != 0)
+      return family;
+
+    Span<byte> leftBytes = stackalloc byte[16];
+    Span<byte> rightBytes = stackalloc byte[16];
+    if (!left.TryWriteBytes(leftBytes, out var leftLength)
+        || !right.TryWriteBytes(rightBytes, out var rightLength))
+      return string.CompareOrdinal(left.ToString(), right.ToString());
+
+    return leftBytes[..leftLength].SequenceCompareTo(rightBytes[..rightLength]);
   }
 
   private static int CompareReady(string left, string right) {
