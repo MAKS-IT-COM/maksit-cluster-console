@@ -25,7 +25,11 @@ public partial class MainWindow : Window {
 
   public MainWindow(MainViewModel viewModel, ConfigurationFileService configuration) : this() {
     DataContext = viewModel;
-    _layout = new LayoutPersistence(this, configuration, () => viewModel.SelectedDescriptor?.Id);
+    _layout = new LayoutPersistence(
+      this,
+      configuration,
+      () => viewModel.ActivePage?.Name,
+      () => viewModel.SelectedDescriptor?.Id);
     Opened += (_, _) => {
       _layout.Attach();
       RebuildColumns(viewModel);
@@ -70,16 +74,19 @@ public partial class MainWindow : Window {
     if (grid is null)
       return;
 
-    grid.Columns.Clear();
-    var descriptor = viewModel.SelectedDescriptor;
-    var headers = descriptor?.Columns.Select(c => c.Header).ToList()
-      ?? ["Name", "Namespace", "Age"];
+    using (_layout?.SuspendSave()) {
+      viewModel.ActivePage?.ReloadColumnFilters();
+      grid.Columns.Clear();
+      var descriptor = viewModel.SelectedDescriptor;
+      var headers = descriptor?.Columns.Select(c => c.Header).ToList()
+        ?? ["Name", "Namespace", "Age"];
 
-    foreach (var header in headers) {
-      grid.Columns.Add(CreateColumn(header, viewModel.ActivePage));
+      foreach (var header in headers) {
+        grid.Columns.Add(CreateColumn(header, viewModel.ActivePage));
+      }
+
+      _layout?.RestoreTables();
     }
-
-    _layout?.ApplyResourceColumns(grid);
   }
 
   private DataGridColumn CreateColumn(string header, ClusterPageViewModel? page) {

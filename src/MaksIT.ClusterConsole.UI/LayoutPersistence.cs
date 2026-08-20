@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -9,16 +10,23 @@ namespace MaksIT.ClusterConsole.UI;
 internal sealed class LayoutPersistence {
   private readonly Window _window;
   private readonly ConfigurationFileService _configuration;
+  private readonly Func<string?> _contextName;
   private readonly Func<string?> _resourceTableId;
   private readonly DispatcherTimer _saveTimer;
   private readonly Dictionary<DataGrid, Func<string>> _tables = [];
-  private bool _applying;
+  private int _applyDepth;
+  private int _restoreSortPending;
   private bool _attached;
   private string? _lastSaved;
 
-  public LayoutPersistence(Window window, ConfigurationFileService configuration, Func<string?> resourceTableId) {
+  public LayoutPersistence(
+    Window window,
+    ConfigurationFileService configuration,
+    Func<string?> contextName,
+    Func<string?> resourceTableId) {
     _window = window;
     _configuration = configuration;
+    _contextName = contextName;
     _resourceTableId = resourceTableId;
     _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
     _saveTimer.Tick += (_, _) => {
@@ -53,29 +61,40 @@ internal sealed class LayoutPersistence {
     };
   }
 
-  public void ApplyResourceColumns(DataGrid grid) =>
-    ApplyColumnWidths(grid, LayoutSettings.ResourceTable(_resourceTableId()));
+  public IDisposable SuspendSave() {
+    _applyDepth++;
+    return new ApplyScope(this);
+  }
+
+  public void RestoreTables() {
+    using (SuspendSave()) {
+      foreach (var (grid, key) in _tables)
+        ApplyColumnState(grid, key());
+    }
+  }
 
   public void ScheduleSave() {
-    if (_applying)
+    if (_applyDepth > 0 || _restoreSortPending > 0)
       return;
     _saveTimer.Stop();
     _saveTimer.Start();
   }
 
   public void SaveNow() {
-    if (_applying)
+    if (_applyDepth > 0)
       return;
 
     var cfg = _configuration.Current;
     cfg.EnsureDefaults();
     var layout = cfg.Layout;
+    var context = _contextName();
     CaptureWindow(layout);
     CapturePanes(layout);
     foreach (var (grid, key) in _tables) {
+      var tableKey = key();
       var widths = ReadColumnWidths(grid);
       if (widths.Count > 0)
-        layout.SetColumns(key(), widths);
+        layout.SetColumns(context, tableKey, widths);
     }
 
     var snapshot = JsonSnapshot(layout);
@@ -87,16 +106,12 @@ internal sealed class LayoutPersistence {
   }
 
   private void Apply() {
-    _applying = true;
-    try {
+    using (SuspendSave()) {
       var layout = _configuration.Current.Layout;
       ApplyWindow(layout);
       ApplyPanes(layout);
       foreach (var (grid, key) in _tables)
-        ApplyColumnWidths(grid, key());
-    }
-    finally {
-      _applying = false;
+        ApplyColumnState(grid, key());
     }
   }
 
@@ -111,6 +126,7 @@ internal sealed class LayoutPersistence {
       return;
     _tables[grid] = key;
     grid.LayoutUpdated += (_, _) => ScheduleSave();
+    grid.Sorting += (_, e) => PersistSort(grid, e.Column);
   }
 
   private void ApplyWindow(LayoutSettings layout) {
@@ -179,8 +195,13 @@ internal sealed class LayoutPersistence {
     grid.ColumnDefinitions[index].Width = new GridLength(width);
   }
 
+  private void ApplyColumnState(DataGrid grid, string tableKey) {
+    ApplyColumnWidths(grid, tableKey);
+    ApplyColumnSort(grid, tableKey);
+  }
+
   private void ApplyColumnWidths(DataGrid grid, string tableKey) {
-    var saved = _configuration.Current.Layout.ColumnsFor(tableKey);
+    var saved = _configuration.Current.Layout.ColumnsFor(_contextName(), tableKey);
     if (saved is null)
       return;
 
@@ -190,6 +211,61 @@ internal sealed class LayoutPersistence {
         continue;
       column.Width = new DataGridLength(width, DataGridLengthUnitType.Pixel);
     }
+  }
+
+  private void ApplyColumnSort(DataGrid grid, string tableKey) {
+    var saved = _configuration.Current.Layout.SortFor(_contextName(), tableKey);
+    if (saved is null)
+      return;
+    if (!Enum.TryParse<ListSortDirection>(saved.Direction, true, out var direction))
+      direction = ListSortDirection.Ascending;
+
+    DataGridColumn? column = null;
+    foreach (var candidate in grid.Columns) {
+      if (!string.Equals(ColumnKey(candidate), saved.Header, StringComparison.Ordinal))
+        continue;
+      column = candidate;
+      break;
+    }
+
+    if (column is null)
+      return;
+
+    _restoreSortPending++;
+    Dispatcher.UIThread.Post(() => {
+      column.Sort(direction);
+      Dispatcher.UIThread.Post(() => {
+        if (_restoreSortPending > 0)
+          _restoreSortPending--;
+      }, DispatcherPriority.Background);
+    }, DispatcherPriority.Loaded);
+  }
+
+  private void PersistSort(DataGrid grid, DataGridColumn column) {
+    if (_applyDepth > 0 || _restoreSortPending > 0)
+      return;
+    if (!_tables.TryGetValue(grid, out var key))
+      return;
+    var header = ColumnKey(column);
+    if (header is null)
+      return;
+
+    var context = _contextName();
+    var tableKey = key();
+    var previous = _configuration.Current.Layout.SortFor(context, tableKey);
+    var direction = ListSortDirection.Ascending;
+    if (previous is not null
+        && string.Equals(previous.Header, header, StringComparison.Ordinal)
+        && string.Equals(previous.Direction, nameof(ListSortDirection.Ascending), StringComparison.OrdinalIgnoreCase))
+      direction = ListSortDirection.Descending;
+
+    var cfg = _configuration.Current;
+    cfg.EnsureDefaults();
+    cfg.Layout.SetSort(context, tableKey, new SavedColumnSort {
+      Header = header,
+      Direction = direction.ToString()
+    });
+    ScheduleSave();
   }
 
   private static Dictionary<string, double> ReadColumnWidths(DataGrid grid) {
@@ -220,4 +296,13 @@ internal sealed class LayoutPersistence {
 
   private static string JsonSnapshot(LayoutSettings layout) =>
     System.Text.Json.JsonSerializer.Serialize(layout);
+
+  private void ReleaseApply() {
+    if (_applyDepth > 0)
+      _applyDepth--;
+  }
+
+  private sealed class ApplyScope(LayoutPersistence owner) : IDisposable {
+    public void Dispose() => owner.ReleaseApply();
+  }
 }

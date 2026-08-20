@@ -33,6 +33,24 @@ public class CollectionSyncTests {
   }
 
   [Fact]
+  public void MergeByKey_can_reorder_to_match_source() {
+    var first = Item("a", 1);
+    var second = Item("b", 1);
+    var third = Item("c", 1);
+    var target = new ObservableCollection<KeyedItem> { first, second, third };
+
+    CollectionSync.MergeByKey(
+      target,
+      [third, first, second],
+      item => item.Key,
+      matchSourceOrder: true);
+
+    Assert.Equal(["c", "a", "b"], target.Select(item => item.Key).ToList());
+    Assert.Same(third, target[0]);
+    Assert.Same(first, target[1]);
+  }
+
+  [Fact]
   public void MergeByKey_replaces_records_without_reset() {
     var target = new ObservableCollection<ClusterIssue> {
       Issue("w1", "old")

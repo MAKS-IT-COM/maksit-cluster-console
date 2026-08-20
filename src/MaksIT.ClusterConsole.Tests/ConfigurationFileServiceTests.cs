@@ -289,4 +289,114 @@ public class ConfigurationFileServiceTests {
       File.Delete(path);
     }
   }
+
+  [Fact]
+  public void Table_filters_and_sort_are_stored_per_context() {
+    var layout = new LayoutSettings();
+    layout.SetFilters("resources/pods", new Dictionary<string, SavedColumnFilter> {
+      ["Status"] = new() { Text = "legacy" }
+    });
+    layout.SetFilters("prod", "resources/pods", new Dictionary<string, SavedColumnFilter> {
+      ["Status"] = new() { Text = "Crash" }
+    });
+    layout.SetSort("prod", "resources/pods", new SavedColumnSort {
+      Header = "Age",
+      Direction = "Descending"
+    });
+    layout.SetColumns("prod", "resources/pods", new Dictionary<string, double> { ["Name"] = 240 });
+
+    Assert.Equal("Crash", layout.FilterFor("prod", "resources/pods", "Status")?.Text);
+    Assert.Equal("legacy", layout.FilterFor("dev", "resources/pods", "Status")?.Text);
+    Assert.Equal("Age", layout.SortFor("prod", "resources/pods")?.Header);
+    Assert.Equal("Descending", layout.SortFor("prod", "resources/pods")?.Direction);
+    Assert.Null(layout.SortFor("dev", "resources/pods"));
+    Assert.Equal(240, layout.ColumnsFor("prod", "resources/pods")!["Name"]);
+    Assert.Null(layout.ColumnsFor("dev", "resources/pods"));
+    Assert.Equal("prod/resources/pods", LayoutSettings.ContextTable("prod", "resources/pods"));
+  }
+
+  [Fact]
+  public void Save_round_trips_per_context_sort_and_filters() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    File.WriteAllText(path, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } },
+        "Configuration": { "SelectedNamespace": "all" }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(path);
+      var cfg = service.Current;
+      cfg.Layout.SetFilters("homelab", "resources/pods", new Dictionary<string, SavedColumnFilter> {
+        ["Namespace"] = new() { Excluded = ["default"] }
+      });
+      cfg.Layout.SetSort("homelab", "resources/pods", new SavedColumnSort {
+        Header = "Age",
+        Direction = "Descending"
+      });
+      service.Save(cfg);
+
+      var reloaded = new ConfigurationFileService(path);
+      Assert.Equal(["default"], reloaded.Current.Layout.FilterFor("homelab", "resources/pods", "Namespace")?.Excluded);
+      Assert.Null(reloaded.Current.Layout.FilterFor("dev", "resources/pods", "Namespace"));
+      var sort = reloaded.Current.Layout.SortFor("homelab", "resources/pods");
+      Assert.NotNull(sort);
+      Assert.Equal("Age", sort.Header);
+      Assert.Equal("Descending", sort.Direction);
+      Assert.Contains("\"Tables\"", File.ReadAllText(path), StringComparison.Ordinal);
+      Assert.DoesNotContain("\"ColumnSorts\"", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+    finally {
+      File.Delete(path);
+    }
+  }
+
+  [Fact]
+  public void Migrates_legacy_column_maps_into_tables() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    File.WriteAllText(path, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } },
+        "Configuration": {
+          "Layout": {
+            "ColumnWidths": { "resources/pods": { "Name": 220 } },
+            "ColumnFilters": {
+              "homelab/resources/pods": {
+                "Status": { "Text": "Crash", "Excluded": [] }
+              }
+            },
+            "ColumnSorts": {
+              "homelab/resources/pods": { "Header": "Age", "Direction": "Descending" }
+            },
+            "SearchByResource": { "resources/pods": "coredns" }
+          }
+        }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(path);
+      var layout = service.Current.Layout;
+      Assert.Equal(220, layout.ColumnsFor("resources/pods")!["Name"]);
+      Assert.Equal("Crash", layout.FilterFor("homelab", "resources/pods", "Status")?.Text);
+      Assert.Equal("Age", layout.SortFor("homelab", "resources/pods")?.Header);
+      Assert.Equal("coredns", layout.SearchFor("pods"));
+
+      service.Save(service.Current);
+      var json = File.ReadAllText(path);
+      Assert.Contains("\"Tables\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"ColumnWidths\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"ColumnFilters\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"ColumnSorts\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"SearchByResource\"", json, StringComparison.Ordinal);
+
+      var reloaded = new ConfigurationFileService(path);
+      Assert.Equal("Crash", reloaded.Current.Layout.FilterFor("homelab", "resources/pods", "Status")?.Text);
+      Assert.Equal("coredns", reloaded.Current.Layout.SearchFor("pods"));
+    }
+    finally {
+      File.Delete(path);
+    }
+  }
 }

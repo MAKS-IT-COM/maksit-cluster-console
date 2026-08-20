@@ -376,7 +376,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       var nav = items.FirstOrDefault(i => i.Id == savedId)
         ?? items.FirstOrDefault(i => i.Id == "pods")
         ?? items.FirstOrDefault();
-      Filter = _configuration.Current.Layout.SearchFor(nav?.Id);
+      Filter = _configuration.Current.Layout.SearchFor(Name, nav?.Id);
       SelectedNavItem = nav;
     }
     finally {
@@ -408,13 +408,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public ColumnFilterViewModel FilterFor(string header) {
     if (!_columnFilters.TryGetValue(header, out var filter)) {
       filter = new ColumnFilterViewModel(header, () => OnColumnFilterChanged(header));
-      var saved = _configuration.Current.Layout.FilterFor(TableKey(), header);
-      if (saved is not null)
-        filter.Restore(saved);
       _columnFilters[header] = filter;
+      RestoreColumnFilter(filter);
     }
 
     return filter;
+  }
+
+  public void ReloadColumnFilters() {
+    foreach (var filter in _columnFilters.Values)
+      RestoreColumnFilter(filter);
+  }
+
+  private void RestoreColumnFilter(ColumnFilterViewModel filter) {
+    var saved = _configuration.Current.Layout.FilterFor(Name, TableKey(), filter.Header);
+    filter.Restore(saved ?? new SavedColumnFilter());
   }
 
   private void OnColumnFilterChanged(string header) {
@@ -435,7 +443,14 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         desired.Add(row);
     }
 
-    CollectionSync.MergeByKey(Rows, desired, row => row.Uid, static (current, incoming) => current.CopyFrom(incoming));
+    SortRows(desired);
+
+    CollectionSync.MergeByKey(
+      Rows,
+      desired,
+      row => row.Uid,
+      static (current, incoming) => current.CopyFrom(incoming),
+      matchSourceOrder: true);
 
     if (SelectedRow is null || !Rows.Contains(SelectedRow))
       SelectedRow = keepUid is null ? null : Rows.FirstOrDefault(row => row.Uid == keepUid);
@@ -466,7 +481,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       var cfg = _configuration.Current;
       cfg.Layout.SelectedNavId = value?.Id;
       _configuration.Save(cfg);
-      var savedSearch = cfg.Layout.SearchFor(value?.Id);
+      var savedSearch = cfg.Layout.SearchFor(Name, value?.Id);
       if (Filter != savedSearch) {
         _syncingLayout = true;
         Filter = savedSearch;
@@ -486,7 +501,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   partial void OnFilterChanged(string value) {
     if (!_syncingLayout) {
       var cfg = _configuration.Current;
-      cfg.Layout.SetSearch(SelectedNavItem?.Id, value);
+      cfg.Layout.SetSearch(Name, SelectedNavItem?.Id, value);
       _configuration.Save(cfg);
     }
 
@@ -1030,8 +1045,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       map[header] = filter.Snapshot();
 
     var cfg = _configuration.Current;
-    cfg.Layout.SetFilters(TableKey(), map);
+    cfg.Layout.SetFilters(Name, TableKey(), map);
     _configuration.Save(cfg);
+  }
+
+  private void SortRows(List<ResourceRow> rows) {
+    var sort = _configuration.Current.Layout.SortFor(Name, TableKey());
+    if (sort is null)
+      return;
+
+    var comparer = new ResourceRowComparer(sort.Header);
+    var descending = string.Equals(sort.Direction, "Descending", StringComparison.OrdinalIgnoreCase);
+    rows.Sort((left, right) => {
+      var cmp = comparer.Compare(left, right);
+      return descending ? -cmp : cmp;
+    });
   }
 
   private static string NormalizeNamespace(string? value) =>

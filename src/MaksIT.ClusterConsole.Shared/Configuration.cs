@@ -28,9 +28,7 @@ public sealed class Configuration {
     NamespacesByContext ??= new Dictionary<string, string>(StringComparer.Ordinal);
     NavigatorExpanded ??= new Dictionary<string, bool>(StringComparer.Ordinal);
     Layout ??= new LayoutSettings();
-    Layout.ColumnWidths ??= new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal);
-    Layout.ColumnFilters ??= new Dictionary<string, Dictionary<string, SavedColumnFilter>>(StringComparer.Ordinal);
-    Layout.SearchByResource ??= new Dictionary<string, string>(StringComparer.Ordinal);
+    Layout.Normalize();
     PortForwards ??= [];
     if (string.IsNullOrWhiteSpace(OllamaEndpoint))
       OllamaEndpoint = ClusterChatService.DefaultEndpoint;
