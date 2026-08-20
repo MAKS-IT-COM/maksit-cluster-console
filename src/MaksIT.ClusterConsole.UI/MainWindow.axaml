@@ -22,7 +22,6 @@
         <StackPanel DockPanel.Dock="Top" Margin="12,12,12,8">
           <TextBlock Text="MaksIT.ClusterConsole" FontSize="18" FontWeight="SemiBold" />
           <TextBlock Text="Catalog" Classes="hint" Margin="0,4,0,0" />
-          <TextBlock Text="* kubectl current-context" Classes="hint" Margin="0,2,0,0" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="12" Spacing="6">
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsClusterOpen}" HorizontalAlignment="Stretch" />
@@ -34,23 +33,28 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:CatalogItemViewModel">
                 <Grid ColumnDefinitions="*,Auto" Margin="0,1">
-                  <Button Classes="catalog-item"
-                          Command="{Binding ActivateCommand}"
-                          Classes.selected="{Binding IsActive}"
-                          Classes.connected="{Binding IsConnected}">
-                    <StackPanel>
-                      <Grid ColumnDefinitions="Auto,Auto,*">
-                        <TextBlock Text="*"
-                                   Margin="0,0,4,0"
-                                   Classes="kubectl-current"
-                                   IsVisible="{Binding IsKubectlCurrent}"
-                                   ToolTip.Tip="kubectl current-context" />
-                        <TextBlock Grid.Column="1" Text="●" Margin="0,0,6,0" Classes="connected-dot" IsVisible="{Binding IsConnected}" />
-                        <TextBlock Grid.Column="2" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                      </Grid>
-                      <TextBlock Text="{Binding Cluster}" Classes="hint" Margin="18,2,0,0" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                  </Button>
+                  <Grid>
+                    <Button Classes="catalog-item"
+                            Command="{Binding ActivateCommand}"
+                            Classes.selected="{Binding IsActive}"
+                            Classes.connected="{Binding IsConnected}">
+                      <StackPanel>
+                        <Grid ColumnDefinitions="Auto,*">
+                          <TextBlock Text="●" Margin="0,0,6,0" Classes="connected-dot" IsVisible="{Binding IsConnected}" />
+                          <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                        <TextBlock Text="{Binding Cluster}"
+                                   Classes="hint"
+                                   Margin="18,4,0,0"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Button>
+                    <RadioButton Classes="catalog-current catalog-current-overlay"
+                                 GroupName="kubectl-current"
+                                 IsChecked="{Binding IsKubectlCurrent, Mode=OneWay}"
+                                 Command="{Binding UseForKubectlCommand}"
+                                 ToolTip.Tip="kubectl current-context" />
+                  </Grid>
                   <Button Grid.Column="1"
                           Content="×"
                           Classes="catalog-close"

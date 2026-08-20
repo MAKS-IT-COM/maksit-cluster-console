@@ -176,6 +176,8 @@ public partial class CatalogItemViewModel : ObservableObject {
 
   public required Action<CatalogItemViewModel> Close { get; init; }
 
+  public required Action<CatalogItemViewModel> UseKubectl { get; init; }
+
   public string Name => Context.Name;
 
   public string Cluster => Context.Cluster;
@@ -194,6 +196,9 @@ public partial class CatalogItemViewModel : ObservableObject {
 
   [RelayCommand]
   private void Disconnect() => Close(this);
+
+  [RelayCommand]
+  private void UseForKubectl() => UseKubectl(this);
 }
 
 public partial class MainViewModel : ObservableObject, IDisposable {
@@ -264,7 +269,8 @@ public partial class MainViewModel : ObservableObject, IDisposable {
       Catalog.Add(new CatalogItemViewModel {
         Context = ctx,
         Select = item => _ = OpenOrSwitchAsync(item),
-        Close = item => DisconnectNamed(item.Name)
+        Close = item => DisconnectNamed(item.Name),
+        UseKubectl = UseKubectlCurrent
       });
     }
 
@@ -428,6 +434,15 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     SyncCatalogFlags();
     PersistOpenState();
     Status = $"Connected to {page.Name}";
+  }
+
+  private void UseKubectlCurrent(CatalogItemViewModel item) {
+    if (item.IsKubectlCurrent)
+      return;
+
+    var used = _kubeConfig.UseContext(item.Name);
+    Status = string.Join("; ", used.Messages);
+    SyncCatalogFlags();
   }
 
   private void SyncCatalogFlags() {

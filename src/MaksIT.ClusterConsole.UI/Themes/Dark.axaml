@@ -100,10 +100,48 @@
   <Style Selector="Button.catalog-close:pointerover">
     <Setter Property="Background" Value="#3a2a2a" />
   </Style>
-  <Style Selector="TextBlock.kubectl-current">
-    <Setter Property="Foreground" Value="#7ee787" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+  <Style Selector="RadioButton.catalog-current">
+    <Setter Property="MinHeight" Value="12" />
+    <Setter Property="MinWidth" Value="12" />
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Width="12" Height="12">
+          <Ellipse Name="border"
+                   Width="12"
+                   Height="12"
+                   Stroke="#9aa0a6"
+                   StrokeThickness="1"
+                   Fill="Transparent" />
+          <Ellipse Name="checkMark"
+                   Width="6"
+                   Height="6"
+                   Fill="#7ee787"
+                   IsVisible="False"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="RadioButton.catalog-current-overlay">
+    <Setter Property="Margin" Value="8,0,0,8" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+  </Style>
+  <Style Selector="RadioButton.catalog-current:pointerover /template/ Ellipse#border">
+    <Setter Property="Stroke" Value="#e6e6e6" />
+  </Style>
+  <Style Selector="RadioButton.catalog-current:checked /template/ Ellipse#checkMark">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector="RadioButton.catalog-current:checked /template/ Ellipse#border">
+    <Setter Property="Stroke" Value="#7ee787" />
   </Style>
   <Style Selector="ListBoxItem:selected">
     <Setter Property="Background" Value="#3d5afe" />

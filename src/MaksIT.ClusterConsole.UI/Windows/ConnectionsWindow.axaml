@@ -21,7 +21,6 @@
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <Button Content="Add…" Command="{Binding AddCommand}" />
-          <Button Content="Use for kubectl" Command="{Binding UseForKubectlCommand}" IsEnabled="{Binding HasSelection}" />
           <Button Content="Connect" Command="{Binding ConnectCommand}" IsEnabled="{Binding HasSelection}" />
           <Button Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding HasSelection}" />
         </StackPanel>
@@ -41,7 +40,18 @@
           <DataTemplate x:DataType="vm:ConnectionItemViewModel">
             <StackPanel Margin="0,2">
               <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding Subtitle}" Classes="hint" TextTrimming="CharacterEllipsis" />
+              <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+                <RadioButton Classes="catalog-current"
+                             GroupName="connection-kubectl-current"
+                             IsChecked="{Binding IsCurrent, Mode=OneWay}"
+                             Command="{Binding UseForKubectlCommand}"
+                             ToolTip.Tip="kubectl current-context" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Subtitle}"
+                           Classes="hint"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </Grid>
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>

@@ -9,11 +9,18 @@ namespace MaksIT.ClusterConsole.UI.ViewModels;
 public partial class ConnectionItemViewModel : ObservableObject {
   public required KubeContextDetails Details { get; init; }
 
+  public required Action<ConnectionItemViewModel> Use { get; init; }
+
   public string Name => Details.Name;
 
-  public string Title => (Details.IsCurrent ? "* " : "  ") + Details.Name;
+  public string Title => Details.Name;
 
   public string Subtitle => Details.Cluster + " · " + Details.Server;
+
+  public bool IsCurrent => Details.IsCurrent;
+
+  [RelayCommand]
+  private void UseForKubectl() => Use(this);
 }
 
 public partial class ConnectionsViewModel : ObservableObject {
@@ -30,7 +37,7 @@ public partial class ConnectionsViewModel : ObservableObject {
   public string KubeConfigPath { get; }
 
   [ObservableProperty]
-  private ConnectionItemViewModel? selected;
+  public partial ConnectionItemViewModel? Selected { get; set; }
 
   [ObservableProperty]
   private string status = "";
@@ -44,9 +51,8 @@ public partial class ConnectionsViewModel : ObservableObject {
         return "Select a context.";
 
       var d = Selected.Details;
-      var mark = d.IsCurrent ? "*" : " ";
       return
-        $"{mark} {d.Name}\n"
+        $"{d.Name}\n"
         + $"  Namespace: {d.Namespace ?? "(none)"}\n"
         + $"  Cluster: {d.Cluster}\n"
         + $"    Server: {d.Server}\n"
@@ -78,25 +84,29 @@ public partial class ConnectionsViewModel : ObservableObject {
     var selectedName = Selected?.Name;
     Items.Clear();
     foreach (var details in listed.Value ?? [])
-      Items.Add(new ConnectionItemViewModel { Details = details });
+      Items.Add(new ConnectionItemViewModel { Details = details, Use = UseForKubectl });
 
     Selected = Items.FirstOrDefault(i => i.Name == selectedName)
       ?? Items.FirstOrDefault(i => i.Details.IsCurrent)
       ?? Items.FirstOrDefault();
     Status = Items.Count == 0
       ? "No contexts in kubeconfig. Add a connection."
-      : Items.Count + " context(s). * is kubectl current-context.";
+      : Items.Count + " context(s).";
   }
 
-  [RelayCommand]
-  private void UseForKubectl() {
-    if (Selected is null)
+  private void UseForKubectl(ConnectionItemViewModel item) {
+    if (item.IsCurrent)
       return;
 
-    var used = _kubeConfig.UseContext(Selected.Name);
+    var used = _kubeConfig.UseContext(item.Name);
+    if (!used.IsSuccess) {
+      Status = string.Join("; ", used.Messages);
+      return;
+    }
+
+    Selected = item;
+    Reload();
     Status = string.Join("; ", used.Messages);
-    if (used.IsSuccess)
-      Reload();
   }
 
   [RelayCommand]
@@ -127,7 +137,9 @@ public partial class ConnectionsViewModel : ObservableObject {
       return false;
 
     Reload();
-    Selected = Items.FirstOrDefault(i => i.Name == request.ContextName) ?? Selected;
+    if (Items.FirstOrDefault(i => i.Name == request.ContextName) is { } addedItem)
+      Selected = addedItem;
+
     return true;
   }
 
