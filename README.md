@@ -26,11 +26,11 @@ Capabilities that are first-class in ClusterConsole, not afterthoughts:
 - **Dapr in the navigator** — Components, Configurations, Subscriptions, Resiliency, HTTPEndpoints, sidecars, and control-plane pods as catalog views, not a generic CRD dump.
 - **Volume files** — browse, edit, download, and upload files on persistent volumes and claims from the desktop.
 - **Limits you can fix** — overview shows container CPU and memory against node capacity and can patch limits that oversubscribe the node.
-- **Connections stay in the app** — wizard to add or update a context (token, client certificate, or basic auth) and switch current-context without a separate kubeconfig editor.
+- **Connections stay in the app** — wizard to add or update a context (token, client certificate, or basic auth). A catalog radio sets kubectl current-context.
 
 ## Features
 
-- **Contexts** — catalog of kubeconfig contexts; mark and switch the current context
+- **Contexts** — catalog of kubeconfig contexts; radio selects kubectl current-context
 - **Navigator** — Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources
 - **Resource tables** — list and refresh any catalogued type; per-column filters; namespace scope persisted per context
 - **Inspect and apply** — YAML view, apply, create, delete; force-delete (grace period 0 and strip finalizers), including namespaces whose objects are already gone
