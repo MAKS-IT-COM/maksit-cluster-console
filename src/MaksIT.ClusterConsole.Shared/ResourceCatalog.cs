@@ -66,10 +66,32 @@ public static class ResourceCatalog {
     new ResourceActions(CanScale: false, CanRestart: false, CanApply: false),
     ["Overview", "YAML", "Events", "Pods", "Logs", "Terminal"]);
 
+  public static ResourceDescriptor PortForwardingDescriptor { get; } = new(
+    PortForwardingId,
+    "Port Forwarding",
+    Network,
+    "",
+    "v1",
+    "portforwards",
+    "PortForward",
+    true,
+    [
+      new("Name", "metadata.name"),
+      new("Namespace", "metadata.namespace"),
+      new("Pod", "pod"),
+      new("Local", "localPort"),
+      new("Remote", "containerPort"),
+      new("Status", "status")
+    ],
+    new ResourceActions(CanDelete: false, CanApply: false),
+    ["Overview"]);
+
   public static ResourceDescriptor? Find(string id) =>
-    id == ApplicationsId
-      ? ApplicationsDescriptor
-      : BuiltIns.FirstOrDefault(d => d.Id == id);
+    id switch {
+      ApplicationsId => ApplicationsDescriptor,
+      PortForwardingId => PortForwardingDescriptor,
+      _ => BuiltIns.FirstOrDefault(d => d.Id == id)
+    };
 
   public static ResourceDescriptor? FindByGvk(string? apiVersion, string? kind) {
     if (string.IsNullOrWhiteSpace(kind))
@@ -137,6 +159,7 @@ public static class ResourceCatalog {
     var yamlTabs = new[] { "Overview", "YAML", "Events" };
     var podTabs = new[] { "Overview", "YAML", "Events", "Logs", "Terminal" };
     var workloadTabs = new[] { "Overview", "YAML", "Events", "Pods", "Logs", "Terminal" };
+    var serviceTabs = new[] { "Overview", "YAML", "Events", "Pods" };
     var crud = new ResourceActions();
     var scale = new ResourceActions(CanScale: true, CanRestart: true);
     var logs = new ResourceActions(CanLogs: true, CanExec: true, CanPortForward: true);
@@ -193,7 +216,7 @@ public static class ResourceCatalog {
       D("validatingwebhookconfigurations", "Validating Webhooks", Config, "admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations", "ValidatingWebhookConfiguration", false, named, crud, yamlTabs),
       D("services", "Services", Network, "", "v1", "services", "Service", true,
         [..std, new("Type", "spec.type"), new("Cluster IP", "spec.clusterIP"), new("External IP", "service.externalIP"), new("Ports", "spec.ports")],
-        new ResourceActions(CanPortForward: true), yamlTabs),
+        new ResourceActions(CanPortForward: true), serviceTabs),
       D("endpoints", "Endpoints", Network, "", "v1", "endpoints", "Endpoints", true, std, crud, yamlTabs),
       D("endpointslices", "Endpoint Slices", Network, "discovery.k8s.io", "v1", "endpointslices", "EndpointSlice", true, std, crud, yamlTabs),
       D("ingresses", "Ingresses", Network, "networking.k8s.io", "v1", "ingresses", "Ingress", true,

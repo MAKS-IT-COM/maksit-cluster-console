@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaksIT.Results;
 using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
 
@@ -24,6 +27,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private string? _detailsUid;
   private bool _loadingDetails;
   private bool _updatingPodContext;
+  private string? _rebindUid;
   private readonly List<double> _cpuHistory = [];
   private readonly List<double> _memoryHistory = [];
   private const int HistoryPoints = 60;
@@ -124,6 +128,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private int forwardContainerPort = 80;
 
   [ObservableProperty]
+  private int rebindLocalPort = 8080;
+
+  [ObservableProperty]
   private bool followLogs;
 
   [ObservableProperty]
@@ -183,13 +190,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private void ShowNodesOverview() => OverviewPerNode = true;
 
   public bool CanScale =>
-    SelectedResourceRef()?.Actions.CanScale == true;
+    HasSelectedRow && SelectedResourceRef()?.Actions.CanScale == true;
 
   public bool CanRestart =>
-    SelectedResourceRef()?.Actions.CanRestart == true;
+    HasSelectedRow && SelectedResourceRef()?.Actions.CanRestart == true;
 
   public bool CanDelete =>
-    SelectedResourceRef()?.Actions.CanDelete == true && SelectedRow is not null;
+    HasSelectedRow && SelectedResourceRef()?.Actions.CanDelete == true;
 
   public bool CanForceDelete =>
     CanDelete && SelectedDescriptor?.Kind != "Namespace";
@@ -197,14 +204,15 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool CanDeleteNamespace {
     get {
       var name = TargetNamespaceName;
-      return SelectedDescriptor?.Kind == "Namespace"
+      return HasSelectedRow
+        && SelectedDescriptor?.Kind == "Namespace"
         && !string.IsNullOrEmpty(name)
         && !IsProtectedNamespace(name);
     }
   }
 
   public bool CanBrowseFiles =>
-    SelectedRow is not null
+    HasSelectedRow
     && SelectedDescriptor?.Id is "persistentvolumes" or "persistentvolumeclaims";
 
   public event Action<VolumeFilesViewModel>? VolumeFilesRequested;
@@ -213,7 +221,55 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool CanExec => HasDetailTab("Terminal");
 
-  public bool CanPortForward => SelectedDescriptor?.Actions.CanPortForward == true || TargetPodName is not null;
+  public bool CanPortForward =>
+    HasSelectedRow
+    && !IsPortForwardingView
+    && (SelectedDescriptor?.Actions.CanPortForward == true || TargetPodName is not null);
+
+  public bool IsPortForwardingView =>
+    SelectedNavItem?.Id == ResourceCatalog.PortForwardingId;
+
+  public bool CanStopPortForward =>
+    IsPortForwardingView && HasSelectedRow;
+
+  public bool CanCordon =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanCordon == true;
+
+  public bool CanDrain =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanDrain == true;
+
+  public bool CanTrigger =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanTrigger == true;
+
+  public bool CanApply =>
+    (SelectedResourceRef() ?? SelectedDescriptor)?.Actions.CanApply != false;
+
+  public bool CanCreateResource =>
+    CanApply
+    && SelectedDescriptor is not null
+    && !IsPortForwardingView
+    && !IsClusterDashboard
+    && !IsWorkloadsDashboard;
+
+  public bool CanReloadYaml => HasSelectedRow;
+
+  public bool CanApplyYaml =>
+    CanApply && (HasSelectedRow || IsDirty) && !string.IsNullOrWhiteSpace(YamlText);
+
+  public bool CanEditData =>
+    IsDataEditor && (HasSelectedRow || IsDirty);
+
+  public bool HasFooterActions =>
+    CanDelete
+    || CanForceDelete
+    || CanDeleteNamespace
+    || CanScale
+    || CanRestart
+    || CanCordon
+    || CanDrain
+    || CanTrigger
+    || CanPortForward
+    || CanStopPortForward;
 
   public bool ShowEventsTab => HasDetailTab("Events");
 
@@ -230,15 +286,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool HasContainers => Containers.Count > 0;
 
   public bool HasSelectedRow => SelectedRow is not null;
-
-  public bool CanCordon => SelectedDescriptor?.Actions.CanCordon == true;
-
-  public bool CanDrain => SelectedDescriptor?.Actions.CanDrain == true;
-
-  public bool CanTrigger => SelectedDescriptor?.Actions.CanTrigger == true;
-
-  public bool CanApply =>
-    (SelectedResourceRef() ?? SelectedDescriptor)?.Actions.CanApply != false;
 
   public string DetailsTitle {
     get {
@@ -278,6 +325,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool HasContainerLimits => LimitRows.Count > 0;
 
+  public bool HasSelectedLimit => SelectedLimitRow is not null;
+
+  public bool HasDirtyLimits => LimitRows.Any(row => row.IsDirty);
+
   public bool HasLimitOvercommit =>
     CpuSlice.LimitsExceedCapacity || MemorySlice.LimitsExceedCapacity;
 
@@ -297,10 +348,14 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private ResourceDescriptor? SelectedResourceRef() {
     var match = _workspace.FindByGvk(SelectedDocumentApiVersion, SelectedDocumentKind);
-    if (match is not null && match.Id != ResourceCatalog.ApplicationsId)
+    if (match is not null
+        && match.Id != ResourceCatalog.ApplicationsId
+        && match.Id != ResourceCatalog.PortForwardingId)
       return match;
 
-    if (SelectedDescriptor is { } descriptor && descriptor.Id != ResourceCatalog.ApplicationsId)
+    if (SelectedDescriptor is { } descriptor
+        && descriptor.Id != ResourceCatalog.ApplicationsId
+        && descriptor.Id != ResourceCatalog.PortForwardingId)
       return descriptor;
 
     return null;
@@ -342,6 +397,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     PausePolling();
     _logsCts?.Cancel();
     _chatCts?.Cancel();
+    foreach (var row in LimitRows)
+      row.PropertyChanged -= OnLimitRowPropertyChanged;
     foreach (var pf in PortForwards.ToList())
       pf.Handle.Dispose();
     PortForwards.Clear();
@@ -439,9 +496,15 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   partial void OnSelectedRowChanged(ResourceRow? value) {
     NotifyActionFlags();
     NotifyDetailsUi();
+    SyncRebindLocalPort();
     if (value?.Uid == _detailsUid)
       return;
     _ = LoadDetailsAsync();
+  }
+
+  partial void OnSelectedLimitRowChanged(LimitRowViewModel? value) {
+    OnPropertyChanged(nameof(HasSelectedLimit));
+    OnPropertyChanged(nameof(CanApplyLimits));
   }
 
   partial void OnSelectedRelatedPodChanged(ResourceRow? value) {
@@ -460,6 +523,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     _ = LoadLogsAsync();
+  }
+
+  partial void OnIsDirtyChanged(bool value) {
+    OnPropertyChanged(nameof(CanApplyYaml));
+    OnPropertyChanged(nameof(CanEditData));
   }
 
   partial void OnYamlTextChanged(string value) {
@@ -499,9 +567,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
 
     if (SelectedNavItem.Id == ResourceCatalog.PortForwardingId) {
-      _listedRows.Clear();
-      Rows.Clear();
-      _setStatus($"{PortForwards.Count} active port-forward(s).");
+      ShowPortForwardRows();
       return;
     }
 
@@ -748,23 +814,50 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (_workspace.Session is null || SelectedRow is null)
       return;
 
-    var pod = TargetPodName;
-    var ns = TargetPodNamespace ?? "default";
-    if (pod is null) {
-      _setStatus(ShowPodsTab
-        ? "Select a pod in the details pane, then port-forward."
-        : "Port-forward requires a pod.");
+    var target = await ResolvePortForwardTargetAsync();
+    if (!target.IsSuccess || target.Value is null) {
+      _setStatus(PortForwardRow.FailedMessage(target.Messages));
       return;
     }
 
-    var started = await _workspace.Session.PortForwardAsync(pod, ns, ForwardContainerPort, ForwardLocalPort);
+    var kind = IsServiceSelection
+      ? "Service"
+      : IsPodSelection ? "Pod" : SelectedDescriptor?.Kind ?? "Pod";
+    var saved = new PersistedPortForward {
+      Context = Name,
+      Kind = kind,
+      Name = SelectedRow.Name,
+      Namespace = target.Value.Namespace,
+      PodName = target.Value.PodName,
+      LocalPort = ForwardLocalPort,
+      RemotePort = target.Value.RequestedPort,
+      MatchLabels = ServicePortForward.StableLabels(SelectedRow.Document)
+    };
+    var started = await _workspace.Session.PortForwardAsync(
+      target.Value.PodName,
+      target.Value.Namespace,
+      target.Value.ContainerPort,
+      ForwardLocalPort,
+      target.Value.RequestedPort,
+      ResolveEndpoint(saved));
     if (!started.IsSuccess || started.Value is null) {
-      _setStatus(string.Join("; ", started.Messages));
+      _setStatus(PortForwardRow.FailedMessage(started.Messages));
       return;
     }
 
-    PortForwards.Add(new PortForwardItemViewModel { Handle = started.Value, Cluster = Name });
-    _setStatus($"Forwarding localhost:{ForwardLocalPort} ({Name})");
+    var item = new PortForwardItemViewModel {
+      Handle = started.Value,
+      Cluster = Name,
+      Uid = PortForwardRow.Uid(started.Value.LocalPort),
+      Kind = kind,
+      ResourceName = saved.Name,
+      MatchLabels = saved.MatchLabels
+    };
+    PortForwards.Add(item);
+    PersistStarted(item);
+    if (IsPortForwardingView)
+      ShowPortForwardRows();
+    _setStatus(PortForwardRow.StartedMessage(started.Value));
   }
 
   [RelayCommand]
@@ -772,8 +865,88 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (item is null)
       return;
 
+    var localPort = item.Handle.LocalPort;
     item.Handle.Dispose();
     PortForwards.Remove(item);
+    PersistStopped(localPort);
+    if (IsPortForwardingView)
+      ShowPortForwardRows();
+    _setStatus($"Stopped port-forward localhost:{localPort}.");
+  }
+
+  [RelayCommand]
+  private void StopSelectedPortForward() {
+    if (SelectedRow is null)
+      return;
+
+    var live = PortForwards.FirstOrDefault(item => item.Uid == SelectedRow.Uid);
+    if (live is not null) {
+      StopPortForward(live);
+      return;
+    }
+
+    if (!PortForwardRow.TryLocalPort(SelectedRow, out var localPort))
+      return;
+
+    PersistStopped(localPort);
+    ShowPortForwardRows();
+    _setStatus($"Stopped port-forward localhost:{localPort}.");
+  }
+
+  [RelayCommand]
+  private void OpenSelectedPortForward() {
+    if (!IsPortForwardingView || SelectedRow is null)
+      return;
+    if (!PortForwardRow.TryLocalPort(SelectedRow, out var localPort))
+      return;
+
+    if (!PortForwards.Any(item => item.Handle.LocalPort == localPort)) {
+      _setStatus(PortForwardRow.FailedMessage(["forward is not active"]));
+      return;
+    }
+
+    var url = PortForwardRow.LocalUrl(localPort);
+
+    try {
+      Process.Start(new ProcessStartInfo {
+        FileName = url,
+        UseShellExecute = true
+      });
+    }
+    catch (Exception ex) {
+      _setStatus($"Could not open {url}: {ex.Message}");
+    }
+  }
+
+  [RelayCommand]
+  private async Task RebindSelectedPortForwardAsync() {
+    if (_workspace.Session is null || SelectedRow is null || !IsPortForwardingView)
+      return;
+    if (!PortForwardRow.TryLocalPort(SelectedRow, out var oldPort))
+      return;
+
+    var newPort = RebindLocalPort;
+    if (newPort == oldPort) {
+      _setStatus($"Port-forward already listening on localhost:{oldPort}.");
+      return;
+    }
+
+    if (newPort is < 1 or > 65535) {
+      _setStatus(PortForwardRow.FailedMessage(["local port must be between 1 and 65535"]));
+      return;
+    }
+
+    if (IsLocalPortTaken(newPort)) {
+      _setStatus(PortForwardRow.FailedMessage([$"localhost:{newPort} is already in use by another port-forward"]));
+      return;
+    }
+
+    var live = PortForwards.FirstOrDefault(item => item.Uid == SelectedRow.Uid)
+      ?? PortForwards.FirstOrDefault(item => item.Handle.LocalPort == oldPort);
+    if (live is not null)
+      await RebindLiveAsync(live, oldPort, newPort);
+    else
+      await RebindPersistedAsync(oldPort, newPort);
   }
 
   [RelayCommand]
@@ -1060,7 +1233,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         desired.Add(new LimitRowViewModel(limit));
     }
 
+    foreach (var row in LimitRows)
+      row.PropertyChanged -= OnLimitRowPropertyChanged;
+
     CollectionSync.MergeByKey(LimitRows, desired, row => LimitKey(row.Source));
+    foreach (var row in LimitRows)
+      row.PropertyChanged += OnLimitRowPropertyChanged;
+
     if (keep is not null && LimitRows.Contains(keep))
       SelectedLimitRow = keep;
     else if (SelectedLimitRow is null || !LimitRows.Contains(SelectedLimitRow))
@@ -1068,7 +1247,18 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(HasContainerLimits));
     OnPropertyChanged(nameof(HasLimitOvercommit));
     OnPropertyChanged(nameof(LimitsCaption));
+    OnPropertyChanged(nameof(HasSelectedLimit));
+    OnPropertyChanged(nameof(HasDirtyLimits));
     OnPropertyChanged(nameof(CanApplyLimits));
+  }
+
+  private void OnLimitRowPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+    if (e.PropertyName is nameof(LimitRowViewModel.CpuLimit)
+        or nameof(LimitRowViewModel.MemoryLimit)
+        or nameof(LimitRowViewModel.IsDirty)) {
+      OnPropertyChanged(nameof(HasDirtyLimits));
+      OnPropertyChanged(nameof(CanApplyLimits));
+    }
   }
 
   private static string LimitKey(WorkloadContainerLimit limit) =>
@@ -1168,6 +1358,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     ReplaceRelatedPods(related);
     var podDocument = IsPodSelection ? document : SelectedRelatedPod?.Document;
     ApplyContainers(podDocument);
+    ApplyServiceForwardPorts(document);
     OverviewText = row.FormatOverview(Containers);
     var events = await _workspace.EventsForAsync(row);
     if (!DetailsStillCurrent(row))
@@ -1279,6 +1470,343 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(HasContainers));
   }
 
+  private void ShowPortForwardRows(string? keepUid = null) {
+    keepUid ??= SelectedRow?.Uid;
+    var livePorts = PortForwards.Select(item => item.Handle.LocalPort).ToHashSet();
+    _listedRows.Clear();
+    foreach (var item in PortForwards)
+      _listedRows.Add(PortForwardRow.From(item.Handle, item.Uid));
+
+    foreach (var saved in _configuration.Current.PortForwardsFor(Name)) {
+      if (livePorts.Contains(saved.LocalPort))
+        continue;
+
+      _listedRows.Add(PortForwardRow.FromPersisted(saved, "Failed"));
+    }
+
+    foreach (var column in ResourceCatalog.PortForwardingDescriptor.Columns)
+      FilterFor(column.Header).LoadValues(_listedRows);
+
+    ApplyColumnFilters(keepUid);
+    NotifyActionFlags();
+    NotifyDetailsUi();
+  }
+
+  public async Task<PortForwardRestoreSummary> RestorePortForwardsAsync() {
+    var saved = _configuration.Current.PortForwardsFor(Name);
+    if (saved.Count == 0)
+      return new PortForwardRestoreSummary(0, []);
+
+    var restored = 0;
+    var failures = new List<string>();
+    foreach (var item in saved) {
+      if (PortForwards.Any(live => live.Handle.LocalPort == item.LocalPort)) {
+        restored++;
+        continue;
+      }
+
+      var opened = await OpenPersistedPortForwardAsync(item);
+      if (opened.IsSuccess)
+        restored++;
+      else
+        failures.Add($"localhost:{item.LocalPort} ({string.Join("; ", opened.Messages)})");
+    }
+
+    if (IsPortForwardingView)
+      ShowPortForwardRows();
+
+    return new PortForwardRestoreSummary(restored, failures);
+  }
+
+  private async Task<Result> OpenPersistedPortForwardAsync(PersistedPortForward saved) {
+    if (_workspace.Session is null)
+      return Result.ServiceUnavailable("not connected");
+
+    var resolved = await ResolveOwnedTargetAsync(saved);
+    if (!resolved.IsSuccess || resolved.Value is null)
+      return resolved.ToResult();
+
+    saved.PodName = resolved.Value.PodName;
+    saved.Namespace = resolved.Value.Namespace;
+    var started = await _workspace.Session.PortForwardAsync(
+      resolved.Value.PodName,
+      resolved.Value.Namespace,
+      resolved.Value.ContainerPort,
+      saved.LocalPort,
+      resolved.Value.RequestedPort,
+      ResolveEndpoint(saved));
+    if (!started.IsSuccess || started.Value is null)
+      return started.ToResult();
+
+    var item = new PortForwardItemViewModel {
+      Handle = started.Value,
+      Cluster = Name,
+      Uid = PortForwardRow.Uid(started.Value.LocalPort),
+      Kind = string.IsNullOrWhiteSpace(saved.Kind) ? "Pod" : saved.Kind,
+      ResourceName = saved.Name,
+      MatchLabels = saved.MatchLabels
+    };
+    PortForwards.Add(item);
+    PersistStarted(item);
+    return Result.Ok();
+  }
+
+  private Func<CancellationToken, Task<Result<PortForwardEndpoint>>> ResolveEndpoint(PersistedPortForward saved) =>
+    async _ => {
+      var resolved = await ResolveOwnedTargetAsync(saved);
+      if (!resolved.IsSuccess || resolved.Value is null)
+        return new Result<PortForwardEndpoint>(null, false, resolved.Messages, resolved.StatusCode);
+
+      saved.PodName = resolved.Value.PodName;
+      saved.Namespace = resolved.Value.Namespace;
+      return Result<PortForwardEndpoint>.Ok(new PortForwardEndpoint(
+        resolved.Value.PodName,
+        resolved.Value.Namespace,
+        resolved.Value.ContainerPort));
+    };
+
+  private async Task<Result<PortForwardTarget>> ResolveOwnedTargetAsync(PersistedPortForward saved) {
+    var ns = string.IsNullOrWhiteSpace(saved.Namespace) ? "default" : saved.Namespace;
+    if (string.Equals(saved.Kind, "Service", StringComparison.OrdinalIgnoreCase))
+      return await ResolvePersistedServiceAsync(saved, ns);
+
+    var descriptor = ResourceCatalog.BuiltIns.FirstOrDefault(d =>
+      d.Kind.Equals(saved.Kind, StringComparison.OrdinalIgnoreCase));
+    if (descriptor is not null
+        && !string.Equals(saved.Kind, "Pod", StringComparison.OrdinalIgnoreCase)) {
+      var got = await _workspace.Session!.GetAsync(descriptor.ToRef(), saved.Name, ns);
+      if (!got.IsSuccess || got.Value is null)
+        return new Result<PortForwardTarget>(null, false, got.Messages, got.StatusCode);
+
+      RememberLabels(saved, got.Value);
+      var listed = await _workspace.RelatedPodsAsync(ResourceRow.From(got.Value, descriptor));
+      if (!listed.IsSuccess)
+        return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
+
+      var picked = ServicePortForward.PickRunning(listed.Value ?? [], saved.PodName, saved.MatchLabels);
+      if (picked is null)
+        return Result<PortForwardTarget>.NotFound(null, "No running pods match this port-forward.");
+
+      return Result<PortForwardTarget>.Ok(
+        new PortForwardTarget(picked.Name, picked.Namespace ?? ns, saved.RemotePort, saved.RemotePort));
+    }
+
+    return await ResolvePersistedPodAsync(saved, ns);
+  }
+
+  private async Task<Result<PortForwardTarget>> ResolvePersistedServiceAsync(PersistedPortForward saved, string ns) {
+    var services = ResourceCatalog.Find("services")!;
+    var got = await _workspace.Session!.GetAsync(services.ToRef(), saved.Name, ns);
+    if (!got.IsSuccess || got.Value is null)
+      return new Result<PortForwardTarget>(null, false, got.Messages, got.StatusCode);
+
+    RememberLabels(saved, got.Value);
+    var owner = ResourceRow.From(got.Value, services);
+    var listed = await _workspace.RelatedPodsAsync(owner);
+    if (!listed.IsSuccess)
+      return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
+
+    var preferred = (listed.Value ?? []).FirstOrDefault(p =>
+      string.Equals(p.Name, saved.PodName, StringComparison.Ordinal));
+    return ServicePortForward.Resolve(got.Value, listed.Value ?? [], preferred, saved.RemotePort);
+  }
+
+  private async Task<Result<PortForwardTarget>> ResolvePersistedPodAsync(PersistedPortForward saved, string ns) {
+    var pods = ResourceCatalog.Find("pods")!;
+    var preferredName = string.IsNullOrWhiteSpace(saved.PodName) ? saved.Name : saved.PodName;
+    var got = await _workspace.Session!.GetAsync(pods.ToRef(), preferredName, ns);
+    if (got.IsSuccess && got.Value is not null) {
+      RememberLabels(saved, got.Value);
+      var row = ResourceRow.From(got.Value, pods);
+      if (string.Equals(PodStatus.Of(got.Value), "Running", StringComparison.OrdinalIgnoreCase))
+        return Result<PortForwardTarget>.Ok(
+          new PortForwardTarget(row.Name, row.Namespace ?? ns, saved.RemotePort, saved.RemotePort));
+    }
+
+    if (saved.MatchLabels is not { Count: > 0 }) {
+      if (!got.IsSuccess)
+        return new Result<PortForwardTarget>(null, false, got.Messages, got.StatusCode);
+
+      return Result<PortForwardTarget>.NotFound(null, "No running pods match this port-forward.");
+    }
+
+    var listed = await _workspace.Session.ListAsync(pods.ToRef(), ns);
+    if (!listed.IsSuccess)
+      return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
+
+    var rows = (listed.Value ?? []).Select(item => ResourceRow.From(item, pods)).ToList();
+    var picked = ServicePortForward.PickRunning(rows, preferredName, saved.MatchLabels);
+    if (picked is null)
+      return Result<PortForwardTarget>.NotFound(null, "No running pods match this port-forward.");
+
+    RememberLabels(saved, picked.Document);
+    return Result<PortForwardTarget>.Ok(
+      new PortForwardTarget(picked.Name, picked.Namespace ?? ns, saved.RemotePort, saved.RemotePort));
+  }
+
+  private static void RememberLabels(PersistedPortForward saved, JsonObject? document) {
+    if (saved.MatchLabels is { Count: > 0 })
+      return;
+
+    saved.MatchLabels = ServicePortForward.StableLabels(document);
+  }
+
+  private void PersistStarted(PortForwardItemViewModel item) {
+    var cfg = _configuration.Current;
+    cfg.UpsertPortForward(item.ToPersisted());
+    _configuration.Save(cfg);
+  }
+
+  private void PersistStopped(int localPort) {
+    var cfg = _configuration.Current;
+    cfg.RemovePortForward(Name, localPort);
+    _configuration.Save(cfg);
+  }
+
+  private async Task RebindLiveAsync(PortForwardItemViewModel live, int oldPort, int newPort) {
+    var previous = live.Handle;
+    var resolve = ResolveEndpoint(live.ToPersisted());
+    previous.Dispose();
+    var started = await _workspace.Session!.PortForwardAsync(
+      previous.PodName,
+      previous.Namespace,
+      previous.ContainerPort,
+      newPort,
+      previous.RequestedPort,
+      resolve);
+    if (!started.IsSuccess || started.Value is null) {
+      await RollbackLiveAsync(live, previous, oldPort, resolve);
+      ShowPortForwardRows(live.Uid);
+      _setStatus(PortForwardRow.FailedMessage(started.Messages));
+      return;
+    }
+
+    live.Handle = started.Value;
+    live.Uid = PortForwardRow.Uid(newPort);
+    PersistRebind(oldPort, live);
+    _rebindUid = live.Uid;
+    RebindLocalPort = newPort;
+    ShowPortForwardRows(live.Uid);
+    _setStatus(PortForwardRow.ReboundMessage(oldPort, started.Value));
+  }
+
+  private async Task RollbackLiveAsync(
+    PortForwardItemViewModel live,
+    PortForwardHandle previous,
+    int oldPort,
+    Func<CancellationToken, Task<Result<PortForwardEndpoint>>> resolve) {
+    var rollback = await _workspace.Session!.PortForwardAsync(
+      previous.PodName,
+      previous.Namespace,
+      previous.ContainerPort,
+      oldPort,
+      previous.RequestedPort,
+      resolve);
+    if (!rollback.IsSuccess || rollback.Value is null) {
+      PortForwards.Remove(live);
+      return;
+    }
+
+    live.Handle = rollback.Value;
+    live.Uid = PortForwardRow.Uid(oldPort);
+  }
+
+  private async Task RebindPersistedAsync(int oldPort, int newPort) {
+    var saved = _configuration.Current.PortForwardsFor(Name)
+      .FirstOrDefault(item => item.LocalPort == oldPort);
+    if (saved is null)
+      return;
+
+    var cfg = _configuration.Current;
+    cfg.RemovePortForward(Name, oldPort);
+    saved.LocalPort = newPort;
+    cfg.UpsertPortForward(saved);
+    _configuration.Save(cfg);
+
+    var opened = await OpenPersistedPortForwardAsync(saved);
+    _rebindUid = PortForwardRow.Uid(newPort);
+    RebindLocalPort = newPort;
+    ShowPortForwardRows(_rebindUid);
+    if (!opened.IsSuccess) {
+      _setStatus(PortForwardRow.FailedMessage(opened.Messages));
+      return;
+    }
+
+    var rebound = PortForwards.FirstOrDefault(item => item.Handle.LocalPort == newPort);
+    _setStatus(rebound is null
+      ? $"Port-forward rebound to localhost:{newPort}."
+      : PortForwardRow.ReboundMessage(oldPort, rebound.Handle));
+  }
+
+  private void PersistRebind(int oldPort, PortForwardItemViewModel item) {
+    var cfg = _configuration.Current;
+    cfg.RemovePortForward(Name, oldPort);
+    cfg.UpsertPortForward(item.ToPersisted());
+    _configuration.Save(cfg);
+  }
+
+  private bool IsLocalPortTaken(int localPort) =>
+    PortForwards.Any(item => item.Handle.LocalPort == localPort)
+    || _configuration.Current.PortForwardsFor(Name).Any(item => item.LocalPort == localPort);
+
+  private void SyncRebindLocalPort() {
+    if (!IsPortForwardingView || SelectedRow is null || !PortForwardRow.TryLocalPort(SelectedRow, out var port)) {
+      _rebindUid = null;
+      return;
+    }
+
+    if (SelectedRow.Uid == _rebindUid)
+      return;
+
+    _rebindUid = SelectedRow.Uid;
+    RebindLocalPort = port;
+  }
+
+  private async Task<Result<PortForwardTarget>> ResolvePortForwardTargetAsync() {
+    var ns = TargetPodNamespace ?? SelectedRow?.Namespace ?? "default";
+    if (!IsServiceSelection) {
+      var pod = TargetPodName;
+      if (pod is null) {
+        var message = ShowPodsTab
+          ? "Select a pod in the details pane, then port-forward."
+          : "Port-forward requires a pod.";
+        return Result<PortForwardTarget>.BadRequest(null, message);
+      }
+
+      return Result<PortForwardTarget>.Ok(new PortForwardTarget(pod, ns, ForwardContainerPort));
+    }
+
+    var related = RelatedPods.Count > 0
+      ? RelatedPods.ToList()
+      : [];
+    if (related.Count == 0 && SelectedRow is not null) {
+      var listed = await _workspace.RelatedPodsAsync(SelectedRow);
+      if (!listed.IsSuccess)
+        return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
+
+      related = (listed.Value ?? []).ToList();
+      ReplaceRelatedPods(related);
+    }
+
+    return ServicePortForward.Resolve(SelectedRow!.Document, related, SelectedRelatedPod, ForwardContainerPort);
+  }
+
+  private void ApplyServiceForwardPorts(JsonObject? document) {
+    if (!IsServiceSelection)
+      return;
+
+    var port = ServicePortForward.DefaultPort(document);
+    if (port is null)
+      return;
+
+    ForwardContainerPort = port.Value;
+    ForwardLocalPort = port.Value;
+  }
+
+  private bool IsServiceSelection =>
+    SelectedDescriptor?.Kind == "Service"
+    || ServicePortForward.IsService(SelectedRow?.Document);
+
   private bool IsPodSelection =>
     SelectedDescriptor?.Kind == "Pod"
     || SelectedNavItem?.Id is ResourceCatalog.DaprSidecarsId or ResourceCatalog.DaprControlPlaneId
@@ -1306,10 +1834,16 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanLogs));
     OnPropertyChanged(nameof(CanExec));
     OnPropertyChanged(nameof(CanPortForward));
+    OnPropertyChanged(nameof(CanStopPortForward));
     OnPropertyChanged(nameof(CanCordon));
     OnPropertyChanged(nameof(CanDrain));
     OnPropertyChanged(nameof(CanTrigger));
     OnPropertyChanged(nameof(CanApply));
+    OnPropertyChanged(nameof(CanCreateResource));
+    OnPropertyChanged(nameof(CanReloadYaml));
+    OnPropertyChanged(nameof(CanApplyYaml));
+    OnPropertyChanged(nameof(CanEditData));
+    OnPropertyChanged(nameof(HasFooterActions));
     OnPropertyChanged(nameof(CanBrowseFiles));
     BrowseFilesCommand.NotifyCanExecuteChanged();
   }
@@ -1327,6 +1861,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanLogs));
     OnPropertyChanged(nameof(CanExec));
     OnPropertyChanged(nameof(CanPortForward));
+    OnPropertyChanged(nameof(CanStopPortForward));
+    OnPropertyChanged(nameof(CanCreateResource));
+    OnPropertyChanged(nameof(CanReloadYaml));
+    OnPropertyChanged(nameof(CanApplyYaml));
+    OnPropertyChanged(nameof(CanEditData));
+    OnPropertyChanged(nameof(HasFooterActions));
     OnPropertyChanged(nameof(CanBrowseFiles));
     BrowseFilesCommand.NotifyCanExecuteChanged();
   }

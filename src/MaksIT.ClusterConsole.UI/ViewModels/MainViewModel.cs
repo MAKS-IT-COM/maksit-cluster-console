@@ -131,14 +131,31 @@ public partial class NavGroupViewModel : ObservableObject {
 }
 
 public sealed class PortForwardItemViewModel {
-  public required PortForwardHandle Handle { get; init; }
+  public required PortForwardHandle Handle { get; set; }
 
   public string Cluster { get; init; } = "";
 
-  public string Display =>
-    string.IsNullOrEmpty(Cluster)
-      ? $"{Handle.Namespace}/{Handle.PodName} {Handle.LocalPort}->{Handle.ContainerPort}"
-      : $"{Cluster} {Handle.Namespace}/{Handle.PodName} {Handle.LocalPort}->{Handle.ContainerPort}";
+  public required string Uid { get; set; }
+
+  public string Kind { get; init; } = "Pod";
+
+  public string ResourceName { get; init; } = "";
+
+  public Dictionary<string, string>? MatchLabels { get; init; }
+
+  public PersistedPortForward ToPersisted() =>
+    new() {
+      Context = Cluster,
+      Kind = Kind,
+      Name = string.IsNullOrEmpty(ResourceName) ? Handle.PodName : ResourceName,
+      Namespace = Handle.Namespace,
+      PodName = Handle.PodName,
+      LocalPort = Handle.LocalPort,
+      RemotePort = Handle.RequestedPort,
+      MatchLabels = MatchLabels is null
+        ? null
+        : new Dictionary<string, string>(MatchLabels, StringComparer.Ordinal)
+    };
 }
 
 public partial class DataEntryViewModel : ObservableObject {
@@ -300,6 +317,9 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
     _pages[item.Name] = page;
     ActivatePage(page);
+    var restored = await page.RestorePortForwardsAsync();
+    if (restored.Total > 0)
+      Status = restored.Format();
   }
 
   [RelayCommand]
@@ -344,6 +364,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
       return;
 
     var preferred = _configuration.Current.ActiveContext;
+    PortForwardRestoreSummary? restored = null;
     foreach (var name in names) {
       var item = Catalog.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
       if (item is null)
@@ -362,6 +383,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
       page.PausePolling();
       _pages[item.Name] = page;
+      restored = MergeRestore(restored, await page.RestorePortForwardsAsync());
     }
 
     var active = _pages.TryGetValue(preferred ?? "", out var preferredPage)
@@ -371,6 +393,20 @@ public partial class MainViewModel : ObservableObject, IDisposable {
       ActivatePage(active);
     else
       SyncCatalogFlags();
+
+    if (restored is not null && restored.Total > 0)
+      Status = restored.Format();
+  }
+
+  private static PortForwardRestoreSummary MergeRestore(
+    PortForwardRestoreSummary? current,
+    PortForwardRestoreSummary incoming) {
+    if (current is null)
+      return incoming;
+
+    return new PortForwardRestoreSummary(
+      current.Restored + incoming.Restored,
+      current.Failures.Concat(incoming.Failures).ToList());
   }
 
   private ClusterPageViewModel CreatePage(KubeContextInfo context) {

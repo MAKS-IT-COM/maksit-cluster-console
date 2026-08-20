@@ -14,19 +14,7 @@
         MinHeight="640">
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Padding="8,6" Background="#15171a">
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding Status}" Classes="hint" VerticalAlignment="Center" />
-        <ItemsControl Grid.Column="1" ItemsSource="{Binding ActivePage.PortForwards}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:PortForwardItemViewModel">
-              <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
-                <TextBlock Text="{Binding Display}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <Button Content="Stop" Click="OnStopPortForwardClick" />
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </Grid>
+      <TextBlock Text="{Binding Status}" Classes="hint" VerticalAlignment="Center" />
     </Border>
 
     <Grid Name="ShellGrid" ColumnDefinitions="248,4,228,4,*">
@@ -404,8 +392,12 @@
                            FontWeight="SemiBold"
                            Classes.warning="{Binding ActivePage.HasLimitOvercommit}" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                  <Button Content="Apply selected" Command="{Binding ActivePage.ApplySelectedLimitCommand}" />
-                  <Button Content="Apply edits" Command="{Binding ActivePage.ApplyChangedLimitsCommand}" />
+                  <Button Content="Apply selected"
+                          Command="{Binding ActivePage.ApplySelectedLimitCommand}"
+                          IsVisible="{Binding ActivePage.HasSelectedLimit}" />
+                  <Button Content="Apply edits"
+                          Command="{Binding ActivePage.ApplyChangedLimitsCommand}"
+                          IsVisible="{Binding ActivePage.HasDirtyLimits}" />
                 </StackPanel>
               </Grid>
               <DataGrid Name="OverviewLimitsGrid"
@@ -611,9 +603,9 @@
               <TabItem Header="YAML">
                 <DockPanel>
                   <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6">
-                    <Button Content="New" Command="{Binding ActivePage.NewResourceCommand}" />
-                    <Button Content="Reload" Command="{Binding ActivePage.ReloadYamlCommand}" />
-                    <Button Content="Apply YAML" Command="{Binding ActivePage.ApplyYamlCommand}" />
+                    <Button Content="New" Command="{Binding ActivePage.NewResourceCommand}" IsVisible="{Binding ActivePage.CanCreateResource}" />
+                    <Button Content="Reload" Command="{Binding ActivePage.ReloadYamlCommand}" IsVisible="{Binding ActivePage.CanReloadYaml}" />
+                    <Button Content="Apply YAML" Command="{Binding ActivePage.ApplyYamlCommand}" IsVisible="{Binding ActivePage.CanApplyYaml}" />
                     <TextBlock Text="Unsaved YAML" Classes="hint" IsVisible="{Binding ActivePage.IsDirty}" VerticalAlignment="Center" />
                   </StackPanel>
                   <TextBox Text="{Binding ActivePage.YamlText}" AcceptsReturn="True" FontFamily="Consolas, monospace" TextWrapping="NoWrap" />
@@ -621,7 +613,7 @@
               </TabItem>
               <TabItem Header="Data" IsVisible="{Binding ActivePage.IsDataEditor}">
                 <DockPanel>
-                  <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6">
+                  <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6" IsVisible="{Binding ActivePage.CanEditData}">
                     <Button Content="Add key" Command="{Binding ActivePage.AddDataEntryCommand}" />
                     <Button Content="Apply data" Command="{Binding ActivePage.ApplyDataCommand}" />
                     <TextBlock Text="Decoded secret values are saved back as stringData." Classes="hint" VerticalAlignment="Center" />
@@ -700,7 +692,7 @@
                                AcceptsReturn="False" />
                     </DockPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Button Content="Ask about selection" Command="{Binding ActivePage.AskAboutSelectionCommand}" />
+                      <Button Content="Ask about selection" Command="{Binding ActivePage.AskAboutSelectionCommand}" IsVisible="{Binding ActivePage.HasSelectedRow}" />
                       <Button Content="Clear" Command="{Binding ActivePage.ClearChatCommand}" />
                     </StackPanel>
                   </StackPanel>
@@ -729,20 +721,44 @@
           </DockPanel>
         </Grid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,8" Spacing="4" IsVisible="{Binding ActivePage.IsResourceTable}">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,8" Spacing="4" IsVisible="{Binding ActivePage.HasFooterActions}">
           <Button Content="Delete" Command="{Binding ActivePage.DeleteCommand}" IsVisible="{Binding ActivePage.CanDelete}" />
+          <Button Content="Stop" Command="{Binding ActivePage.StopSelectedPortForwardCommand}" IsVisible="{Binding ActivePage.CanStopPortForward}" />
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanStopPortForward}">
+            <TextBlock Text="Local" Classes="hint" VerticalAlignment="Center" ToolTip.Tip="Host port on this machine" />
+            <NumericUpDown Value="{Binding ActivePage.RebindLocalPort}"
+                           Minimum="1"
+                           Maximum="65535"
+                           Width="90"
+                           ToolTip.Tip="Listen on this host port" />
+            <Button Content="Rebind" Command="{Binding ActivePage.RebindSelectedPortForwardCommand}" />
+          </StackPanel>
           <Button Content="Force delete" Command="{Binding ActivePage.ForceDeleteCommand}" IsVisible="{Binding ActivePage.CanForceDelete}" />
           <Button Content="Force delete namespace" Command="{Binding ActivePage.DeleteNamespaceCommand}" IsVisible="{Binding ActivePage.CanDeleteNamespace}" />
-          <NumericUpDown Value="{Binding ActivePage.ScaleReplicas}" Minimum="0" Maximum="100" Width="80" IsVisible="{Binding ActivePage.CanScale}" />
-          <Button Content="Scale" Command="{Binding ActivePage.ScaleCommand}" IsVisible="{Binding ActivePage.CanScale}" />
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanScale}">
+            <NumericUpDown Value="{Binding ActivePage.ScaleReplicas}" Minimum="0" Maximum="100" Width="80" />
+            <Button Content="Scale" Command="{Binding ActivePage.ScaleCommand}" />
+          </StackPanel>
           <Button Content="Restart" Command="{Binding ActivePage.RestartCommand}" IsVisible="{Binding ActivePage.CanRestart}" />
           <Button Content="Cordon" Command="{Binding ActivePage.CordonCommand}" IsVisible="{Binding ActivePage.CanCordon}" />
           <Button Content="Uncordon" Command="{Binding ActivePage.UncordonCommand}" IsVisible="{Binding ActivePage.CanCordon}" />
           <Button Content="Drain" Command="{Binding ActivePage.DrainCommand}" IsVisible="{Binding ActivePage.CanDrain}" />
           <Button Content="Trigger" Command="{Binding ActivePage.TriggerCronCommand}" IsVisible="{Binding ActivePage.CanTrigger}" />
-          <NumericUpDown Value="{Binding ActivePage.ForwardLocalPort}" Minimum="1" Maximum="65535" Width="90" IsVisible="{Binding ActivePage.CanPortForward}" />
-          <NumericUpDown Value="{Binding ActivePage.ForwardContainerPort}" Minimum="1" Maximum="65535" Width="90" IsVisible="{Binding ActivePage.CanPortForward}" />
-          <Button Content="Port-forward" Command="{Binding ActivePage.StartPortForwardCommand}" IsVisible="{Binding ActivePage.CanPortForward}" />
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanPortForward}">
+            <TextBlock Text="Local" Classes="hint" VerticalAlignment="Center" ToolTip.Tip="Port on this machine" />
+            <NumericUpDown Value="{Binding ActivePage.ForwardLocalPort}"
+                           Minimum="1"
+                           Maximum="65535"
+                           Width="90"
+                           ToolTip.Tip="Local port on this machine" />
+            <TextBlock Text="Remote" Classes="hint" VerticalAlignment="Center" ToolTip.Tip="Service or container port in the cluster" />
+            <NumericUpDown Value="{Binding ActivePage.ForwardContainerPort}"
+                           Minimum="1"
+                           Maximum="65535"
+                           Width="90"
+                           ToolTip.Tip="Remote port on the Service or Pod" />
+            <Button Content="Port-forward" Command="{Binding ActivePage.StartPortForwardCommand}" />
+          </StackPanel>
         </StackPanel>
       </Grid>
     </Grid>

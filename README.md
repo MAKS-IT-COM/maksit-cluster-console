@@ -3,30 +3,79 @@
 ![Line Coverage](https://img.shields.io/badge/Line%20Coverage-50.9%25-yellowgreen)
 ![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-41.5%25-yellowgreen)
 ![Method Coverage](https://img.shields.io/badge/Method%20Coverage-56.7%25-yellowgreen)
+![.NET](https://img.shields.io/badge/.NET-10-512BD4)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6)
 
-Cross-platform Kubernetes desktop console (Avalonia). Lens-style catalog, navigator, resource tables, YAML apply, logs, exec, port-forward, Helm releases, and Dapr CRDs. Talks to the cluster through the official **KubernetesClient** NuGet package and the same kubeconfig/RBAC as kubectl.
+Desktop console for Kubernetes clusters. Native Avalonia app on Windows and Linux: browse resources, apply YAML, follow logs, exec into pods, and reach workload UIs through localhost.
+
+Cluster access uses the official Kubernetes .NET client and the same kubeconfig and RBAC as any other API client. Contexts are edited in-process; the kubeconfig file on disk is the source of truth.
 
 See [LICENSE.md](LICENSE.md) (Apache 2.0). Changes: [CHANGELOG.md](CHANGELOG.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+If you find this project useful, please consider supporting its development:
+
+[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px; width: 217px;">](https://www.buymeacoffee.com/maksitcom)
+
+## Highlights
+
+Capabilities that are first-class in ClusterConsole, not afterthoughts:
+
+- **Port-forward, then open the UI** — forwards live under **Network → Port Forwarding**. Double-click a live row to open `http://127.0.0.1:{port}` in the default browser. Enabled forwards persist, restore on reconnect, survive pod recreation (owner or stable labels), and can rebind the local port without recreating the tunnel.
+- **Local Ollama chat on the selection** — diagnose the highlighted resource with an on-machine model. The assistant can read cluster issues, YAML, logs, and events. Nothing is sent to a cloud AI API. Chat cannot apply, restart, or delete.
+- **Dapr in the navigator** — Components, Configurations, Subscriptions, Resiliency, HTTPEndpoints, sidecars, and control-plane pods as catalog views, not a generic CRD dump.
+- **Volume files** — browse, edit, download, and upload files on persistent volumes and claims from the desktop.
+- **Limits you can fix** — overview shows container CPU and memory against node capacity and can patch limits that oversubscribe the node.
+- **Connections stay in the app** — wizard to add or update a context (token, client certificate, or basic auth) and switch current-context without a separate kubeconfig editor.
+
+## Features
+
+- **Contexts** — catalog of kubeconfig contexts; mark and switch the current context
+- **Navigator** — Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources
+- **Resource tables** — list and refresh any catalogued type; per-column filters; namespace scope persisted per context
+- **Inspect and apply** — YAML view, apply, create, delete; force-delete (grace period 0 and strip finalizers), including namespaces whose objects are already gone
+- **Workloads** — scale, restart, CronJob trigger; node cordon and drain
+- **Pods** — follow logs, exec
+- **Applications** — one row per instance and namespace from standard application labels
+- **Helm** — releases discovered from cluster secrets
+- **Metrics** — CPU and memory columns when the metrics API is available
 
 ## Requirements
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- A kubeconfig (`KUBECONFIG` or `~/.kube/config`)
+- A kubeconfig (`KUBECONFIG` or `~/.kube/config`) with permission to the target cluster
 - Windows or Linux
+- Optional: a local [Ollama](https://ollama.com) daemon for Chat
 
-## Build
+## Getting started
 
 From `src/` so `global.json` applies:
 
 ```powershell
 cd src
 dotnet build MaksIT.ClusterConsole.slnx
+dotnet run --project MaksIT.ClusterConsole.UI
 ```
 
-Run the UI:
+Connect a context from the catalog, pick a navigator item, then use the table, details pane, and footer actions for the selected row.
 
-```powershell
-dotnet run --project MaksIT.ClusterConsole.UI
+## Configuration
+
+Defaults live in `src/MaksIT.ClusterConsole.Shared/appsettings.json` (copied next to the UI). Notable keys under `Configuration`:
+
+| Key | Role |
+|-----|------|
+| `OllamaEndpoint` | Chat API, default `http://127.0.0.1:11434` |
+| `OllamaModel` | Chat model, default `qwen3:8b` |
+| `PortForwards` | Enabled localhost forwards; restored when the cluster reconnects |
+| `Layout` | Window and pane sizes, last navigator item, column state |
+
+Port-forwards are saved when you start them in the UI. Chat cannot apply, restart, or delete.
+
+Pull the default Chat model once:
+
+```bash
+ollama pull qwen3:8b
 ```
 
 ## Tests
@@ -35,23 +84,13 @@ dotnet run --project MaksIT.ClusterConsole.UI
 utils\Invoke-TestEngine.bat
 ```
 
-Or from `src/`:
+From `src/`:
 
 ```powershell
 dotnet test MaksIT.ClusterConsole.Tests
 ```
 
-## Local Ollama chat
-
-Default model is **`qwen3:8b`** (~5.2GB) — the strongest Qwen chat/reasoning tag that still fits an RTX 3060 12GB with KV cache headroom. Endpoint `http://127.0.0.1:11434` (override `Configuration:OllamaEndpoint` / `OllamaModel` in `appsettings.json`).
-
-```bash
-ollama pull qwen3:8b
-```
-
-Fallback if tool calling is weak: `qwen2.5:7b`. Do not use `qwen3:14b` or `deepseek-r1:14b` as the default on 12GB (stretch only).
-
-Open a resource table, pick a row, open **Chat**, then ask e.g. `What is wrong with this pod?`. The assistant can read issues, YAML, logs, and events. It cannot apply, restart, or delete.
+Tests use kubeconfig fixtures and do not require a live cluster. Coverage shields at the top of this file are maintained by the test engine (**CoverageBadges**).
 
 ## Release
 
@@ -59,22 +98,24 @@ Open a resource table, pick a row, open **Chat**, then ask e.g. `What is wrong w
 2. Tag `v{version}` on `main`.
 3. Run `utils\Invoke-ReleasePackage.bat`.
 
-## What it is
+## Solution layout
 
-- Catalog of kubeconfig contexts (`*` marks kubectl `current-context`)
-- Connections editor and wizard to add/upsert a context (token, cert, k3s data, or basic auth) and switch kubectl `current-context`
-- Navigator: icon categories with collapsible sub-items (Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources)
-- Generic GVR browser (list/watch-by-refresh, YAML, apply, delete) with per-column header filters (type to filter rows and the value list; checkboxes; double-click a value to keep only that one). Namespace scope is the Namespace column filter (persisted per context).
-- Workload scale/restart, node cordon/drain, CronJob trigger
-- Force delete (grace period 0 + strip finalizers); force-delete namespace from the Namespaces view, including orphaned sandboxes whose Namespace object is already gone
-- Pod logs (follow), exec, port-forward dock
-- Helm releases from secrets (`owner=helm`)
-- Applications view: one row per instance/namespace from `app.kubernetes.io/instance` (or `name` if instance is missing)
-- Dapr Components/Configurations/Subscriptions/Resiliency/HTTPEndpoints, sidecars, control-plane pods
-- CPU/MEM columns when `metrics.k8s.io` is available
-- Overview resource-limits table: inspect and patch container CPU/memory limits when they exceed node capacity
-- **Chat** tab (local Ollama): diagnose the selected resource with read-only cluster tools
+```text
+utils/                              # RepoUtils test and release engines
+src/
+  MaksIT.ClusterConsole.slnx
+  MaksIT.ClusterConsole.Client/     # Kubernetes API client
+  MaksIT.ClusterConsole.Shared/     # catalog, workspace, configuration
+  MaksIT.ClusterConsole.UI/         # Avalonia desktop host
+  MaksIT.ClusterConsole.Tests/
+```
 
-## What it is not
+## Scope
 
-kubectl CLI wrapper, Lens extensions, Vault users/scopes, k9s plugins, Dapr state/JetStream admin. Kubeconfig editing is in-process (same file kubectl uses), not a kubectl.exe wrapper.
+ClusterConsole is a desktop operator console for the Kubernetes API. It is not a CLI, a cluster installer, or a replacement for admission, GitOps, or secret-management systems. Helm listing and Dapr views cover objects in the cluster; they do not install charts or administer Dapr building blocks.
+
+## License
+
+Apache 2.0 — see [LICENSE.md](LICENSE.md).
+
+© Maksym Sadovnychyy (MAKS-IT)

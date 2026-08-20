@@ -67,6 +67,8 @@ public interface IClusterSession : IDisposable {
     string @namespace,
     int containerPort,
     int localPort,
+    int requestedPort = 0,
+    Func<CancellationToken, Task<Result<PortForwardEndpoint>>>? resolveTarget = null,
     CancellationToken cancellationToken = default);
 
   Task<Result<IReadOnlyList<JsonObject>>> ListCustomResourceDefinitionsAsync(

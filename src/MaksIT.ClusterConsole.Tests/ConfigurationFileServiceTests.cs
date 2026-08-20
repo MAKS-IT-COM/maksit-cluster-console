@@ -173,6 +173,80 @@ public class ConfigurationFileServiceTests {
   }
 
   [Fact]
+  public void Save_round_trips_port_forwards() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    File.WriteAllText(path, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } },
+        "Configuration": { "SelectedNamespace": "all" }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(path);
+      var cfg = service.Current;
+      cfg.UpsertPortForward(new PersistedPortForward {
+        Context = "homelab",
+        Kind = "Service",
+        Name = "postgres",
+        Namespace = "postgresql",
+        PodName = "postgres-0",
+        LocalPort = 5432,
+        RemotePort = 5432
+      });
+      cfg.UpsertPortForward(new PersistedPortForward {
+        Context = "homelab",
+        Kind = "Service",
+        Name = "postgres",
+        Namespace = "postgresql",
+        PodName = "postgres-1",
+        LocalPort = 5432,
+        RemotePort = 5432
+      });
+      cfg.UpsertPortForward(new PersistedPortForward {
+        Context = "dev",
+        Kind = "Pod",
+        Name = "web",
+        Namespace = "apps",
+        PodName = "web",
+        LocalPort = 8080,
+        RemotePort = 80,
+        MatchLabels = new Dictionary<string, string> { ["app"] = "web" }
+      });
+      service.Save(cfg);
+
+      var reloaded = new ConfigurationFileService(path);
+      var homelab = reloaded.Current.PortForwardsFor("homelab");
+      Assert.Single(homelab);
+      Assert.Equal("postgres-1", homelab[0].PodName);
+      Assert.Equal(5432, homelab[0].LocalPort);
+      Assert.Equal("Service", homelab[0].Kind);
+
+      reloaded.Current.RemovePortForward("homelab", 5432);
+      reloaded.Save(reloaded.Current);
+      Assert.Empty(new ConfigurationFileService(path).Current.PortForwardsFor("homelab"));
+      var dev = new ConfigurationFileService(path).Current.PortForwardsFor("dev");
+      Assert.Single(dev);
+      Assert.Equal("web", dev[0].MatchLabels!["app"]);
+    }
+    finally {
+      File.Delete(path);
+    }
+  }
+
+  [Fact]
+  public void PortForwardRestoreSummary_formats_success_and_failure() {
+    Assert.Equal("Restored 1 port-forward.", new PortForwardRestoreSummary(1, []).Format());
+    Assert.Equal("Restored 3 port-forwards.", new PortForwardRestoreSummary(3, []).Format());
+    Assert.Equal(
+      "Port-forward restore failed: localhost:8080 (pod not found)",
+      new PortForwardRestoreSummary(0, ["localhost:8080 (pod not found)"]).Format());
+    Assert.Equal(
+      "Restored 2 port-forward(s); 1 failed: localhost:80 (address in use)",
+      new PortForwardRestoreSummary(2, ["localhost:80 (address in use)"]).Format());
+  }
+
+  [Fact]
   public void Default_path_is_appsettings_beside_the_executable() {
     var service = new ConfigurationFileService();
     Assert.Equal(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), service.FilePath);

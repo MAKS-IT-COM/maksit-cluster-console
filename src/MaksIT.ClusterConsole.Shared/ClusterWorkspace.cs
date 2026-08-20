@@ -143,7 +143,7 @@ public sealed partial class ClusterWorkspace {
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
     var related = (listed.Value ?? [])
-      .Where(p => Owns(p, owner.Document))
+      .Where(p => ResourceOwnership.Owns(p, owner.Document))
       .Select(p => ResourceRow.From(p, pods))
       .ToList();
     return Result<IReadOnlyList<ResourceRow>>.Ok(related);
@@ -367,34 +367,6 @@ public sealed partial class ClusterWorkspace {
     return ApplicationManifest.WorkloadNames(row.Document).Contains(name, StringComparer.Ordinal);
   }
 
-  private static bool Owns(JsonObject pod, JsonObject owner) {
-    var ownerName = JsonPath.Name(owner);
-    var refs = pod["metadata"]?["ownerReferences"] as JsonArray;
-    if (refs?.OfType<JsonObject>().Any(r => r["name"]?.ToString() == ownerName) == true)
-      return true;
-
-    var matchLabels = owner["spec"]?["selector"]?["matchLabels"] as JsonObject;
-    if (LabelsMatch(pod["metadata"]?["labels"] as JsonObject, matchLabels))
-      return true;
-
-    var labels = pod["metadata"]?["labels"] as JsonObject;
-    return labels?["app"]?.ToString() == ownerName
-      || labels?[ApplicationManifest.NameKey]?.ToString() == ownerName
-      || ApplicationManifest.SameInstance(pod, owner);
-  }
-
-  private static bool LabelsMatch(JsonObject? podLabels, JsonObject? required) {
-    if (podLabels is null || required is null || required.Count == 0)
-      return false;
-
-    foreach (var pair in required) {
-      if (podLabels[pair.Key]?.ToString() != pair.Value?.ToString())
-        return false;
-    }
-
-    return true;
-  }
-
   private static bool Matches(ResourceRow row, string? filter) {
     if (string.IsNullOrWhiteSpace(filter))
       return true;
@@ -412,7 +384,11 @@ public sealed partial class ClusterWorkspace {
         "Applications",
         ResourceCatalog.Applications,
         ResourceCatalog.ApplicationsDescriptor),
-      Special(ResourceCatalog.PortForwardingId, "Port Forwarding", ResourceCatalog.Network),
+      Special(
+        ResourceCatalog.PortForwardingId,
+        "Port Forwarding",
+        ResourceCatalog.Network,
+        ResourceCatalog.PortForwardingDescriptor),
       Special(ResourceCatalog.HelmChartsId, "Charts", ResourceCatalog.Helm),
       Special(ResourceCatalog.HelmReleasesId, "Releases", ResourceCatalog.Helm),
       Special(ResourceCatalog.DaprSidecarsId, "Sidecars", ResourceCatalog.Dapr),
