@@ -32,7 +32,7 @@ Capabilities that are first-class in ClusterConsole, not afterthoughts:
 
 - **Contexts** — catalog of kubeconfig contexts; radio selects kubectl current-context
 - **Navigator** — Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources
-- **Resource tables** — list and refresh any catalogued type; per-column filters; namespace scope persisted per context
+- **Resource tables** — list and refresh any catalogued type; per-column filters and row sort persisted per cluster
 - **Inspect and apply** — YAML view, apply, create, delete; force-delete (grace period 0 and strip finalizers), including namespaces whose objects are already gone
 - **Workloads** — scale, restart, CronJob trigger; node cordon and drain
 - **Pods** — follow logs, exec
@@ -68,7 +68,7 @@ Defaults live in `src/MaksIT.ClusterConsole.Shared/appsettings.json` (copied nex
 | `OllamaEndpoint` | Chat API, default `http://127.0.0.1:11434` |
 | `OllamaModel` | Chat model, default `qwen3:8b` |
 | `PortForwards` | Enabled localhost forwards; restored when the cluster reconnects |
-| `Layout` | Window and pane sizes, last navigator item, column state |
+| `Layout` | Window and pane sizes, last navigator item, per-cluster table layout (`Tables`) |
 
 Port-forwards are saved when you start them in the UI. Chat cannot apply, restart, or delete.
 

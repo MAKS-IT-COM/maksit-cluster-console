@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-20
+
+### Added
+
+- Resource table column filters, row sort, widths, and search are stored per cluster in `appsettings.json` (`Configuration:Layout:Tables`).
+
+### Fixed
+
+- Switching clusters no longer resets table column filters or sort order.
+
 ## [0.3.0] - 2026-08-20
 
 ### Changed

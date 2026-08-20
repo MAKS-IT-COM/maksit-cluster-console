@@ -5,7 +5,8 @@ public static class CollectionSync {
     IList<T> target,
     IReadOnlyList<T> source,
     Func<T, TKey> keySelector,
-    Action<T, T>? copy = null)
+    Action<T, T>? copy = null,
+    bool matchSourceOrder = false)
     where TKey : notnull {
     ArgumentNullException.ThrowIfNull(target);
     ArgumentNullException.ThrowIfNull(source);
@@ -47,6 +48,23 @@ public static class CollectionSync {
       var index = target.IndexOf(current);
       if (index >= 0)
         target[index] = item;
+    }
+
+    if (!matchSourceOrder)
+      return;
+
+    var byKey = new Dictionary<TKey, T>();
+    foreach (var item in target)
+      byKey[keySelector(item)] = item;
+
+    for (var i = 0; i < nextItems.Count; i++) {
+      if (!byKey.TryGetValue(nextItems[i].Key, out var item))
+        continue;
+      var at = target.IndexOf(item);
+      if (at < 0 || at == i)
+        continue;
+      target.RemoveAt(at);
+      target.Insert(i, item);
     }
   }
 }
