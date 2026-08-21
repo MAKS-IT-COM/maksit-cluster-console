@@ -84,8 +84,8 @@ public class KubeConfigServiceTests {
     Assert.True(listed.IsSuccess);
     var item = Assert.Single(listed.Value!);
     Assert.Equal("k3s", item.Name);
-    Assert.Equal("k3s-cluster", item.Cluster);
-    Assert.Equal("k3s-user", item.User);
+    Assert.Equal("k3s", item.Cluster);
+    Assert.Equal("k3s", item.User);
     Assert.Equal("https://127.0.0.1:6443", item.Server);
     Assert.True(item.SkipTlsVerify);
     Assert.Equal("Auth: token present", item.AuthSummary);
@@ -166,6 +166,57 @@ public class KubeConfigServiceTests {
     }, CopyFixture());
 
     Assert.False(added.IsSuccess);
+  }
+
+  [Fact]
+  public void UpsertConnection_reuses_existing_cluster_and_user_names() {
+    var path = CopyFixture();
+    var service = new KubeConfigService();
+    var updated = service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "lab",
+      Server = "https://127.0.0.1:6443",
+      AuthKind = KubeAuthKind.Token,
+      Token = "rotated-token",
+      InsecureSkipTlsVerify = true,
+      UseAfterAdd = false
+    }, path);
+
+    Assert.True(updated.IsSuccess, string.Join("; ", updated.Messages));
+    var details = service.ListContextDetails(path).Value!.Single(d => d.Name == "lab");
+    Assert.Equal("lab", details.Cluster);
+    Assert.Equal("admin", details.User);
+
+    var config = k8s.KubernetesClientConfiguration.LoadKubeConfig(path);
+    Assert.Single(config.Clusters!);
+    Assert.Single(config.Users!);
+  }
+
+  [Fact]
+  public void UseContext_updates_current_context_without_backup() {
+    var path = CopyFixture();
+    var service = new KubeConfigService();
+
+    var switched = service.UseContext("other", path);
+    Assert.True(switched.IsSuccess, string.Join("; ", switched.Messages));
+    Assert.Equal("other", service.GetCurrentContext(path).Value);
+
+    Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".bak.*"));
+  }
+
+  [Fact]
+  public void UpsertConnection_does_not_create_sibling_bak_files() {
+    var path = CopyFixture();
+    var service = new KubeConfigService();
+    var added = service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "edge",
+      Server = "https://10.0.0.2:6443",
+      AuthKind = KubeAuthKind.Token,
+      Token = "edge-token",
+      UseAfterAdd = false
+    }, path);
+
+    Assert.True(added.IsSuccess, string.Join("; ", added.Messages));
+    Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".bak.*"));
   }
 
   private static string CopyFixture() {

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-21
+
+### Fixed
+
+- Switching kubectl current-context only patches `current-context` and never writes sibling `config.bak.*` files (Lens treats those as extra kubeconfigs). Blank cluster/user names reuse existing context entries (or match the context name) instead of creating `{name}-cluster` / `{name}-user` orphans. Structural kubeconfig saves also skip `.bak` siblings for the same reason.
+- ConfigMap and Secret Data editors accept multiline values and multiline paste via a dedicated value box under the key list.
+
 ## [0.4.1] - 2026-08-21
 
 ### Fixed

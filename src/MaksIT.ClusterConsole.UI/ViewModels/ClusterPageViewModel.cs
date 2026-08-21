@@ -69,6 +69,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public ObservableCollection<DataEntryViewModel> DataEntries { get; } = [];
 
+  [ObservableProperty]
+  private DataEntryViewModel? selectedDataEntry;
+
+  public bool HasSelectedDataEntry => SelectedDataEntry is not null;
+
   public ObservableCollection<WorkloadKindCount> WorkloadCounts { get; } = [];
 
   public ObservableCollection<NodeUsageViewModel> NodeUsages { get; } = [];
@@ -538,6 +543,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanApplyLimits));
   }
 
+  partial void OnSelectedDataEntryChanged(DataEntryViewModel? value) =>
+    OnPropertyChanged(nameof(HasSelectedDataEntry));
+
   partial void OnSelectedRelatedPodChanged(ResourceRow? value) {
     if (_updatingPodContext)
       return;
@@ -680,7 +688,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private void AddDataEntry() {
-    DataEntries.Add(new DataEntryViewModel { Key = "new-key", Value = "" });
+    var entry = new DataEntryViewModel { Key = "new-key", Value = "" };
+    entry.PropertyChanged += OnDataEntryPropertyChanged;
+    DataEntries.Add(entry);
+    SelectedDataEntry = entry;
     IsDirty = true;
   }
 
@@ -1375,7 +1386,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       EventsText = "";
       LogsText = "";
       TerminalText = "";
-      DataEntries.Clear();
+      ReplaceDataEntries(null);
       ReplaceRelatedPods([]);
       ApplyContainers(null);
       NotifyDetailsUi();
@@ -1431,17 +1442,37 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   private void ReplaceDataEntries(JsonObject? document) {
+    foreach (var entry in DataEntries)
+      entry.PropertyChanged -= OnDataEntryPropertyChanged;
+
+    var keepKey = SelectedDataEntry?.Key;
     DataEntries.Clear();
-    if (document is null)
+    if (document is null) {
+      SelectedDataEntry = null;
+      OnPropertyChanged(nameof(HasSelectedDataEntry));
       return;
+    }
 
     foreach (var entry in ResourceDocument.ReadDataEntries(document)) {
-      DataEntries.Add(new DataEntryViewModel {
+      var vm = new DataEntryViewModel {
         Key = entry.Key,
         Value = entry.Value,
         IsBinary = entry.IsBinary
-      });
+      };
+      vm.PropertyChanged += OnDataEntryPropertyChanged;
+      DataEntries.Add(vm);
     }
+
+    SelectedDataEntry = DataEntries.FirstOrDefault(e => e.Key == keepKey)
+      ?? DataEntries.FirstOrDefault();
+    OnPropertyChanged(nameof(HasSelectedDataEntry));
+  }
+
+  private void OnDataEntryPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+    if (e.PropertyName is nameof(DataEntryViewModel.Key)
+        or nameof(DataEntryViewModel.Value)
+        or nameof(DataEntryViewModel.IsBinary))
+      IsDirty = true;
   }
 
   private async Task LoadLogsAsync() {

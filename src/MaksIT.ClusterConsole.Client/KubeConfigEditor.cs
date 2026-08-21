@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using k8s;
 using k8s.KubeConfigModels;
 using YamlDotNet.Serialization;
@@ -8,6 +9,10 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace MaksIT.ClusterConsole.Client;
 
 internal static class KubeConfigEditor {
+  private static readonly Regex CurrentContextLine = new(
+    @"^[ \t]*current-context:[ \t]*.*$",
+    RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
   public static K8SConfiguration LoadOrCreate(string path) {
     if (!File.Exists(path)) {
       return new K8SConfiguration {
@@ -27,13 +32,6 @@ internal static class KubeConfigEditor {
     if (!string.IsNullOrWhiteSpace(directory))
       Directory.CreateDirectory(directory);
 
-    if (File.Exists(path)) {
-      var backup = path + ".bak." + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-      if (File.Exists(backup))
-        backup += "-" + Guid.NewGuid().ToString("N")[..6];
-      File.Copy(path, backup, overwrite: false);
-    }
-
     if (string.IsNullOrWhiteSpace(config.ApiVersion))
       config.ApiVersion = "v1";
     if (string.IsNullOrWhiteSpace(config.Kind))
@@ -47,21 +45,72 @@ internal static class KubeConfigEditor {
         | DefaultValuesHandling.OmitDefaults
         | DefaultValuesHandling.OmitEmptyCollections)
       .Build();
-    File.WriteAllText(path, serializer.Serialize(config));
+
+    // Write in place — never create config.bak.* beside kubeconfig. Tools like Lens
+    // treat those sibling files as extra kubeconfigs / duplicate connections.
+    var temp = path + ".tmp." + Guid.NewGuid().ToString("N")[..8];
+    File.WriteAllText(temp, serializer.Serialize(config));
+    File.Move(temp, path, overwrite: true);
   }
 
-  public static string EffectiveClusterName(KubeConnectionRequest request) =>
-    string.IsNullOrWhiteSpace(request.ClusterName)
-      ? request.ContextName + "-cluster"
-      : request.ClusterName.Trim();
+  /// <summary>
+  /// Updates only the <c>current-context</c> line without rewriting clusters/users or creating a backup.
+  /// </summary>
+  public static bool TrySetCurrentContext(string path, string contextName) {
+    if (!File.Exists(path) || string.IsNullOrWhiteSpace(contextName))
+      return false;
 
-  public static string EffectiveUserName(KubeConnectionRequest request) =>
-    string.IsNullOrWhiteSpace(request.UserName)
-      ? request.ContextName + "-user"
-      : request.UserName.Trim();
+    var text = File.ReadAllText(path);
+    var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+    var line = "current-context: " + contextName.Trim();
+    string updated;
+    var match = CurrentContextLine.Match(text);
+    if (match.Success) {
+      var replacement = match.Value.EndsWith('\r') ? line + "\r" : line;
+      updated = CurrentContextLine.Replace(text, replacement, 1);
+    }
+    else {
+      var insertAt = text.IndexOf("contexts:", StringComparison.Ordinal);
+      if (insertAt < 0)
+        insertAt = text.IndexOf("clusters:", StringComparison.Ordinal);
+      if (insertAt < 0)
+        return false;
+      updated = text.Insert(insertAt, line + newline);
+    }
+
+    if (string.Equals(updated, text, StringComparison.Ordinal))
+      return true;
+
+    var temp = path + ".tmp." + Guid.NewGuid().ToString("N")[..8];
+    File.WriteAllText(temp, updated);
+    File.Move(temp, path, overwrite: true);
+    return true;
+  }
+
+  public static string EffectiveClusterName(KubeConnectionRequest request, K8SConfiguration? config = null) {
+    if (!string.IsNullOrWhiteSpace(request.ClusterName))
+      return request.ClusterName.Trim();
+
+    var existing = config?.Contexts?.FirstOrDefault(c => c.Name == request.ContextName);
+    if (existing?.ContextDetails?.Cluster is { Length: > 0 } cluster)
+      return cluster;
+
+    return request.ContextName.Trim();
+  }
+
+  public static string EffectiveUserName(KubeConnectionRequest request, K8SConfiguration? config = null) {
+    if (!string.IsNullOrWhiteSpace(request.UserName))
+      return request.UserName.Trim();
+
+    var existing = config?.Contexts?.FirstOrDefault(c => c.Name == request.ContextName);
+    if (existing?.ContextDetails?.User is { Length: > 0 } user)
+      return user;
+
+    return request.ContextName.Trim();
+  }
 
   public static Cluster UpsertCluster(K8SConfiguration config, KubeConnectionRequest request) {
-    var name = EffectiveClusterName(request);
+    var name = EffectiveClusterName(request, config);
     var clusters = config.Clusters?.ToList() ?? [];
     var cluster = clusters.FirstOrDefault(c => c.Name == name);
     if (cluster is null) {
@@ -78,7 +127,7 @@ internal static class KubeConfigEditor {
   }
 
   public static User UpsertUser(K8SConfiguration config, KubeConnectionRequest request) {
-    var name = EffectiveUserName(request);
+    var name = EffectiveUserName(request, config);
     var users = config.Users?.ToList() ?? [];
     var user = users.FirstOrDefault(u => u.Name == name);
     if (user is null) {
@@ -90,6 +139,23 @@ internal static class KubeConfigEditor {
     ApplyCredentials(user.UserCredentials, request);
     config.Users = users;
     return user;
+  }
+
+  public static void PruneUnreferenced(K8SConfiguration config) {
+    var contexts = config.Contexts ?? [];
+    var usedClusters = contexts
+      .Select(c => c.ContextDetails?.Cluster)
+      .Where(n => !string.IsNullOrEmpty(n))
+      .ToHashSet(StringComparer.Ordinal);
+    var usedUsers = contexts
+      .Select(c => c.ContextDetails?.User)
+      .Where(n => !string.IsNullOrEmpty(n))
+      .ToHashSet(StringComparer.Ordinal);
+
+    if (config.Clusters is not null)
+      config.Clusters = config.Clusters.Where(c => usedClusters.Contains(c.Name)).ToList();
+    if (config.Users is not null)
+      config.Users = config.Users.Where(u => usedUsers.Contains(u.Name)).ToList();
   }
 
   public static Context UpsertContext(

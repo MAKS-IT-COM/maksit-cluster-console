@@ -79,8 +79,14 @@ public sealed class KubeConfigService : IKubeConfigService {
       if (config.Contexts is null || config.Contexts.All(c => c.Name != contextName))
         return Result.NotFound("Context not found: " + contextName);
 
-      config.CurrentContext = contextName;
-      KubeConfigEditor.Save(path, config);
+      if (string.Equals(config.CurrentContext, contextName, StringComparison.Ordinal))
+        return Result.Ok("Already using context: " + contextName);
+
+      // Only patch current-context — never rewrite or create sibling .bak files
+      // (Lens and similar tools treat config.bak.* as extra kubeconfigs).
+      if (!KubeConfigEditor.TrySetCurrentContext(path, contextName))
+        return Result.InternalServerError("Could not update current-context in kubeconfig.");
+
       return Result.Ok("Switched to context: " + contextName);
     }
     catch (Exception ex) {
@@ -99,6 +105,7 @@ public sealed class KubeConfigService : IKubeConfigService {
       var cluster = KubeConfigEditor.UpsertCluster(config, request);
       var user = KubeConfigEditor.UpsertUser(config, request);
       KubeConfigEditor.UpsertContext(config, request, cluster.Name, user.Name);
+      KubeConfigEditor.PruneUnreferenced(config);
       KubeConfigEditor.Save(path, config);
       return Result.Ok(
         "Added/updated context: " + request.ContextName
