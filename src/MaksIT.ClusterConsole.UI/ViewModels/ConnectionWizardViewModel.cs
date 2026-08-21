@@ -109,10 +109,10 @@ public partial class ConnectionWizardViewModel : ObservableObject {
   public bool IsBasicAuth => SelectedAuthKind?.Id == "basic";
 
   public string ClusterWatermark =>
-    string.IsNullOrWhiteSpace(ContextName) ? "blank → {context}-cluster" : ContextName.Trim() + "-cluster";
+    string.IsNullOrWhiteSpace(ContextName) ? "blank → same as context" : ContextName.Trim();
 
   public string UserWatermark =>
-    string.IsNullOrWhiteSpace(ContextName) ? "blank → {context}-user" : ContextName.Trim() + "-user";
+    string.IsNullOrWhiteSpace(ContextName) ? "blank → same as context" : ContextName.Trim();
 
   partial void OnStepChanged(int value) {
     OnPropertyChanged(nameof(IsIdentityStep));

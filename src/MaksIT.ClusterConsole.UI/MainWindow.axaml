@@ -622,15 +622,28 @@
                     <Button Content="Apply data" Command="{Binding ActivePage.ApplyDataCommand}" />
                     <TextBlock Text="Decoded secret values are saved back as stringData." Classes="hint" VerticalAlignment="Center" />
                   </StackPanel>
+                  <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" MinHeight="160">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Value (multiline paste supported)"
+                               Classes="hint"
+                               Margin="0,0,0,4" />
+                    <TextBox Text="{Binding ActivePage.SelectedDataEntry.Value}"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             FontFamily="Consolas, monospace"
+                             IsEnabled="{Binding ActivePage.HasSelectedDataEntry}"
+                             PlaceholderText="Select a key, then edit or paste its value here" />
+                  </DockPanel>
                   <DataGrid Name="DataEntriesGrid"
                             ItemsSource="{Binding ActivePage.DataEntries}"
+                            SelectedItem="{Binding ActivePage.SelectedDataEntry}"
                             AutoGenerateColumns="False"
                             CanUserResizeColumns="True"
                             IsReadOnly="False"
                             x:CompileBindings="False">
                     <DataGrid.Columns>
                       <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="140" />
-                      <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+                      <DataGridTextColumn Header="Value" Binding="{Binding ValuePreview}" IsReadOnly="True" Width="*" />
                       <DataGridCheckBoxColumn Header="Binary" Binding="{Binding IsBinary}" Width="80" />
                     </DataGrid.Columns>
                   </DataGrid>

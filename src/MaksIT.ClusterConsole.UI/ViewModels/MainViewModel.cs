@@ -163,10 +163,24 @@ public partial class DataEntryViewModel : ObservableObject {
   private string key = string.Empty;
 
   [ObservableProperty]
+  [NotifyPropertyChangedFor(nameof(ValuePreview))]
   private string value = string.Empty;
 
   [ObservableProperty]
   private bool isBinary;
+
+  public string ValuePreview {
+    get {
+      if (string.IsNullOrEmpty(Value))
+        return "";
+
+      var end = Value.IndexOfAny(['\r', '\n']);
+      if (end < 0)
+        return Value;
+
+      return Value[..end] + "…";
+    }
+  }
 }
 
 public partial class CatalogItemViewModel : ObservableObject {
