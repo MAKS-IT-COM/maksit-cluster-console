@@ -26,7 +26,7 @@ Coverage shields in `README.md` are rewritten by **CoverageBadges**.
 ### Release
 
 1. Update [CHANGELOG.md](CHANGELOG.md) and bump `<Version>` in [src/Directory.Build.props](src/Directory.Build.props).
-2. Commit on `main`, tag `v{version}`.
+2. Commit on `main`, tag `v{version}` on HEAD (`v1.2.3` or SemVer prerelease such as `v0.1.0-alpha.1`, `v0.1.0-beta.1`, `v0.1.0-rc.1`). GitHub marks hyphenated versions as prerelease.
 3. Run `utils\Invoke-ReleasePackage.bat`.
 
 ## Commit format

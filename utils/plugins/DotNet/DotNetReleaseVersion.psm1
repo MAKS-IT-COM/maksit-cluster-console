@@ -8,10 +8,10 @@
 .DESCRIPTION
     Dedicated version-loading plugin. Reads <Version> from the first configured
     projectFiles .csproj, or from the nearest Directory.Build.props when the
-    csproj omits it. Writes version plus the resolved projectFiles (csproj paths
-    for later pack/publish) to the shared runtime context. Declares
-    providesVersion = $true so the engine can discover it as the single release
-    version source.
+    csproj omits it. Accepts SemVer prerelease (0.1.0-alpha.1 / beta / rc). Writes
+    version plus the resolved projectFiles (csproj paths for later pack/publish)
+    to the shared runtime context. Declares providesVersion = $true so the engine
+    can discover it as the single release version source.
 #>
 
 if (-not (Get-Command Import-PluginDependency -ErrorAction SilentlyContinue)) {
@@ -135,6 +135,10 @@ function Invoke-Plugin {
 
     Write-Log -Level "INFO" -Message "Reading version from SDK-style project file (projectFiles)..."
     $version = Get-CsprojVersionInternal -ProjectPath $projectFiles[0]
+    Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Test-ReleaseSemver"
+    if (-not (Test-ReleaseSemver -Version $version)) {
+        throw "DotNetReleaseVersion: version '$version' is not a valid semver (X.Y.Z or X.Y.Z-prerelease)."
+    }
 
     Set-EngineState -Context $shared -Name 'version' -Value $version
     Set-EngineFact -Context $shared -Namespace 'dotnet' -Name 'projectFiles' -Value $projectFiles -Overwrite Replace -LegacyProperty 'projectFiles'

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -18,6 +19,7 @@ namespace MaksIT.ClusterConsole.UI;
 
 public partial class MainWindow : Window {
   private LayoutPersistence? _layout;
+  private ClusterPageViewModel? _logsPage;
 
   public MainWindow() {
     InitializeComponent();
@@ -37,7 +39,11 @@ public partial class MainWindow : Window {
     viewModel.PropertyChanged += (_, e) => {
       if (e.PropertyName is nameof(MainViewModel.SelectedNavItem) or nameof(MainViewModel.ActivePage))
         RebuildColumns(viewModel);
+
+      if (e.PropertyName == nameof(MainViewModel.ActivePage))
+        HookLogsPage(viewModel.ActivePage);
     };
+    HookLogsPage(viewModel.ActivePage);
     viewModel.ConnectionsRequested += async (_, _) => await OpenConnectionsAsync(viewModel);
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
   }
@@ -45,6 +51,28 @@ public partial class MainWindow : Window {
   private void OpenVolumeFiles(VolumeFilesViewModel files) {
     var window = new VolumeFilesWindow(files);
     window.Show(this);
+  }
+
+  private void HookLogsPage(ClusterPageViewModel? page) {
+    if (_logsPage is not null)
+      _logsPage.PropertyChanged -= OnLogsPagePropertyChanged;
+
+    _logsPage = page;
+    if (page is not null)
+      page.PropertyChanged += OnLogsPagePropertyChanged;
+  }
+
+  private void OnLogsPagePropertyChanged(object? sender, PropertyChangedEventArgs e) {
+    if (e.PropertyName != nameof(ClusterPageViewModel.LogsText))
+      return;
+    if (sender is not ClusterPageViewModel { FollowLogs: true })
+      return;
+
+    var box = this.FindControl<TextBox>("LogsTextBox");
+    if (box is null)
+      return;
+
+    box.CaretIndex = box.Text?.Length ?? 0;
   }
 
   private async Task OpenConnectionsAsync(MainViewModel viewModel) {

@@ -35,8 +35,9 @@ function Get-PackageJsonVersionInternal {
         throw "NpmReleaseVersion: 'version' is missing in '$PackageJsonPath'."
     }
 
-    if ($version -notmatch '^\d+\.\d+\.\d+') {
-        throw "NpmReleaseVersion: version '$version' in '$PackageJsonPath' is not a valid semver."
+    Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Test-ReleaseSemver"
+    if (-not (Test-ReleaseSemver -Version $version)) {
+        throw "NpmReleaseVersion: version '$version' in '$PackageJsonPath' is not a valid semver (X.Y.Z or X.Y.Z-prerelease)."
     }
 
     return $version
@@ -69,6 +70,7 @@ function Invoke-Plugin {
 
     Import-PluginDependency -ModuleName "Logging" -RequiredCommand "Write-Log"
     Import-PluginDependency -ModuleName "EngineContext" -RequiredCommand "Set-EngineState"
+    Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Test-ReleaseSemver"
 
     $pluginSettings = $Settings
     $shared = $Settings.context
