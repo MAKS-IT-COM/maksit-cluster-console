@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaksIT.Results;
@@ -17,7 +18,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private readonly ClusterChatService _chat;
   private readonly Action<string> _setStatus;
   private CancellationTokenSource? _logsCts;
-  private CancellationTokenSource? _refreshCts;
+  private DispatcherTimer? _refreshTimer;
+  private bool _refreshBusy;
+  private int _logsGeneration;
   private bool _hasDaprCrd;
   private bool _syncingNamespace;
   private bool _syncingLayout;
@@ -388,13 +391,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   public void PausePolling() =>
-    _refreshCts?.Cancel();
+    _refreshTimer?.Stop();
 
-  public void ResumePolling() =>
-    StartRefreshLoop();
+  public void ResumePolling() {
+    _refreshTimer ??= CreateRefreshTimer();
+    _refreshTimer.Start();
+  }
 
   public void Dispose() {
     PausePolling();
+    if (_refreshTimer is not null) {
+      _refreshTimer.Tick -= OnRefreshTimerTick;
+      _refreshTimer = null;
+    }
+
     _logsCts?.Cancel();
     _chatCts?.Cancel();
     foreach (var row in LimitRows)
@@ -454,6 +464,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     if (SelectedRow is null || !Rows.Contains(SelectedRow))
       SelectedRow = keepUid is null ? null : Rows.FirstOrDefault(row => row.Uid == keepUid);
+    else if (!IsDirty) {
+      if (IsPodSelection)
+        ApplyContainers(SelectedRow.Document);
+
+      OverviewText = SelectedRow.FormatOverview(Containers);
+    }
 
     var title = SelectedNavItem?.Title ?? "items";
     var filtered = _columnFilters.Values.Any(filter => filter.IsActive) && Rows.Count != _listedRows.Count;
@@ -555,58 +571,64 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private async Task RefreshRowsAsync() {
-    if (SelectedNavItem is null)
+    if (_refreshBusy || SelectedNavItem is null)
       return;
 
-    await SampleClusterUsageAsync();
+    _refreshBusy = true;
+    try {
+      await SampleClusterUsageAsync();
 
-    if (SelectedNavItem.Id == ResourceCatalog.OverviewId) {
+      if (SelectedNavItem.Id == ResourceCatalog.OverviewId) {
+        _listedRows.Clear();
+        Rows.Clear();
+        await LoadOverviewIssuesAsync();
+        _setStatus($"Overview · {Name}");
+        return;
+      }
+
+      if (SelectedNavItem.Id == ResourceCatalog.WorkloadsOverviewId) {
+        await LoadWorkloadsOverviewAsync();
+        return;
+      }
+
+      if (SelectedNavItem.Id == ResourceCatalog.HelmChartsId) {
+        _listedRows.Clear();
+        Rows.Clear();
+        OverviewText = "Add chart repositories with the helm CLI. Releases are listed under Helm → Releases.";
+        _setStatus("Helm charts are managed via helm repos on this machine.");
+        return;
+      }
+
+      if (SelectedNavItem.Id == ResourceCatalog.PortForwardingId) {
+        ShowPortForwardRows();
+        return;
+      }
+
+      var listed = await _workspace.ListAsync(SelectedNavItem.Id, Configuration.AllNamespaces, Filter);
+      var keepUid = SelectedRow?.Uid;
       _listedRows.Clear();
-      Rows.Clear();
-      await LoadOverviewIssuesAsync();
-      _setStatus($"Overview · {Name}");
-      return;
+      if (!listed.IsSuccess) {
+        Rows.Clear();
+        _setStatus(string.Join("; ", listed.Messages));
+        return;
+      }
+
+      _listedRows.AddRange(listed.Value ?? []);
+      foreach (var column in SelectedDescriptor?.Columns ?? [])
+        FilterFor(column.Header).LoadValues(_listedRows);
+      SeedNamespaceColumnFromSelection();
+
+      ApplyColumnFilters(keepUid);
+      NotifyActionFlags();
+      NotifyDetailsUi();
+      OnPropertyChanged(nameof(IsDataEditor));
+      OnPropertyChanged(nameof(IsClusterDashboard));
+      OnPropertyChanged(nameof(IsWorkloadsDashboard));
+      OnPropertyChanged(nameof(IsResourceTable));
     }
-
-    if (SelectedNavItem.Id == ResourceCatalog.WorkloadsOverviewId) {
-      await LoadWorkloadsOverviewAsync();
-      return;
+    finally {
+      _refreshBusy = false;
     }
-
-    if (SelectedNavItem.Id == ResourceCatalog.HelmChartsId) {
-      _listedRows.Clear();
-      Rows.Clear();
-      OverviewText = "Add chart repositories with the helm CLI. Releases are listed under Helm → Releases.";
-      _setStatus("Helm charts are managed via helm repos on this machine.");
-      return;
-    }
-
-    if (SelectedNavItem.Id == ResourceCatalog.PortForwardingId) {
-      ShowPortForwardRows();
-      return;
-    }
-
-    var listed = await _workspace.ListAsync(SelectedNavItem.Id, Configuration.AllNamespaces, Filter);
-    var keepUid = SelectedRow?.Uid;
-    _listedRows.Clear();
-    if (!listed.IsSuccess) {
-      Rows.Clear();
-      _setStatus(string.Join("; ", listed.Messages));
-      return;
-    }
-
-    _listedRows.AddRange(listed.Value ?? []);
-    foreach (var column in SelectedDescriptor?.Columns ?? [])
-      FilterFor(column.Header).LoadValues(_listedRows);
-    SeedNamespaceColumnFromSelection();
-
-    ApplyColumnFilters(keepUid);
-    NotifyActionFlags();
-    NotifyDetailsUi();
-    OnPropertyChanged(nameof(IsDataEditor));
-    OnPropertyChanged(nameof(IsClusterDashboard));
-    OnPropertyChanged(nameof(IsWorkloadsDashboard));
-    OnPropertyChanged(nameof(IsResourceTable));
   }
 
   [RelayCommand]
@@ -1425,6 +1447,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private async Task LoadLogsAsync() {
     _logsCts?.Cancel();
     _logsCts = null;
+    var generation = ++_logsGeneration;
     if (!ShowLogsTab) {
       LogsText = "";
       return;
@@ -1446,30 +1469,56 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (FollowLogs) {
       _logsCts = new CancellationTokenSource();
       LogsText = "";
-      _ = FollowLogsLoopAsync(pod, ns, container, _logsCts.Token);
+      _ = FollowLogsLoopAsync(pod, ns, container, generation, _logsCts.Token);
       return;
     }
 
     var logs = await _workspace.Session.GetLogsAsync(pod, ns, container, false, 200);
+    if (generation != _logsGeneration)
+      return;
+
     LogsText = logs.IsSuccess ? logs.Value ?? "" : string.Join("; ", logs.Messages);
   }
 
-  private async Task FollowLogsLoopAsync(string pod, string ns, string? container, CancellationToken cancellationToken) {
+  private async Task FollowLogsLoopAsync(
+    string pod,
+    string ns,
+    string? container,
+    int generation,
+    CancellationToken cancellationToken) {
     if (_workspace.Session is null)
       return;
 
     try {
       await foreach (var line in _workspace.Session.FollowLogsAsync(pod, ns, container, cancellationToken)) {
-        LogsText += line + Environment.NewLine;
-        if (LogsText.Length > 200_000)
-          LogsText = LogsText[^100_000..];
+        var text = line;
+        Dispatcher.UIThread.Post(() => {
+          if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
+            return;
+
+          AppendLogLine(text);
+        });
       }
     }
-    catch (OperationCanceledException) {
+    catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or IOException) {
     }
     catch (Exception ex) {
-      LogsText = string.IsNullOrEmpty(LogsText) ? ex.Message : LogsText + Environment.NewLine + ex.Message;
+      if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
+        return;
+
+      Dispatcher.UIThread.Post(() => {
+        if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
+          return;
+
+        LogsText = string.IsNullOrEmpty(LogsText) ? ex.Message : LogsText + Environment.NewLine + ex.Message;
+      });
     }
+  }
+
+  private void AppendLogLine(string line) {
+    LogsText += line + Environment.NewLine;
+    if (LogsText.Length > 200_000)
+      LogsText = LogsText[^100_000..];
   }
 
   private void ReplaceRelatedPods(IReadOnlyList<ResourceRow> pods) {
@@ -1899,20 +1948,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     BrowseFilesCommand.NotifyCanExecuteChanged();
   }
 
-  private void StartRefreshLoop() {
-    _refreshCts?.Cancel();
-    _refreshCts = new CancellationTokenSource();
-    var token = _refreshCts.Token;
-    _ = Task.Run(async () => {
-      while (!token.IsCancellationRequested) {
-        try {
-          await Task.Delay(TimeSpan.FromSeconds(5), token);
-          await RefreshRowsAsync();
-        }
-        catch (OperationCanceledException) {
-          break;
-        }
-      }
-    }, token);
+  private DispatcherTimer CreateRefreshTimer() {
+    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+    timer.Tick += OnRefreshTimerTick;
+    return timer;
+  }
+
+  private void OnRefreshTimerTick(object? sender, EventArgs e) =>
+    _ = RefreshFromTimerAsync();
+
+  private async Task RefreshFromTimerAsync() {
+    try {
+      await RefreshRowsAsync();
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException) {
+      _setStatus(ex.Message);
+    }
   }
 }

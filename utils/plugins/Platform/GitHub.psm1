@@ -10,7 +10,8 @@
     repository, and creates the configured GitHub release using the
     shared release artifacts and release notes from CHANGELOG.md.
     Release notes must use Keep a Changelog headers: ## [semver] - YYYY-MM-DD
-    (see ChangelogSupport.psm1).
+    (including optional SemVer prerelease, e.g. ## [0.1.0-alpha.1] / [0.1.0-beta.1] / [0.1.0-rc.1];
+    see ChangelogSupport.psm1). Hyphenated versions are created with gh --prerelease.
 #>
 
 if (-not (Get-Command Import-PluginDependency -ErrorAction SilentlyContinue)) {
@@ -95,6 +96,7 @@ function Invoke-Plugin {
     Import-PluginDependency -ModuleName "Logging" -RequiredCommand "Write-Log"
     Import-PluginDependency -ModuleName "ScriptConfig" -RequiredCommand "Assert-Command"
     Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Get-LatestChangelogVersion"
+    Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Test-ReleaseSemverPrerelease"
     Import-PluginDependency -ModuleName "EngineContext" -RequiredCommand "Get-EngineFact"
 
     $pluginSettings = $Settings
@@ -128,6 +130,9 @@ function Invoke-Plugin {
         }
         $releaseName = $releaseTitlePattern -replace '\{version\}', $version
         Write-Log -Level "INFO" -Message "Dry run: would create GitHub release '$releaseName' ($tag) on $repo"
+        if (Test-ReleaseSemverPrerelease -Version ([string]$version)) {
+            Write-Log -Level "INFO" -Message "Dry run: release would be marked prerelease."
+        }
         return
     }
 
@@ -261,6 +266,10 @@ function Invoke-Plugin {
                 "--title", $releaseName,
                 "--notes-file", $notesFilePath
             )
+            if (Test-ReleaseSemverPrerelease -Version ([string]$version)) {
+                $createReleaseArgs += '--prerelease'
+            }
+
             & gh @createReleaseArgs
 
             if ($LASTEXITCODE -ne 0) {

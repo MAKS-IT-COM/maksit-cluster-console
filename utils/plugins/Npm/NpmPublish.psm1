@@ -28,6 +28,7 @@ function Invoke-Plugin {
     Import-PluginDependency -ModuleName "Logging" -RequiredCommand "Write-Log"
     Import-PluginDependency -ModuleName "ScriptConfig" -RequiredCommand "Assert-Command"
     Import-PluginDependency -ModuleName "EngineContext" -RequiredCommand "Resolve-RelativePaths"
+    Import-PluginDependency -ModuleName "ChangelogSupport" -RequiredCommand "Get-ReleaseSemverPrereleaseLabel"
 
     $pluginSettings = $Settings
     $shared = $Settings.context
@@ -62,6 +63,14 @@ function Invoke-Plugin {
         [string]$pluginSettings.access
     }
 
+    $npmDistTag = $null
+    if (-not [string]::IsNullOrWhiteSpace([string]$pluginSettings.npmDistTag)) {
+        $npmDistTag = [string]$pluginSettings.npmDistTag
+    }
+    else {
+        $npmDistTag = Get-ReleaseSemverPrereleaseLabel -Version ([string]$shared.version)
+    }
+
     $publishOrder = @()
     if ($pluginSettings.publishOrder) {
         if ($pluginSettings.publishOrder -is [System.Collections.IEnumerable] -and -not ($pluginSettings.publishOrder -is [string])) {
@@ -84,7 +93,8 @@ function Invoke-Plugin {
 
     if ($dryRun) {
         foreach ($packageName in $publishOrder) {
-            Write-Log -Level "INFO" -Message "Dry run: would publish npm package '$packageName' to $registry"
+            $tagNote = if ([string]::IsNullOrWhiteSpace($npmDistTag)) { 'latest' } else { $npmDistTag }
+            Write-Log -Level "INFO" -Message "Dry run: would publish npm package '$packageName' to $registry (dist-tag $tagNote)"
         }
         return
     }
@@ -112,13 +122,20 @@ registry=$registry
 
         foreach ($packageName in $publishOrder) {
             Write-Log -Level "STEP" -Message "Publishing npm package '$packageName'..."
+            $publishArgs = @('publish')
             if ($useWorkspaces) {
-                npm publish -w $packageName --access $access --userconfig $tempNpmRcPath
+                $publishArgs += @('-w', $packageName)
             }
             else {
                 Assert-NpmRootPackageName -WorkspaceRoot $workspaceRoot -ExpectedPackageName $packageName
-                npm publish --access $access --userconfig $tempNpmRcPath
             }
+            $publishArgs += @('--access', $access, '--userconfig', $tempNpmRcPath)
+            if (-not [string]::IsNullOrWhiteSpace($npmDistTag)) {
+                $publishArgs += @('--tag', $npmDistTag)
+                Write-Log -Level "INFO" -Message "  Using npm dist-tag '$npmDistTag' (prerelease)."
+            }
+
+            npm @publishArgs
 
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to publish npm package '$packageName'."

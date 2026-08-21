@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-21
+
+### Fixed
+
+- Staying on Pods (or any resource table) now picks up cluster changes on the automatic refresh. The grid previously only updated after leaving and returning to the view.
+- Logs **Follow** tails new pod lines instead of hanging on the snapshot request, and turning Follow off no longer races the live stream into the log text.
+
 ## [0.4.0] - 2026-08-20
 
 ### Added

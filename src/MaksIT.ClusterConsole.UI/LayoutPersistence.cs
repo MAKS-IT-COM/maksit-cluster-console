@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MaksIT.ClusterConsole.Shared;
 
 
@@ -14,6 +15,7 @@ internal sealed class LayoutPersistence {
   private readonly Func<string?> _resourceTableId;
   private readonly DispatcherTimer _saveTimer;
   private readonly Dictionary<DataGrid, Func<string>> _tables = [];
+  private readonly Dictionary<DataGrid, PendingColumnSort> _pendingSorts = [];
   private int _applyDepth;
   private int _restoreSortPending;
   private bool _attached;
@@ -125,7 +127,10 @@ internal sealed class LayoutPersistence {
     if (grid is null)
       return;
     _tables[grid] = key;
-    grid.LayoutUpdated += (_, _) => ScheduleSave();
+    grid.LayoutUpdated += (_, _) => {
+      TryApplyPendingSort(grid);
+      ScheduleSave();
+    };
     grid.Sorting += (_, e) => PersistSort(grid, e.Column);
   }
 
@@ -215,30 +220,47 @@ internal sealed class LayoutPersistence {
 
   private void ApplyColumnSort(DataGrid grid, string tableKey) {
     var saved = _configuration.Current.Layout.SortFor(_contextName(), tableKey);
-    if (saved is null)
+    if (saved is null) {
+      _pendingSorts.Remove(grid);
       return;
+    }
     if (!Enum.TryParse<ListSortDirection>(saved.Direction, true, out var direction))
       direction = ListSortDirection.Ascending;
 
-    DataGridColumn? column = null;
-    foreach (var candidate in grid.Columns) {
-      if (!string.Equals(ColumnKey(candidate), saved.Header, StringComparison.Ordinal))
-        continue;
-      column = candidate;
-      break;
-    }
+    _pendingSorts[grid] = new PendingColumnSort(saved.Header, direction);
+    Dispatcher.UIThread.Post(() => TryApplyPendingSort(grid), DispatcherPriority.Loaded);
+  }
 
-    if (column is null)
+  private void TryApplyPendingSort(DataGrid grid) {
+    if (!_pendingSorts.TryGetValue(grid, out var pending))
       return;
 
+    var column = FindColumn(grid, pending.Header);
+    if (column is null) {
+      _pendingSorts.Remove(grid);
+      return;
+    }
+
+    // Sort() NREs when the column is detached or the header has not been generated yet.
+    if (!grid.IsAttachedToVisualTree() || !grid.IsEffectivelyVisible || column.ActualWidth <= 0)
+      return;
+
+    _pendingSorts.Remove(grid);
     _restoreSortPending++;
+    column.Sort(pending.Direction);
     Dispatcher.UIThread.Post(() => {
-      column.Sort(direction);
-      Dispatcher.UIThread.Post(() => {
-        if (_restoreSortPending > 0)
-          _restoreSortPending--;
-      }, DispatcherPriority.Background);
-    }, DispatcherPriority.Loaded);
+      if (_restoreSortPending > 0)
+        _restoreSortPending--;
+    }, DispatcherPriority.Background);
+  }
+
+  private static DataGridColumn? FindColumn(DataGrid grid, string header) {
+    foreach (var candidate in grid.Columns) {
+      if (string.Equals(ColumnKey(candidate), header, StringComparison.Ordinal))
+        return candidate;
+    }
+
+    return null;
   }
 
   private void PersistSort(DataGrid grid, DataGridColumn column) {
@@ -301,6 +323,8 @@ internal sealed class LayoutPersistence {
     if (_applyDepth > 0)
       _applyDepth--;
   }
+
+  private sealed record PendingColumnSort(string Header, ListSortDirection Direction);
 
   private sealed class ApplyScope(LayoutPersistence owner) : IDisposable {
     public void Dispose() => owner.ReleaseApply();

@@ -1,8 +1,9 @@
-using System.IO.Compression;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
+using System.Net.Sockets;
+using System.IO.Compression;
 using System.Text.Json.Nodes;
+using System.Runtime.CompilerServices;
 using k8s;
 using k8s.Models;
 using MaksIT.Results;
@@ -347,8 +348,8 @@ public sealed class ClusterSession : IClusterSession {
     string podName,
     string @namespace,
     string? container,
-    [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) {
-    var stream = await _client.CoreV1.ReadNamespacedPodLogAsync(
+    [EnumeratorCancellation] CancellationToken cancellationToken = default) {
+    var response = await _client.CoreV1.ReadNamespacedPodLogWithHttpMessagesAsync(
       podName,
       @namespace,
       container: container,
@@ -356,9 +357,34 @@ public sealed class ClusterSession : IClusterSession {
       tailLines: 200,
       cancellationToken: cancellationToken).ConfigureAwait(false);
 
+    try {
+      var stream = response.Body;
+      if (stream is null)
+        yield break;
+
+      await foreach (var line in ReadLogLinesAsync(stream, cancellationToken).ConfigureAwait(false))
+        yield return line;
+    }
+    finally {
+      response.Dispose();
+    }
+  }
+
+  internal static async IAsyncEnumerable<string> ReadLogLinesAsync(
+    Stream stream,
+    [EnumeratorCancellation] CancellationToken cancellationToken = default) {
+    ArgumentNullException.ThrowIfNull(stream);
     using var reader = new StreamReader(stream);
+    using var registration = cancellationToken.Register(stream.Dispose);
     while (!cancellationToken.IsCancellationRequested) {
-      var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+      string? line;
+      try {
+        line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch (Exception ex) when (ex is ObjectDisposedException or IOException or OperationCanceledException) {
+        yield break;
+      }
+
       if (line is null)
         yield break;
 
