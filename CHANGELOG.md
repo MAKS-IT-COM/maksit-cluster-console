@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-22
+
+### Added
+
+- **Applications** table shows live **CPU** (% of cluster allocatable) and **Memory** (k8s `Mi`/`Gi`) from summed pod metrics when metrics-server is available.
+- **Deployments**, **StatefulSets**, and **DaemonSets** tables include **CPU** and **Memory** columns (millicores / `MiB`, summed from owned pods).
+- Applications metric **tooltips**: CPU in millicores; memory as `MiB` plus rounded `MB`.
+- Applications pod attribution matches instance labels, direct workload owners, and **ReplicaSet → Deployment** owners.
+- Transient Kubernetes API errors (for example HTTP/2 `ResponseEnded`) retry automatically; the client uses HTTP/1.1 for list traffic.
+
+### Changed
+
+- Applications memory uses k8s compact units (`512.0MiB`, `<1Mi`) instead of Task Manager `MB` labels; CPU stays as cluster %.
+- DataGrid row separators, headers, and zebra rows are tuned for the dark theme (less harsh white lines).
+
+### Fixed
+
+- Pod metrics memory was misread when stored as `MiB`-style strings, which made Applications **Memory** show `0 MB` while CPU looked correct.
+- Pod metrics now sum **all** container usages in a pod (not only the last container).
+
 ## [0.4.2] - 2026-08-21
 
 ### Fixed

@@ -500,6 +500,22 @@ public sealed class ClusterSession : IClusterSession {
     }
   }
 
+  public async Task<Result<double>> GetClusterCpuAllocatableAsync(CancellationToken cancellationToken = default) {
+    try {
+      var nodes = await _client.CoreV1.ListNodeAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+      var cpu = 0d;
+      foreach (var node in nodes.Items) {
+        if (node.Status?.Allocatable?.TryGetValue("cpu", out var cpuQty) == true)
+          cpu += KubeQuantity.ToCores(cpuQty.ToString());
+      }
+
+      return Result<double>.Ok(cpu);
+    }
+    catch (Exception ex) {
+      return KubernetesResult.Map<double>(ex);
+    }
+  }
+
   public async Task<Result<IReadOnlyDictionary<string, ResourceMetrics>>> GetPodMetricsAsync(
     string? @namespace,
     CancellationToken cancellationToken = default) {
@@ -803,9 +819,11 @@ public sealed class ClusterSession : IClusterSession {
     var listed = new List<JsonObject>();
     string? continueToken = null;
     do {
-      var list = await _client.CoreV1.ListNamespaceAsync(
-        continueParameter: continueToken,
-        cancellationToken: cancellationToken).ConfigureAwait(false);
+      var list = await KubernetesApiRetry.ExecuteAsync(
+        ct => _client.CoreV1.ListNamespaceAsync(
+          continueParameter: continueToken,
+          cancellationToken: ct),
+        cancellationToken).ConfigureAwait(false);
       foreach (var ns in list.Items ?? []) {
         var name = ns.Metadata?.Name;
         if (string.IsNullOrEmpty(name))
@@ -832,9 +850,11 @@ public sealed class ClusterSession : IClusterSession {
     var pods = new List<(string Namespace, DateTimeOffset? Created)>();
     string? continueToken = null;
     do {
-      var list = await _client.CoreV1.ListPodForAllNamespacesAsync(
-        continueParameter: continueToken,
-        cancellationToken: cancellationToken).ConfigureAwait(false);
+      var list = await KubernetesApiRetry.ExecuteAsync(
+        ct => _client.CoreV1.ListPodForAllNamespacesAsync(
+          continueParameter: continueToken,
+          cancellationToken: ct),
+        cancellationToken).ConfigureAwait(false);
       foreach (var pod in list.Items ?? []) {
         var ns = pod.Metadata?.NamespaceProperty;
         if (string.IsNullOrEmpty(ns))
@@ -955,7 +975,9 @@ public sealed class ClusterSession : IClusterSession {
     var items = new JsonArray();
     string? continueToken = null;
     do {
-      var raw = await page(continueToken).ConfigureAwait(false);
+      var raw = await KubernetesApiRetry.ExecuteAsync(
+        ct => page(continueToken),
+        cancellationToken).ConfigureAwait(false);
       var root = KubernetesResult.ToObject(raw);
       foreach (var item in KubernetesResult.Items(raw))
         items.Add(item.DeepClone());
@@ -989,18 +1011,29 @@ public sealed class ClusterSession : IClusterSession {
 
   private static (string Cpu, string Memory) SumPodMetrics(JsonObject item) {
     var containers = item["containers"] as JsonArray;
-    if (containers is null)
+    if (containers is null || containers.Count == 0)
       return ("-", "-");
 
-    var cpu = "-";
-    var mem = "-";
+    var cpu = 0d;
+    long mem = 0;
+    var hasCpu = false;
+    var hasMem = false;
     foreach (var c in containers.OfType<JsonObject>()) {
       var usage = c["usage"] as JsonObject;
-      cpu = usage?["cpu"]?.ToString() ?? cpu;
-      mem = usage?["memory"]?.ToString() ?? mem;
+      if (usage?["cpu"] is not null) {
+        cpu += KubeQuantity.ToCores(usage["cpu"]?.ToString());
+        hasCpu = true;
+      }
+
+      if (usage?["memory"] is not null) {
+        mem += KubeQuantity.ToBytes(usage["memory"]?.ToString());
+        hasMem = true;
+      }
     }
 
-    return (cpu, mem);
+    return (
+      hasCpu ? KubeQuantity.FormatCores(cpu) : "-",
+      hasMem ? KubeQuantity.FormatMemoryQuantity(mem) : "-");
   }
 
   private static HelmReleaseInfo? TryDecodeHelm(V1Secret secret) {

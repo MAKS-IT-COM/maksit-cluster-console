@@ -26,6 +26,7 @@ public sealed partial class ClusterWorkspace {
 
   public async Task<Result> ConnectAsync(IClusterSession session, CancellationToken cancellationToken = default) {
     _session?.Dispose();
+    ResetMetricsCache();
     _session = session;
     var builtins = ResourceCatalog.BuiltIns.ToList();
     var crds = await session.ListCustomResourceDefinitionsAsync(cancellationToken).ConfigureAwait(false);
@@ -39,6 +40,7 @@ public sealed partial class ClusterWorkspace {
   public void Disconnect() {
     _session?.Dispose();
     _session = null;
+    ResetMetricsCache();
     Navigator = BuildNavigator(ResourceCatalog.BuiltIns);
   }
 
@@ -72,6 +74,10 @@ public sealed partial class ClusterWorkspace {
     var listed = await _session.ListAsync(descriptor.ToRef(), @namespace, cancellationToken).ConfigureAwait(false);
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
+
+    if (PodMetricsAggregate.WorkloadResourceIds.Contains(descriptor.Id))
+      return await ListWorkloadsWithPodMetricsAsync(descriptor, listed.Value ?? [], @namespace, filter, cancellationToken)
+        .ConfigureAwait(false);
 
     IReadOnlyDictionary<string, ResourceMetrics>? metrics = null;
     if (descriptor.Id is "pods" or "nodes") {
@@ -227,13 +233,34 @@ public sealed partial class ClusterWorkspace {
       ResourceCatalog.Find("statefulsets")!,
       ResourceCatalog.Find("daemonsets")!
     };
-    var listed = await Task.WhenAll(kinds.Select(kind =>
-      _session!.ListAsync(kind.ToRef(), @namespace, cancellationToken))).ConfigureAwait(false);
+    var podsDescriptor = ResourceCatalog.Find("pods")!;
+    var workloadsTask = Task.WhenAll(kinds.Select(kind =>
+      _session!.ListAsync(kind.ToRef(), @namespace, cancellationToken)));
+    var podsTask = _session!.ListAsync(podsDescriptor.ToRef(), @namespace, cancellationToken);
+    var metricsTask = _session.GetPodMetricsAsync(@namespace, cancellationToken);
+    var allocatableTask = GetClusterCpuAllocatableCachedAsync(cancellationToken);
+    var replicaSetsTask = _session.ListAsync(ResourceCatalog.Find("replicasets")!.ToRef(), @namespace, cancellationToken);
+    await Task.WhenAll(workloadsTask, podsTask, metricsTask, allocatableTask, replicaSetsTask).ConfigureAwait(false);
 
+    var listed = await workloadsTask.ConfigureAwait(false);
     for (var i = 0; i < listed.Length; i++) {
       if (!listed[i].IsSuccess)
         return new Result<IReadOnlyList<ResourceRow>>(null, false, listed[i].Messages, listed[i].StatusCode);
     }
+
+    var podsResult = await podsTask.ConfigureAwait(false);
+    var metricsResult = await metricsTask.ConfigureAwait(false);
+    var allocatableResult = await allocatableTask.ConfigureAwait(false);
+    var replicaSetsResult = await replicaSetsTask.ConfigureAwait(false);
+    var podMetrics = metricsResult.IsSuccess && metricsResult.Value is not null
+      ? metricsResult.Value
+      : (IReadOnlyDictionary<string, ResourceMetrics>)new Dictionary<string, ResourceMetrics>();
+    var metricsAvailable = podMetrics.Count > 0;
+    var clusterCpuAllocatable = allocatableResult;
+    var deploymentByReplicaSet = replicaSetsResult.IsSuccess
+      ? PodMetricsAggregate.DeploymentByReplicaSet(replicaSetsResult.Value ?? [])
+      : (IReadOnlyDictionary<string, string>)new Dictionary<string, string>();
+    var allPods = podsResult.IsSuccess ? podsResult.Value ?? [] : [];
 
     var members = listed
       .SelectMany((result, i) => (result.Value ?? []).Select(item => {
@@ -244,12 +271,18 @@ public sealed partial class ClusterWorkspace {
       .ToList();
 
     var rows = ApplicationManifest.Collapse(members)
-      .Select(doc => new ResourceRow {
-        Uid = JsonPath.Uid(doc),
-        Name = JsonPath.Name(doc),
-        Namespace = JsonPath.Namespace(doc),
-        Document = doc,
-        Cells = ApplicationManifest.Cells(doc)
+      .Select(doc => {
+        var usage = metricsAvailable
+          ? ApplicationManifest.SumUsage(doc, allPods, podMetrics, deploymentByReplicaSet)
+          : (ApplicationUsage?)null;
+        return new ResourceRow {
+          Uid = JsonPath.Uid(doc),
+          Name = JsonPath.Name(doc),
+          Namespace = JsonPath.Namespace(doc),
+          Document = doc,
+          Cells = ApplicationManifest.Cells(doc, usage, clusterCpuAllocatable, metricsAvailable),
+          CellTips = ApplicationManifest.MetricTips(usage, metricsAvailable)
+        };
       })
       .Where(row => Matches(row, filter))
       .OrderBy(row => row.Namespace, StringComparer.OrdinalIgnoreCase)

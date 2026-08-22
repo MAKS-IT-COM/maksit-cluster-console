@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json.Nodes;
 using MaksIT.ClusterConsole.Client;
 
@@ -23,5 +24,12 @@ public class KubernetesResultTests {
   public void ContinueToken_reads_reserved_continue_field() {
     var root = JsonNode.Parse("""{"metadata":{"continue":"token-1"}}""") as JsonObject;
     Assert.Equal("token-1", KubernetesResult.ContinueToken(root));
+  }
+
+  [Fact]
+  public void Map_transient_http_errors_are_service_unavailable() {
+    var mapped = KubernetesResult.Map(new HttpRequestException("The response ended prematurely while waiting for the next frame from the server. (ResponseEnded)"));
+    Assert.False(mapped.IsSuccess);
+    Assert.Contains("connection dropped", mapped.Messages[0], StringComparison.OrdinalIgnoreCase);
   }
 }

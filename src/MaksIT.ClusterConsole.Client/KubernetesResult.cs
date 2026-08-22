@@ -7,6 +7,10 @@ namespace MaksIT.ClusterConsole.Client;
 
 internal static class KubernetesResult {
   public static Result Map(Exception ex) {
+    if (KubernetesApiRetry.IsTransient(ex))
+      return Result.ServiceUnavailable(
+        "Cluster API connection dropped while loading data. Retry refresh; if it persists, check API server, load balancer, or network.");
+
     var message = ex.Message;
     var text = message + " " + ex.GetType().Name;
 

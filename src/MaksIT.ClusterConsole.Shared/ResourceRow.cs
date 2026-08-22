@@ -18,11 +18,20 @@ public sealed class ResourceRow : INotifyPropertyChanged {
 
   public required IReadOnlyDictionary<string, string> Cells { get; set; }
 
+  public IReadOnlyDictionary<string, string> CellTips { get; set; } =
+    EmptyCellTips;
+
+  private static readonly IReadOnlyDictionary<string, string> EmptyCellTips =
+    new Dictionary<string, string>(StringComparer.Ordinal);
+
   public string Status =>
     Cell("Status");
 
   public string Cell(string header) =>
     Cells.TryGetValue(header, out var value) ? value : string.Empty;
+
+  public string CellTip(string header) =>
+    CellTips.TryGetValue(header, out var value) ? value : string.Empty;
 
   public string FormatOverview(IEnumerable<PodContainer>? containers = null) {
     var lines = Cells.Select(kv => $"{kv.Key}: {kv.Value}").ToList();
@@ -56,21 +65,28 @@ public sealed class ResourceRow : INotifyPropertyChanged {
     var nameChanged = !string.Equals(Name, source.Name, StringComparison.Ordinal);
     var namespaceChanged = !string.Equals(Namespace, source.Namespace, StringComparison.Ordinal);
     var cellsChanged = !CellsEqual(Cells, source.Cells);
+    var tipsChanged = !CellsEqual(CellTips, source.CellTips);
 
     Name = source.Name;
     Namespace = source.Namespace;
     Document = source.Document;
     Cells = source.Cells;
+    CellTips = source.CellTips;
 
     if (nameChanged)
       OnPropertyChanged(nameof(Name));
     if (namespaceChanged)
       OnPropertyChanged(nameof(Namespace));
-    if (!cellsChanged)
+    if (!cellsChanged && !tipsChanged)
       return;
 
-    OnPropertyChanged(nameof(Cells));
-    OnPropertyChanged(nameof(Status));
+    if (cellsChanged) {
+      OnPropertyChanged(nameof(Cells));
+      OnPropertyChanged(nameof(Status));
+    }
+
+    if (tipsChanged)
+      OnPropertyChanged(nameof(CellTips));
   }
 
   public static ResourceRow From(JsonObject item, ResourceDescriptor descriptor, ResourceMetrics? metrics = null) {
@@ -80,7 +96,7 @@ public sealed class ResourceRow : INotifyPropertyChanged {
         "status.containerStatuses" when column.Header == "Ready" => JsonPath.PodReady(item),
         "status.containerStatuses" when column.Header == "Restarts" => JsonPath.PodRestarts(item),
         "metrics.cpu" => metrics?.Cpu ?? "",
-        "metrics.memory" => metrics?.Memory ?? "",
+        "metrics.memory" => FormatMetricMemory(metrics?.Memory),
         _ => JsonPath.Read(item, column.Path)
       };
     }
@@ -96,6 +112,15 @@ public sealed class ResourceRow : INotifyPropertyChanged {
 
   private void OnPropertyChanged(string propertyName) =>
     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+  private static string FormatMetricMemory(string? value) {
+    if (string.IsNullOrEmpty(value))
+      return "";
+    if (value == "-")
+      return value;
+
+    return KubeQuantity.FormatBytesCompact(KubeQuantity.ToBytes(value));
+  }
 
   private static bool CellsEqual(IReadOnlyDictionary<string, string> left, IReadOnlyDictionary<string, string> right) {
     if (ReferenceEquals(left, right))

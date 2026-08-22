@@ -94,6 +94,7 @@ public class KubeConfigServiceTests {
     var built = service.Build("k3s", path);
     Assert.True(built.IsSuccess, string.Join("; ", built.Messages));
     Assert.Equal("secret-token", built.Value!.AccessToken);
+    Assert.True(built.Value.DisableHttp2);
   }
 
   [Fact]

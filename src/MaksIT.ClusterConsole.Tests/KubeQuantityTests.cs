@@ -1,4 +1,5 @@
 using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Shared;
 
 
 namespace MaksIT.ClusterConsole.Tests;
@@ -18,10 +19,40 @@ public class KubeQuantityTests {
   [InlineData("512Mi", 536870912)]
   [InlineData("1Gi", 1073741824)]
   [InlineData("1000Ki", 1024000)]
+  [InlineData("256.0MiB", 268435456)]
   [InlineData("100", 100)]
   public void ToBytes_parses_memory(string raw, long expected) {
     Assert.Equal(expected, KubeQuantity.ToBytes(raw));
   }
+
+  [Theory]
+  [InlineData(536_870_912, "512Mi")]
+  [InlineData(805_306_368, "768Mi")]
+  public void FormatMemoryQuantity_round_trips_for_metrics(long bytes, string expected) {
+    Assert.Equal(expected, KubeQuantity.FormatMemoryQuantity(bytes));
+    Assert.Equal(bytes, KubeQuantity.ToBytes(KubeQuantity.FormatMemoryQuantity(bytes)));
+  }
+
+  [Theory]
+  [InlineData(536_870_912, "512 MB")]
+  [InlineData(1_048_576, "1 MB")]
+  [InlineData(512_000, "<1 MB")]
+  public void FormatMegabytes_uses_task_manager_style(long bytes, string expected) =>
+    Assert.Equal(expected, KubeQuantity.FormatMegabytes(bytes));
+
+  [Theory]
+  [InlineData(0.001, 4, "<0.1%")]
+  [InlineData(0.0001, 4, "<0.1%")]
+  [InlineData(0, 4, "0%")]
+  public void FormatCpuPercent_uses_task_manager_style(double used, double allocatable, string expected) =>
+    Assert.Equal(expected, ApplicationManifest.FormatCpuPercent(used, allocatable, metricsAvailable: true));
+
+  [Theory]
+  [InlineData(536_870_912, "512.0MiB")]
+  [InlineData(1_048_576, "1.0MiB")]
+  [InlineData(512_000, "<1Mi")]
+  public void FormatMemoryUsage_uses_k8s_compact_units(long bytes, string expected) =>
+    Assert.Equal(expected, ApplicationManifest.FormatMemoryUsage(bytes, metricsAvailable: true));
 
   [Fact]
   public void ClusterUsage_percent_uses_allocatable() {

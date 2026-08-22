@@ -45,8 +45,10 @@ public static class ResourceColumnSort {
       "Age" => AgeToSeconds(left).CompareTo(AgeToSeconds(right)),
       "Restarts" => ParseInt(left).CompareTo(ParseInt(right)),
       "Ready" => CompareReady(left, right),
-      "CPU" => KubeQuantity.ToCores(left).CompareTo(KubeQuantity.ToCores(right)),
-      "Memory" => KubeQuantity.ToBytes(left).CompareTo(KubeQuantity.ToBytes(right)),
+      "CPU" => left.EndsWith("%", StringComparison.Ordinal)
+        ? ParsePercent(left).CompareTo(ParsePercent(right))
+        : KubeQuantity.ToCores(left).CompareTo(KubeQuantity.ToCores(right)),
+      "Memory" => ParseMemoryBytes(left).CompareTo(ParseMemoryBytes(right)),
       "Replicas" or "Desired" or "Current" or "Min" or "Max" or "Port" =>
         ParseInt(left).CompareTo(ParseInt(right)),
       _ when IsIpHeader(header) => CompareIpList(left, right),
@@ -176,5 +178,22 @@ public static class ResourceColumnSort {
     return end > 0 && int.TryParse(span[..end], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
       ? value
       : 0;
+  }
+
+  private static double ParsePercent(string text) {
+    if (text.StartsWith("<", StringComparison.Ordinal))
+      return 0.05;
+
+    var span = text.AsSpan().Trim().TrimEnd('%');
+    return double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+      ? value
+      : 0;
+  }
+
+  private static long ParseMemoryBytes(string text) {
+    if (text.StartsWith("<", StringComparison.Ordinal))
+      return 0;
+
+    return KubeQuantity.ToBytes(text);
   }
 }

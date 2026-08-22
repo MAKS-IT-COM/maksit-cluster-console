@@ -1,6 +1,18 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls">
+  <Styles.Resources>
+    <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="#33383e" />
+    <SolidColorBrush x:Key="DataGridColumnHeaderBackgroundBrush" Color="#1e2124" />
+    <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#9aa0a6" />
+    <SolidColorBrush x:Key="DataGridColumnHeaderHoveredBackgroundBrush" Color="#2a2e33" />
+    <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#33383e" />
+    <SolidColorBrush x:Key="DataGridRowHoveredBackgroundColor" Color="#2a2e33" />
+    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#3d5afe" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#4d6bff" />
+    <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#2f364d" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#3a4258" />
+  </Styles.Resources>
   <Style Selector="Window">
     <Setter Property="Background" Value="#1e2124" />
     <Setter Property="Foreground" Value="#e6e6e6" />
@@ -188,9 +200,34 @@
   </Style>
   <Style Selector="DataGrid">
     <Setter Property="Background" Value="#25282c" />
+    <Setter Property="RowBackground" Value="#25282c" />
     <Setter Property="GridLinesVisibility" Value="Horizontal" />
+    <Setter Property="HorizontalGridLinesBrush" Value="#33383e" />
+    <Setter Property="VerticalGridLinesBrush" Value="#33383e" />
     <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
     <Setter Property="controls:DataGridColumns.IndependentResize" Value="True" />
+  </Style>
+  <Style Selector="DataGridRow:nth-child(even)">
+    <Setter Property="Background" Value="#22262a" />
+  </Style>
+  <Style Selector="DataGridRow:pointerover">
+    <Setter Property="Background" Value="#2a2e33" />
+  </Style>
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Background" Value="#1e2124" />
+    <Setter Property="Foreground" Value="#9aa0a6" />
+    <Setter Property="SeparatorBrush" Value="#33383e" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+  <Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+    <Setter Property="Background" Value="#2a2e33" />
+  </Style>
+  <Style Selector="DataGrid /template/ Rectangle#PART_ColumnHeadersAndRowsSeparator">
+    <Setter Property="Fill" Value="#33383e" />
+  </Style>
+  <Style Selector="DataGridRow /template/ Rectangle#PART_BottomGridLine">
+    <Setter Property="Fill" Value="#33383e" />
   </Style>
   <Style Selector="Button.column-filter">
     <Setter Property="Padding" Value="4,0" />

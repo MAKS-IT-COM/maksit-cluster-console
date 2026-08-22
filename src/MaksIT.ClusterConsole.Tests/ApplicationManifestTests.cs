@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
 
 
@@ -31,7 +32,68 @@ public class ApplicationManifestTests {
     Assert.Equal("Helm", cells["Managed by"]);
     Assert.Equal("1.4.2", cells["Version"]);
     Assert.Equal("2/2", cells["Ready"]);
+    Assert.Equal("-", cells["CPU"]);
+    Assert.Equal("-", cells["Memory"]);
     Assert.Equal("Running", cells["Status"]);
+  }
+
+  [Fact]
+  public void Cells_show_cpu_percent_and_memory_megabytes_when_metrics_available() {
+    var item = Deployment("web", instance: "shop", nameLabel: "storefront", ready: 1, replicas: 1);
+    var cells = ApplicationManifest.Cells(
+      item,
+      new ApplicationUsage(0.5, 536_870_912),
+      clusterCpuAllocatable: 4,
+      metricsAvailable: true);
+    Assert.Equal("12.5%", cells["CPU"]);
+    Assert.Equal("512.0MiB", cells["Memory"]);
+  }
+
+  [Fact]
+  public void SumUsage_aggregates_matching_pods_across_workloads() {
+    var app = ApplicationManifest.Collapse([
+      Deployment("hubble-ui", instance: "cilium", nameLabel: "hubble-ui", ready: 1, replicas: 1),
+      Deployment("hubble-relay", instance: "cilium", nameLabel: "hubble-relay", ready: 1, replicas: 1)
+    ]).Single();
+
+    var pods = new[] {
+      Pod("hubble-ui-1", "apps", instance: "cilium", nameLabel: "hubble-ui", phase: "Running"),
+      Pod("hubble-relay-1", "apps", instance: "cilium", nameLabel: "hubble-relay", phase: "Running"),
+      Pod("other-1", "apps", instance: "other", nameLabel: "other", phase: "Running")
+    };
+    var metrics = new Dictionary<string, ResourceMetrics> {
+      ["apps/hubble-ui-1"] = new("hubble-ui-1", "apps", "100m", "256Mi"),
+      ["apps/hubble-relay-1"] = new("hubble-relay-1", "apps", "250m", "512Mi")
+    };
+
+    var usage = ApplicationManifest.SumUsage(app, pods, metrics);
+    Assert.Equal(0.35, usage.CpuCores, 9);
+    Assert.Equal(805_306_368, usage.MemoryBytes);
+    Assert.Equal("768.0MiB", ApplicationManifest.FormatMemoryUsage(usage.MemoryBytes, metricsAvailable: true));
+  }
+
+  [Fact]
+  public void BelongsToApplication_matches_instance_labels_or_workload_owner() {
+    var app = ApplicationManifest.Collapse([
+      Deployment("hubble-ui", instance: "cilium", nameLabel: "hubble-ui", ready: 1, replicas: 1)
+    ]).Single();
+    var byLabel = Pod("hubble-ui-1", "apps", instance: "cilium", nameLabel: "hubble-ui", phase: "Running");
+    var byOwner = JsonNode.Parse("""
+      {
+        "metadata": {
+          "name": "hubble-ui-abc",
+          "namespace": "apps",
+          "ownerReferences": [{ "name": "hubble-ui", "kind": "DaemonSet" }]
+        },
+        "status": { "phase": "Running" }
+      }
+      """) as JsonObject;
+    var other = Pod("other-1", "apps", instance: "other", nameLabel: "other", phase: "Running");
+
+    Assert.NotNull(byOwner);
+    Assert.True(ApplicationManifest.BelongsToApplication(app, byLabel));
+    Assert.True(ApplicationManifest.BelongsToApplication(app, byOwner));
+    Assert.False(ApplicationManifest.BelongsToApplication(app, other));
   }
 
   [Fact]
@@ -169,6 +231,25 @@ public class ApplicationManifestTests {
       },
       ["spec"] = new JsonObject { ["replicas"] = replicas },
       ["status"] = new JsonObject { ["readyReplicas"] = ready }
+    };
+  }
+
+  private static JsonObject Pod(
+    string name,
+    string ns,
+    string instance,
+    string nameLabel,
+    string phase) {
+    return new JsonObject {
+      ["metadata"] = new JsonObject {
+        ["name"] = name,
+        ["namespace"] = ns,
+        ["labels"] = new JsonObject {
+          [ApplicationManifest.InstanceKey] = instance,
+          [ApplicationManifest.NameKey] = nameLabel
+        }
+      },
+      ["status"] = new JsonObject { ["phase"] = phase }
     };
   }
 }

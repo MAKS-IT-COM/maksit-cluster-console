@@ -134,19 +134,33 @@ public partial class MainWindow : Window {
       };
     }
 
-    return new DataGridTextColumn {
+    return new DataGridTemplateColumn {
       Header = columnHeader,
       Tag = header,
       CanUserSort = true,
       CustomSortComparer = comparer,
-      Binding = new Binding(nameof(ResourceRow.Cells)) {
-        Mode = BindingMode.OneWay,
-        Converter = new DictionaryKeyConverter(header)
-      },
+      CellTemplate = TextCellTemplate(header),
       Width = new DataGridLength(1, DataGridLengthUnitType.Star),
       MinWidth = 72
     };
   }
+
+  private static FuncDataTemplate<ResourceRow> TextCellTemplate(string header) =>
+    new((_, _) => {
+      var text = new TextBlock {
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(6, 0)
+      };
+      text.Bind(TextBlock.TextProperty, new Binding(nameof(ResourceRow.Cells)) {
+        Mode = BindingMode.OneWay,
+        Converter = new DictionaryKeyConverter(header)
+      });
+      text.Bind(ToolTip.TipProperty, new Binding(nameof(ResourceRow.CellTips)) {
+        Mode = BindingMode.OneWay,
+        Converter = new DictionaryKeyConverter(header)
+      });
+      return text;
+    }, true);
 
   private static FuncDataTemplate<ResourceRow> StatusCellTemplate() =>
     new((_, _) => {

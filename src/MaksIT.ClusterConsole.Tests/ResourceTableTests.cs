@@ -45,6 +45,10 @@ public class ResourceTableTests {
     Assert.True(ResourceColumnSort.Compare("Ready", "1/2", "2/2") < 0);
     Assert.True(ResourceColumnSort.Compare("Restarts", "12", "3") > 0);
     Assert.True(ResourceColumnSort.Compare("CPU", "250m", "1") < 0);
+    Assert.True(ResourceColumnSort.Compare("CPU", "12.5%", "2%") > 0);
+    Assert.True(ResourceColumnSort.Compare("CPU", "<0.1%", "1%") < 0);
+    Assert.True(ResourceColumnSort.Compare("Memory", "512.0MiB", "1.0MiB") > 0);
+    Assert.True(ResourceColumnSort.Compare("Memory", "<1Mi", "2.0MiB") < 0);
   }
 
   [Fact]
@@ -81,22 +85,29 @@ public class ResourceTableTests {
   public void CopyFrom_updates_cells_on_the_same_instance() {
     var current = Row("web-a", "2d", "Running");
     var incoming = Row("web-a", "3d", "CrashLoopBackOff");
+    incoming.CellTips = new Dictionary<string, string> { ["CPU"] = "500m · 12.5% cluster" };
     var cellsChanged = 0;
     var statusChanged = 0;
+    var tipsChanged = 0;
     current.PropertyChanged += (_, e) => {
       if (e.PropertyName == nameof(ResourceRow.Cells))
         cellsChanged++;
 
       if (e.PropertyName == nameof(ResourceRow.Status))
         statusChanged++;
+
+      if (e.PropertyName == nameof(ResourceRow.CellTips))
+        tipsChanged++;
     };
 
     current.CopyFrom(incoming);
 
     Assert.Equal("3d", current.Cell("Age"));
     Assert.Equal("CrashLoopBackOff", current.Status);
+    Assert.Equal("500m · 12.5% cluster", current.CellTip("CPU"));
     Assert.Equal(1, cellsChanged);
     Assert.Equal(1, statusChanged);
+    Assert.Equal(1, tipsChanged);
   }
 
   [Fact]

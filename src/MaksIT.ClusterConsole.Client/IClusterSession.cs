@@ -80,6 +80,8 @@ public interface IClusterSession : IDisposable {
 
   Task<Result<ClusterUsage>> GetClusterUsageAsync(CancellationToken cancellationToken = default);
 
+  Task<Result<double>> GetClusterCpuAllocatableAsync(CancellationToken cancellationToken = default);
+
   Task<Result> PatchContainerResourcesAsync(
     WorkloadContainerLimit row,
     string cpuLimit,
