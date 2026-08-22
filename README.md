@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-53.8%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-45.4%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-61.5%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-54.2%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-45.7%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-63.1%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6)

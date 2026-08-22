@@ -26,11 +26,11 @@ public static class KubeQuantity {
       return 0;
 
     var scale = suffix switch {
-      "Ki" => 1024d,
-      "Mi" => 1024d * 1024,
-      "Gi" => 1024d * 1024 * 1024,
-      "Ti" => 1024d * 1024 * 1024 * 1024,
-      "Pi" => 1024d * 1024 * 1024 * 1024 * 1024,
+      "Ki" or "KiB" => 1024d,
+      "Mi" or "MiB" => 1024d * 1024,
+      "Gi" or "GiB" => 1024d * 1024 * 1024,
+      "Ti" or "TiB" => 1024d * 1024 * 1024 * 1024,
+      "Pi" or "PiB" => 1024d * 1024 * 1024 * 1024 * 1024,
       "k" or "K" => 1_000d,
       "M" => 1_000_000d,
       "G" => 1_000_000_000d,
@@ -70,6 +70,36 @@ public static class KubeQuantity {
     if (bytes >= mi)
       return $"{bytes / mi:0.0}MiB";
     return $"{bytes}B";
+  }
+
+  public static string FormatMegabytes(long bytes) {
+    const double mi = 1024d * 1024;
+    var megabytes = bytes / mi;
+    if (megabytes < 1)
+      return "<1 MB";
+
+    return $"{Math.Round(megabytes):0} MB";
+  }
+
+  public static string FormatMemoryQuantity(long bytes) {
+    if (bytes <= 0)
+      return "0";
+
+    const long ki = 1024;
+    const long mi = 1024 * 1024;
+    const long gi = 1024L * 1024 * 1024;
+    if (bytes % gi == 0)
+      return $"{bytes / gi}Gi";
+    if (bytes % mi == 0)
+      return $"{bytes / mi}Mi";
+    if (bytes % ki == 0)
+      return $"{bytes / ki}Ki";
+    if (bytes >= mi)
+      return $"{(bytes / (double)mi).ToString("0.##", CultureInfo.InvariantCulture)}Mi";
+    if (bytes >= ki)
+      return $"{(bytes / (double)ki).ToString("0.##", CultureInfo.InvariantCulture)}Ki";
+
+    return bytes.ToString(CultureInfo.InvariantCulture);
   }
 
   private static bool TrySplit(string? value, out double number, out string suffix) {

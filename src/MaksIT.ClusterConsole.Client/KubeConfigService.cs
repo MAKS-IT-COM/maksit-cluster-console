@@ -145,6 +145,7 @@ public sealed class KubeConfigService : IKubeConfigService {
         return Result<KubernetesClientConfiguration>.NotFound(null, "kubeconfig not found");
 
       var cfg = KubernetesClientConfiguration.BuildConfigFromConfigFile(path, contextName);
+      cfg.DisableHttp2 = true;
       return Result<KubernetesClientConfiguration>.Ok(cfg);
     }
     catch (KubeConfigException ex) {

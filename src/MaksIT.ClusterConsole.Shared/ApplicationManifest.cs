@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using MaksIT.ClusterConsole.Client;
 
 
 namespace MaksIT.ClusterConsole.Shared;
+
+public readonly record struct ApplicationUsage(double CpuCores, long MemoryBytes);
 
 public static class ApplicationManifest {
   public const string NameKey = "app.kubernetes.io/name";
@@ -46,7 +49,11 @@ public static class ApplicationManifest {
     return !string.IsNullOrWhiteSpace(name) && name == Read(rightLabels, NameKey);
   }
 
-  public static IReadOnlyDictionary<string, string> Cells(JsonObject item) {
+  public static IReadOnlyDictionary<string, string> Cells(
+    JsonObject item,
+    ApplicationUsage? usage = null,
+    double clusterCpuAllocatable = 0,
+    bool metricsAvailable = false) {
     var labels = Labels(item);
     var kind = item["kind"]?.GetValue<string>() ?? "Application";
     var instance = Read(labels, InstanceKey)
@@ -58,9 +65,121 @@ public static class ApplicationManifest {
       ["Managed by"] = Read(labels, ManagedByKey) ?? "",
       ["Version"] = Read(labels, VersionKey) ?? "",
       ["Ready"] = Ready(item, kind),
+      ["CPU"] = FormatCpuPercent(usage?.CpuCores ?? 0, clusterCpuAllocatable, metricsAvailable),
+      ["Memory"] = FormatMemoryUsage(usage?.MemoryBytes ?? 0, metricsAvailable),
       ["Status"] = Status(item, kind),
       ["Age"] = JsonPath.Read(item, "metadata.creationTimestamp")
     };
+  }
+
+  public static IReadOnlyDictionary<string, string> MetricTips(
+    ApplicationUsage? usage,
+    bool metricsAvailable) {
+    if (!metricsAvailable || usage is null)
+      return EmptyTips;
+
+    var tips = new Dictionary<string, string>(StringComparer.Ordinal);
+    var value = usage.Value;
+    if (value.CpuCores > 0)
+      tips["CPU"] = FormatCpuTip(value.CpuCores);
+    if (value.MemoryBytes > 0)
+      tips["Memory"] = FormatMemoryTip(value.MemoryBytes);
+
+    return tips;
+  }
+
+  public static ApplicationUsage SumUsage(
+    JsonObject application,
+    IEnumerable<JsonObject> pods,
+    IReadOnlyDictionary<string, ResourceMetrics> metrics,
+    IReadOnlyDictionary<string, string>? deploymentByReplicaSet = null) {
+    var cpu = 0d;
+    long memory = 0;
+    foreach (var pod in pods) {
+      if (!BelongsToApplication(application, pod, deploymentByReplicaSet))
+        continue;
+      if (pod["status"]?["phase"]?.GetValue<string>() is "Succeeded" or "Failed")
+        continue;
+
+      var key = $"{JsonPath.Namespace(pod)}/{JsonPath.Name(pod)}";
+      if (!metrics.TryGetValue(key, out var podMetrics))
+        continue;
+
+      cpu += KubeQuantity.ToCores(podMetrics.Cpu);
+      memory += KubeQuantity.ToBytes(podMetrics.Memory);
+    }
+
+    return new ApplicationUsage(cpu, memory);
+  }
+
+  public static bool BelongsToApplication(
+    JsonObject application,
+    JsonObject pod,
+    IReadOnlyDictionary<string, string>? deploymentByReplicaSet = null) {
+    if (SameInstance(application, pod))
+      return true;
+
+    var appNs = JsonPath.Namespace(application);
+    if (!string.Equals(appNs, JsonPath.Namespace(pod), StringComparison.Ordinal))
+      return false;
+
+    var workloads = WorkloadNames(application);
+    if (workloads.Count == 0)
+      return false;
+
+    var owners = pod["metadata"]?["ownerReferences"] as JsonArray;
+    if (owners is null)
+      return false;
+
+    foreach (var owner in owners.OfType<JsonObject>()) {
+      var kind = owner["kind"]?.ToString() ?? "";
+      var name = owner["name"]?.ToString() ?? "";
+      if (string.IsNullOrEmpty(name))
+        continue;
+
+      if (workloads.Contains(name, StringComparer.Ordinal))
+        return true;
+
+      if (kind.Equals("ReplicaSet", StringComparison.Ordinal)
+          && deploymentByReplicaSet is not null
+          && deploymentByReplicaSet.TryGetValue($"{JsonPath.Namespace(pod)}/{name}", out var deployment)
+          && workloads.Contains(deployment, StringComparer.Ordinal))
+        return true;
+    }
+
+    return false;
+  }
+
+  public static string FormatCpuTip(double usedCores) =>
+    KubeQuantity.FormatCores(usedCores);
+
+  public static string FormatMemoryTip(long bytes) =>
+    $"{KubeQuantity.FormatBytes(bytes)} · {KubeQuantity.FormatMegabytes(bytes)}";
+
+  public static string FormatCpuPercent(double usedCores, double clusterAllocatable, bool metricsAvailable) {
+    if (!metricsAvailable)
+      return "-";
+    if (usedCores <= 0 || clusterAllocatable <= 0)
+      return "0%";
+
+    var percent = usedCores / clusterAllocatable * 100;
+    if (percent < 0.05)
+      return "<0.1%";
+
+    return $"{Math.Clamp(percent, 0, 100).ToString("0.#", CultureInfo.InvariantCulture)}%";
+  }
+
+  public static string FormatMemoryUsage(long bytes, bool metricsAvailable) {
+    if (!metricsAvailable)
+      return "-";
+    if (bytes <= 0)
+      return "0";
+
+    const long mi = 1024 * 1024;
+    if (bytes < mi)
+      return "<1Mi";
+
+    return KubeQuantity.FormatBytesCompact(bytes);
   }
 
   public static JsonObject? Labels(JsonObject item) {
@@ -99,6 +218,9 @@ public static class ApplicationManifest {
       .Select(workload => workload.Name)
       .Where(name => !string.IsNullOrWhiteSpace(name))
       .ToList();
+
+  private static readonly IReadOnlyDictionary<string, string> EmptyTips =
+    new Dictionary<string, string>(StringComparer.Ordinal);
 
   private static JsonObject CollapseGroup(IGrouping<string, JsonObject> group) {
     var members = group
