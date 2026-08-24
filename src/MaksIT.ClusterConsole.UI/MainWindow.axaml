@@ -551,6 +551,8 @@
                     IsReadOnly="True"
                     CanUserResizeColumns="True"
                     CanUserSortColumns="True"
+                    ClipboardCopyMode="IncludeHeader"
+                    CopyingRowClipboardContent="OnResourceGridCopyingRowClipboardContent"
                     DoubleTapped="OnResourceGridDoubleTapped" />
           <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
           <DockPanel Name="DetailsPane" Grid.Column="2" Margin="8,0,8,8">
