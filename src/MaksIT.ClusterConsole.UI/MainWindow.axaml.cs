@@ -97,6 +97,29 @@ public partial class MainWindow : Window {
       page.BrowseFilesCommand.Execute(null);
   }
 
+  private void OnResourceGridCopyingRowClipboardContent(object? sender, DataGridRowClipboardEventArgs e) {
+    if (!e.IsColumnHeadersRow)
+      return;
+
+    for (var i = 0; i < e.ClipboardRowContent.Count; i++) {
+      var cell = e.ClipboardRowContent[i];
+      e.ClipboardRowContent[i] = new DataGridClipboardCellContent(
+        cell.Item,
+        cell.Column,
+        ColumnHeaderText(cell.Column));
+    }
+  }
+
+  private static string ColumnHeaderText(DataGridColumn column) {
+    if (column.Tag is string tag && !string.IsNullOrWhiteSpace(tag))
+      return tag;
+    if (column.Header is string header)
+      return header;
+    if (column.Header is Control { DataContext: ColumnFilterViewModel filter })
+      return filter.Header;
+    return column.Header?.ToString() ?? "";
+  }
+
   private void RebuildColumns(MainViewModel viewModel) {
     var grid = this.FindControl<DataGrid>("ResourceGrid");
     if (grid is null)
@@ -129,6 +152,7 @@ public partial class MainWindow : Window {
         CanUserSort = true,
         CustomSortComparer = comparer,
         CellTemplate = StatusCellTemplate(),
+        ClipboardContentBinding = new Binding(nameof(ResourceRow.Status)) { Mode = BindingMode.OneWay },
         Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         MinWidth = 72
       };
@@ -140,6 +164,7 @@ public partial class MainWindow : Window {
       CanUserSort = true,
       CustomSortComparer = comparer,
       CellTemplate = TextCellTemplate(header),
+      ClipboardContentBinding = CellsBinding(header),
       Width = new DataGridLength(1, DataGridLengthUnitType.Star),
       MinWidth = 72
     };
@@ -151,10 +176,7 @@ public partial class MainWindow : Window {
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(6, 0)
       };
-      text.Bind(TextBlock.TextProperty, new Binding(nameof(ResourceRow.Cells)) {
-        Mode = BindingMode.OneWay,
-        Converter = new DictionaryKeyConverter(header)
-      });
+      text.Bind(TextBlock.TextProperty, CellsBinding(header));
       text.Bind(ToolTip.TipProperty, new Binding(nameof(ResourceRow.CellTips)) {
         Mode = BindingMode.OneWay,
         Converter = new DictionaryKeyConverter(header)
@@ -175,6 +197,12 @@ public partial class MainWindow : Window {
       });
       return text;
     }, true);
+
+  private static Binding CellsBinding(string header) =>
+    new(nameof(ResourceRow.Cells)) {
+      Mode = BindingMode.OneWay,
+      Converter = new DictionaryKeyConverter(header)
+    };
 
   private sealed class DictionaryKeyConverter(string key) : IValueConverter {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {

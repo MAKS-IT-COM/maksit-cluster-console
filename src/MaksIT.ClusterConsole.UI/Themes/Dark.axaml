@@ -205,6 +205,7 @@
     <Setter Property="HorizontalGridLinesBrush" Value="#33383e" />
     <Setter Property="VerticalGridLinesBrush" Value="#33383e" />
     <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    <Setter Property="ClipboardCopyMode" Value="IncludeHeader" />
     <Setter Property="controls:DataGridColumns.IndependentResize" Value="True" />
   </Style>
   <Style Selector="DataGridRow:nth-child(even)">

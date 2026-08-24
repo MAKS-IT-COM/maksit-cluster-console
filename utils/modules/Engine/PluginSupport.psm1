@@ -33,6 +33,7 @@ function Test-IsEngineRuntimeModuleName {
             'TestRunner',
             'EngineContext',
             'PluginSupport',
+            'VaultSupport',
             'ReleaseSupport',
             'TestSupport'
         ),

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-24
+
+### Added
+
+- Release packaging can resolve enabled plugin `*Secret` values from **MaksIT Vault** when `useVault` is set in `scriptSettings.json` (PowerShell module or HTTP API; `Shared` application fallback).
+
+### Changed
+
+- Copying resource-table rows includes column headers, so Ctrl+C pastes into Excel as a TSV table.
+
+### Fixed
+
+- Copying resource-table rows no longer pastes empty quoted cells after CPU/memory tooltips moved columns to templates.
+
 ## [0.5.0] - 2026-08-22
 
 ### Added
