@@ -2,20 +2,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls">
   <Styles.Resources>
+    <Color x:Key="BrandHighlight">#33A5CF</Color>
+    <Color x:Key="BrandPrimary">#006199</Color>
+    <Color x:Key="BrandNavy">#002A6A</Color>
     <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="#33383e" />
     <SolidColorBrush x:Key="DataGridColumnHeaderBackgroundBrush" Color="#1e2124" />
     <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#9aa0a6" />
     <SolidColorBrush x:Key="DataGridColumnHeaderHoveredBackgroundBrush" Color="#2a2e33" />
     <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#33383e" />
     <SolidColorBrush x:Key="DataGridRowHoveredBackgroundColor" Color="#2a2e33" />
-    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#3d5afe" />
-    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#4d6bff" />
-    <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#2f364d" />
-    <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#3a4258" />
+    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#006199" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#33A5CF" />
+    <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#16324C" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#1A3A5C" />
   </Styles.Resources>
   <Style Selector="Window">
-    <Setter Property="Background" Value="#1e2124" />
-    <Setter Property="Foreground" Value="#e6e6e6" />
+    <Setter Property="Background" Value="#0E1620" />
+    <Setter Property="Foreground" Value="#E8F4FC" />
     <Setter Property="FontFamily" Value="Segoe UI, Ubuntu, sans-serif" />
     <Setter Property="FontSize" Value="13" />
   </Style>
@@ -48,7 +51,7 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
   <Style Selector="Button.scope-toggle.selected">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="Button.nav-section">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -86,7 +89,7 @@
     <Setter Property="Background" Value="#2a2e33" />
   </Style>
   <Style Selector="Button.nav-item.selected">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="Button.catalog-item">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -100,7 +103,7 @@
     <Setter Property="Background" Value="#2a2e33" />
   </Style>
   <Style Selector="Button.catalog-item.selected">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="Button.catalog-close">
     <Setter Property="Padding" Value="6,2" />
@@ -156,7 +159,7 @@
     <Setter Property="Stroke" Value="#7ee787" />
   </Style>
   <Style Selector="ListBoxItem:selected">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="GridSplitter.shell-split">
     <Setter Property="Width" Value="4" />
@@ -164,7 +167,7 @@
     <Setter Property="MinWidth" Value="4" />
   </Style>
   <Style Selector="GridSplitter.shell-split:pointerover">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="Border.details-toolbar">
     <Setter Property="Background" Value="#1a1d20" />
@@ -183,7 +186,7 @@
     <Setter Property="Background" Value="#25282c" />
   </Style>
   <Style Selector="Border.chat-bubble.user">
-    <Setter Property="Background" Value="#3d5afe" />
+    <Setter Property="Background" Value="#006199" />
     <Setter Property="Margin" Value="24,0,0,8" />
   </Style>
   <Style Selector="Border.chat-bubble.assistant">

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-30
+
+### Fixed
+
+- Footer actions that can run independently now apply to every selected table row (Restart, Scale, Delete, Force delete, Force delete namespace, Cordon, Uncordon, Drain, Trigger, Stop port-forward), not only the current row.
+
+### Changed
+
+- Dark UI uses the MAKS.IT origami blues (`#33A5CF` highlight, `#006199` accent). Window/installer/Flatpak icon is a faceted cluster of nodes with a console chevron (not the brand M). GitHub release assets are siblings: portable `maksit-cluster-console-{version}.zip` (win-x64 only), Windows setup `maksit-cluster-console-{version}.exe`, and `maksit-cluster-console-{version}.flatpak`. The installer and Flatpak are not packed inside the zip. On Windows the Flatpak bundle is built via WSL Debian.
+
 ## [0.5.1] - 2026-08-24
 
 ### Added

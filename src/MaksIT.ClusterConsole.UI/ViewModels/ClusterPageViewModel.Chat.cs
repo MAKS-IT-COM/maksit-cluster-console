@@ -57,12 +57,20 @@ public partial class ClusterPageViewModel {
 
   [RelayCommand]
   private void AskAboutSelection() {
-    if (SelectedRow is null) {
+    var rows = ActionTargets;
+    if (rows.Count == 0) {
       ChatInput = "What is currently unhealthy in this cluster?";
       return;
     }
 
-    var name = SelectedRelatedPod?.Name ?? SelectedRow.Name;
+    if (rows.Count > 1) {
+      var kind = SelectedDescriptor?.Title ?? "resources";
+      var names = string.Join(", ", rows.Select(ResourceActionBatch.Label));
+      ChatInput = $"What is wrong with these {kind}: {names}?";
+      return;
+    }
+
+    var name = SelectedRelatedPod?.Name ?? rows[0].Name;
     var container = SelectedContainer is null ? "" : $" container {SelectedContainer.Name}";
     ChatInput = $"What is wrong with {SelectedDocumentKind ?? SelectedResourceRef()?.Kind ?? "this resource"} {name}{container}?";
   }

@@ -54,7 +54,7 @@ function Get-PluginDependencyGroupDirectories {
     }
 
     # Prefer Shared (helpers), then stock host groups; any other plugins/{Group}/ is discovered.
-    $preferred = @('Shared', 'Platform', 'DotNet', 'Npm')
+    $preferred = @('Shared', 'Platform', 'DotNet', 'Npm', 'Desktop')
     $dirs = [System.Collections.Generic.List[string]]::new()
     foreach ($name in $preferred) {
         $path = Join-Path $PluginsRoot $name
@@ -597,7 +597,7 @@ function Resolve-PluginModulePath {
     $candidatePaths = [System.Collections.Generic.List[string]]::new()
     $candidatePaths.Add((Join-Path (Join-Path $EngineDirectory "custom") $pluginFileName))
 
-    $preferredGroups = @('Platform', 'DotNet', 'Npm')
+    $preferredGroups = @('Platform', 'DotNet', 'Npm', 'Desktop')
     $candidatePaths.Add((Join-Path (Join-Path $pluginsRoot $preferredGroups[0]) $pluginFileName))
 
     if (Get-Command Get-ExtensionPluginModulePaths -ErrorAction SilentlyContinue) {

@@ -33,6 +33,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private string? _rebindUid;
   private readonly List<double> _cpuHistory = [];
   private readonly List<double> _memoryHistory = [];
+  private readonly List<string> _selectedUids = [];
+  private IReadOnlyList<ResourceRow> _selectedRows = [];
+  private bool _syncingSelection;
   private const int HistoryPoints = 60;
 
   public ClusterPageViewModel(
@@ -89,6 +92,14 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [ObservableProperty]
   private ResourceRow? selectedRow;
+
+  public IReadOnlyList<ResourceRow> SelectedRows =>
+    _selectedRows;
+
+  public event Action<IReadOnlyList<ResourceRow>>? SelectedRowsRestored;
+
+  public bool SyncingSelection =>
+    _syncingSelection;
 
   [ObservableProperty]
   private LimitRowViewModel? selectedLimitRow;
@@ -209,15 +220,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool CanForceDelete =>
     CanDelete && SelectedDescriptor?.Kind != "Namespace";
 
-  public bool CanDeleteNamespace {
-    get {
-      var name = TargetNamespaceName;
-      return HasSelectedRow
-        && SelectedDescriptor?.Kind == "Namespace"
-        && !string.IsNullOrEmpty(name)
-        && !IsProtectedNamespace(name);
-    }
-  }
+  public bool CanDeleteNamespace =>
+    SelectedDescriptor?.Kind == "Namespace" && DeletableNamespaceNames.Count > 0;
 
   public bool CanBrowseFiles =>
     HasSelectedRow
@@ -297,6 +301,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public string DetailsTitle {
     get {
+      var targets = ActionTargets;
+      if (targets.Count > 1)
+        return $"{targets.Count} {SelectedDescriptor?.Title ?? "items"} selected";
       if (SelectedRow is null)
         return "Select a resource";
 
@@ -448,9 +455,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   private void ApplyColumnFilters() =>
-    ApplyColumnFilters(SelectedRow?.Uid);
+    ApplyColumnFilters(SnapshotSelectedUids());
 
-  private void ApplyColumnFilters(string? keepUid) {
+  private void ApplyColumnFilters(IReadOnlyList<string> keepUids) {
     var filters = _columnFilters.Values.Select(filter => filter.Model);
     var desired = new List<ResourceRow>();
     foreach (var row in _listedRows) {
@@ -460,21 +467,40 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     SortRows(desired);
 
-    CollectionSync.MergeByKey(
-      Rows,
-      desired,
-      row => row.Uid,
-      static (current, incoming) => current.CopyFrom(incoming),
-      matchSourceOrder: true);
+    _syncingSelection = true;
+    try {
+      CollectionSync.MergeByKey(
+        Rows,
+        desired,
+        row => row.Uid,
+        static (current, incoming) => current.CopyFrom(incoming),
+        matchSourceOrder: true);
 
-    if (SelectedRow is null || !Rows.Contains(SelectedRow))
-      SelectedRow = keepUid is null ? null : Rows.FirstOrDefault(row => row.Uid == keepUid);
-    else if (!IsDirty) {
+      var restored = new List<ResourceRow>();
+      foreach (var uid in keepUids) {
+        var row = Rows.FirstOrDefault(item => string.Equals(item.Uid, uid, StringComparison.Ordinal));
+        if (row is not null)
+          restored.Add(row);
+      }
+
+      if (SelectedRow is null || !Rows.Contains(SelectedRow))
+        SelectedRow = restored.FirstOrDefault();
+      ReplaceSelectedRows(restored);
+      SelectedRowsRestored?.Invoke(_selectedRows);
+    }
+    finally {
+      _syncingSelection = false;
+    }
+
+    if (SelectedRow is not null && !IsDirty) {
       if (IsPodSelection)
         ApplyContainers(SelectedRow.Document);
 
       OverviewText = SelectedRow.FormatOverview(Containers);
     }
+
+    if (SelectedRow?.Uid != _detailsUid)
+      _ = LoadDetailsAsync();
 
     var title = SelectedNavItem?.Title ?? "items";
     var filtered = _columnFilters.Values.Any(filter => filter.IsActive) && Rows.Count != _listedRows.Count;
@@ -496,7 +522,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     NotifyDetailsUi();
     _listedRows.Clear();
     Rows.Clear();
-    SelectedRow = null;
+    ClearTableSelection();
 
     if (!_syncingLayout) {
       var cfg = _configuration.Current;
@@ -530,6 +556,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   partial void OnSelectedRowChanged(ResourceRow? value) {
+    if (_syncingSelection)
+      return;
+
     NotifyActionFlags();
     NotifyDetailsUi();
     SyncRebindLocalPort();
@@ -613,7 +642,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       }
 
       var listed = await _workspace.ListAsync(SelectedNavItem.Id, Configuration.AllNamespaces, Filter);
-      var keepUid = SelectedRow?.Uid;
+      var keepUids = SnapshotSelectedUids();
       _listedRows.Clear();
       if (!listed.IsSuccess) {
         Rows.Clear();
@@ -626,7 +655,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         FilterFor(column.Header).LoadValues(_listedRows);
       SeedNamespaceColumnFromSelection();
 
-      ApplyColumnFilters(keepUid);
+      ApplyColumnFilters(keepUids);
       NotifyActionFlags();
       NotifyDetailsUi();
       OnPropertyChanged(nameof(IsDataEditor));
@@ -701,7 +730,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     _detailsUid = null;
-    SelectedRow = null;
+    ClearTableSelection();
     _editDocument = YamlFormatter.ToJsonObject(ResourceDocument.NewTemplate(SelectedDescriptor, SelectedNamespace));
     _loadingDetails = true;
     YamlText = _editDocument is null ? "" : YamlFormatter.FromJson(_editDocument);
@@ -719,37 +748,39 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private async Task DeleteAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
-      return;
-
     var resource = SelectedResourceRef();
     if (resource is null || resource.Actions.CanDelete == false)
       return;
 
-    var deleted = await _workspace.Session.DeleteAsync(resource.ToRef(), SelectedRow.Name, SelectedRow.Namespace);
-    _setStatus(deleted.IsSuccess
-      ? ReplicaSetWarning(SelectedRow)
-      : string.Join("; ", deleted.Messages));
+    var rows = ActionTargets;
+    var owned = rows.Any(IsControllerOwned);
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.DeleteAsync(resource.ToRef(), row.Name, row.Namespace)) is not { } outcome)
+      return;
+
+    var status = outcome.Format("Deleted.", $"Deleted {outcome.Total}.");
+    if (owned && outcome.Succeeded > 0)
+      status += " A controller may recreate this pod — open Namespaces and force-delete the sandbox namespace.";
+    _setStatus(status);
     await RefreshRowsAsync();
   }
 
   [RelayCommand]
   private async Task ForceDeleteAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
-      return;
-
     var resource = SelectedResourceRef();
     if (resource is null || resource.Actions.CanDelete == false)
       return;
 
-    var deleted = await _workspace.Session.DeleteAsync(
-      resource.ToRef(),
-      SelectedRow.Name,
-      SelectedRow.Namespace,
-      force: true);
-    _setStatus(deleted.IsSuccess
-      ? "Force-deleted. " + ReplicaSetWarning(SelectedRow)
-      : string.Join("; ", deleted.Messages));
+    var rows = ActionTargets;
+    var owned = rows.Any(IsControllerOwned);
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.DeleteAsync(resource.ToRef(), row.Name, row.Namespace, force: true)) is not { } outcome)
+      return;
+
+    var status = outcome.Format("Force-deleted.", $"Force-deleted {outcome.Total}.");
+    if (owned && outcome.Succeeded > 0)
+      status += " A controller may recreate this pod — open Namespaces and force-delete the sandbox namespace.";
+    _setStatus(status);
     await RefreshRowsAsync();
   }
 
@@ -758,15 +789,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (_workspace.Session is null)
       return;
 
-    var name = TargetNamespaceName;
-    if (string.IsNullOrEmpty(name) || IsProtectedNamespace(name))
+    var names = DeletableNamespaceNames;
+    if (names.Count == 0)
       return;
 
-    var deleted = await _workspace.Session.ForceDeleteNamespaceAsync(name);
-    _setStatus(deleted.IsSuccess
-      ? $"Force-deleted namespace {name}."
-      : string.Join("; ", deleted.Messages));
-    if (string.Equals(SelectedNamespace, name, StringComparison.Ordinal)) {
+    var rows = ActionTargets
+      .Where(row => names.Contains(row.Name, StringComparer.Ordinal))
+      .ToList();
+    var outcome = await ResourceActionBatch.RunAsync(
+      rows,
+      row => _workspace.Session.ForceDeleteNamespaceAsync(row.Name));
+    _setStatus(outcome.Format(
+      $"Force-deleted namespace {names[0]}.",
+      $"Force-deleted {outcome.Total} namespaces."));
+    if (names.Contains(SelectedNamespace, StringComparer.Ordinal)) {
       SelectedNamespace = Configuration.AllNamespaces;
       _columnFilters.Remove("Namespace");
     }
@@ -774,8 +810,14 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     await RefreshRowsAsync();
   }
 
-  private string? TargetNamespaceName =>
-    SelectedDescriptor?.Kind == "Namespace" ? SelectedRow?.Name : null;
+  private IReadOnlyList<string> DeletableNamespaceNames =>
+    SelectedDescriptor?.Kind != "Namespace"
+      ? []
+      : ActionTargets
+        .Select(row => row.Name)
+        .Where(name => !string.IsNullOrEmpty(name) && !IsProtectedNamespace(name))
+        .Distinct(StringComparer.Ordinal)
+        .ToList();
 
   private static bool IsProtectedNamespace(string name) =>
     name.Equals("default", StringComparison.OrdinalIgnoreCase)
@@ -783,78 +825,76 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     || name.Equals("kube-public", StringComparison.OrdinalIgnoreCase)
     || name.Equals("kube-node-lease", StringComparison.OrdinalIgnoreCase);
 
-  private static string ReplicaSetWarning(ResourceRow row) {
+  private static bool IsControllerOwned(ResourceRow row) {
     var owners = row.Document["metadata"]?["ownerReferences"] as JsonArray;
-    var owned = owners?.OfType<JsonObject>().Any(o => {
+    return owners?.OfType<JsonObject>().Any(o => {
       var kind = o["kind"]?.GetValue<string>();
       return kind is "ReplicaSet" or "Deployment" or "StatefulSet" or "DaemonSet" or "Job";
     }) == true;
-    return owned
-      ? "Deleted. A controller may recreate this pod — open Namespaces and force-delete the sandbox namespace."
-      : "Deleted.";
   }
 
   [RelayCommand]
   private async Task ScaleAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
-      return;
-
     var resource = SelectedResourceRef();
     if (resource is null || resource.Actions.CanScale == false)
       return;
 
-    var scaled = await _workspace.Session.ScaleAsync(resource.ToRef(), SelectedRow.Name, SelectedRow.Namespace, ScaleReplicas);
-    _setStatus(scaled.IsSuccess ? $"Scaled to {ScaleReplicas}." : string.Join("; ", scaled.Messages));
+    var replicas = ScaleReplicas;
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.ScaleAsync(resource.ToRef(), row.Name, row.Namespace, replicas)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format($"Scaled to {replicas}.", $"Scaled {outcome.Total} to {replicas}."));
     await RefreshRowsAsync();
   }
 
   [RelayCommand]
   private async Task RestartAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
-      return;
-
     var resource = SelectedResourceRef();
     if (resource is null || resource.Actions.CanRestart == false)
       return;
 
-    var restarted = await _workspace.Session.RestartAsync(resource.ToRef(), SelectedRow.Name, SelectedRow.Namespace);
-    _setStatus(restarted.IsSuccess ? "Restarted." : string.Join("; ", restarted.Messages));
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.RestartAsync(resource.ToRef(), row.Name, row.Namespace)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format("Restarted.", $"Restarted {outcome.Total}."));
   }
 
   [RelayCommand]
   private async Task CordonAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.CordonAsync(row.Name, true)) is not { } outcome)
       return;
 
-    var result = await _workspace.Session.CordonAsync(SelectedRow.Name, true);
-    _setStatus(result.IsSuccess ? "Cordoned." : string.Join("; ", result.Messages));
+    _setStatus(outcome.Format("Cordoned.", $"Cordoned {outcome.Total}."));
   }
 
   [RelayCommand]
   private async Task UncordonAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.CordonAsync(row.Name, false)) is not { } outcome)
       return;
 
-    var result = await _workspace.Session.CordonAsync(SelectedRow.Name, false);
-    _setStatus(result.IsSuccess ? "Uncordoned." : string.Join("; ", result.Messages));
+    _setStatus(outcome.Format("Uncordoned.", $"Uncordoned {outcome.Total}."));
   }
 
   [RelayCommand]
   private async Task DrainAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.DrainAsync(row.Name)) is not { } outcome)
       return;
 
-    var result = await _workspace.Session.DrainAsync(SelectedRow.Name);
-    _setStatus(result.IsSuccess ? "Drain requested." : string.Join("; ", result.Messages));
+    _setStatus(outcome.Format("Drain requested.", $"Drain requested for {outcome.Total}."));
   }
 
   [RelayCommand]
   private async Task TriggerCronAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.TriggerCronJobAsync(row.Name, row.Namespace ?? "default")) is not { } outcome)
       return;
 
-    var result = await _workspace.Session.TriggerCronJobAsync(SelectedRow.Name, SelectedRow.Namespace ?? "default");
-    _setStatus(result.IsSuccess ? "Job created." : string.Join("; ", result.Messages));
+    _setStatus(outcome.Format("Job created.", $"Created {outcome.Total} jobs."));
   }
 
   [RelayCommand]
@@ -924,21 +964,42 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private void StopSelectedPortForward() {
-    if (SelectedRow is null)
+    var rows = ActionTargets;
+    if (rows.Count == 0)
       return;
 
-    var live = PortForwards.FirstOrDefault(item => item.Uid == SelectedRow.Uid);
-    if (live is not null) {
-      StopPortForward(live);
-      return;
+    var stoppedPorts = new List<int>();
+    var failures = new List<string>();
+    foreach (var row in rows) {
+      var live = PortForwards.FirstOrDefault(item => item.Uid == row.Uid);
+      if (live is not null) {
+        var port = live.Handle.LocalPort;
+        live.Handle.Dispose();
+        PortForwards.Remove(live);
+        PersistStopped(port);
+        stoppedPorts.Add(port);
+        continue;
+      }
+
+      if (!PortForwardRow.TryLocalPort(row, out var localPort)) {
+        failures.Add($"{row.Name}: not a port-forward");
+        continue;
+      }
+
+      PersistStopped(localPort);
+      stoppedPorts.Add(localPort);
     }
 
-    if (!PortForwardRow.TryLocalPort(SelectedRow, out var localPort))
-      return;
-
-    PersistStopped(localPort);
-    ShowPortForwardRows();
-    _setStatus($"Stopped port-forward localhost:{localPort}.");
+    if (IsPortForwardingView)
+      ShowPortForwardRows();
+    if (failures.Count == 0 && stoppedPorts.Count == 1)
+      _setStatus($"Stopped port-forward localhost:{stoppedPorts[0]}.");
+    else if (failures.Count == 0)
+      _setStatus($"Stopped {stoppedPorts.Count} port-forwards.");
+    else if (stoppedPorts.Count == 0)
+      _setStatus(string.Join("; ", failures));
+    else
+      _setStatus($"{stoppedPorts.Count} of {rows.Count} succeeded. {string.Join("; ", failures)}");
   }
 
   [RelayCommand]
@@ -1579,7 +1640,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   private void ShowPortForwardRows(string? keepUid = null) {
-    keepUid ??= SelectedRow?.Uid;
+    var keepUids = SnapshotSelectedUids().ToList();
+    if (keepUid is not null && !keepUids.Contains(keepUid, StringComparer.Ordinal))
+      keepUids.Add(keepUid);
     var livePorts = PortForwards.Select(item => item.Handle.LocalPort).ToHashSet();
     _listedRows.Clear();
     foreach (var item in PortForwards)
@@ -1595,7 +1658,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     foreach (var column in ResourceCatalog.PortForwardingDescriptor.Columns)
       FilterFor(column.Header).LoadValues(_listedRows);
 
-    ApplyColumnFilters(keepUid);
+    ApplyColumnFilters(keepUids);
     NotifyActionFlags();
     NotifyDetailsUi();
   }
@@ -1931,6 +1994,38 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return tab is "Overview" or "YAML" or "Events" or "Logs" or "Terminal";
 
     return SelectedDescriptor?.DetailTabs.Contains(tab) == true;
+  }
+
+  public void ReplaceSelectedRows(IEnumerable<ResourceRow> rows) {
+    var selected = rows.DistinctBy(row => row.Uid).ToList();
+    _selectedRows = selected;
+    _selectedUids.Clear();
+    _selectedUids.AddRange(selected.Select(row => row.Uid));
+    OnPropertyChanged(nameof(SelectedRows));
+    OnPropertyChanged(nameof(DetailsTitle));
+    NotifyActionFlags();
+  }
+
+  private IReadOnlyList<ResourceRow> ActionTargets =>
+    ResourceActionBatch.Targets(_selectedRows, SelectedRow);
+
+  private IReadOnlyList<string> SnapshotSelectedUids() {
+    if (_selectedUids.Count > 0)
+      return [.. _selectedUids];
+    return SelectedRow is null ? [] : [SelectedRow.Uid];
+  }
+
+  private void ClearTableSelection() {
+    ReplaceSelectedRows([]);
+    SelectedRow = null;
+    SelectedRowsRestored?.Invoke([]);
+  }
+
+  private async Task<ResourceActionBatchOutcome?> RunOnSelectedAsync(Func<ResourceRow, Task<Result>> action) {
+    if (_workspace.Session is null || ActionTargets.Count == 0)
+      return null;
+
+    return await ResourceActionBatch.RunAsync(ActionTargets, action);
   }
 
   private void NotifyActionFlags() {
