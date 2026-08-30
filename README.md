@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-54.2%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-45.7%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-63.1%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-54.4%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-45.8%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-63.4%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6)
@@ -97,6 +97,8 @@ Tests use kubeconfig fixtures and do not require a live cluster. Coverage shield
 1. Update [CHANGELOG.md](CHANGELOG.md) and bump `<Version>` in [src/Directory.Build.props](src/Directory.Build.props).
 2. Tag `v{version}` on `main`.
 3. Run `utils\Invoke-ReleasePackage.bat`.
+
+GitHub assets are siblings: portable `maksit-cluster-console-{version}.zip` (win-x64 only), Windows setup `maksit-cluster-console-{version}.exe`, and `maksit-cluster-console-{version}.flatpak`. The installer and Flatpak are not inside the zip. On Windows the Flatpak bundle is built via WSL Debian.
 
 ## Solution layout
 

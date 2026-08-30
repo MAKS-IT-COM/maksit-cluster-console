@@ -19,7 +19,7 @@ namespace MaksIT.ClusterConsole.UI;
 
 public partial class MainWindow : Window {
   private LayoutPersistence? _layout;
-  private ClusterPageViewModel? _logsPage;
+  private ClusterPageViewModel? _activePage;
 
   public MainWindow() {
     InitializeComponent();
@@ -41,9 +41,9 @@ public partial class MainWindow : Window {
         RebuildColumns(viewModel);
 
       if (e.PropertyName == nameof(MainViewModel.ActivePage))
-        HookLogsPage(viewModel.ActivePage);
+        HookActivePage(viewModel.ActivePage);
     };
-    HookLogsPage(viewModel.ActivePage);
+    HookActivePage(viewModel.ActivePage);
     viewModel.ConnectionsRequested += async (_, _) => await OpenConnectionsAsync(viewModel);
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
   }
@@ -53,13 +53,17 @@ public partial class MainWindow : Window {
     window.Show(this);
   }
 
-  private void HookLogsPage(ClusterPageViewModel? page) {
-    if (_logsPage is not null)
-      _logsPage.PropertyChanged -= OnLogsPagePropertyChanged;
+  private void HookActivePage(ClusterPageViewModel? page) {
+    if (_activePage is not null) {
+      _activePage.PropertyChanged -= OnLogsPagePropertyChanged;
+      _activePage.SelectedRowsRestored -= OnSelectedRowsRestored;
+    }
 
-    _logsPage = page;
-    if (page is not null)
+    _activePage = page;
+    if (page is not null) {
       page.PropertyChanged += OnLogsPagePropertyChanged;
+      page.SelectedRowsRestored += OnSelectedRowsRestored;
+    }
   }
 
   private void OnLogsPagePropertyChanged(object? sender, PropertyChangedEventArgs e) {
@@ -81,6 +85,39 @@ public partial class MainWindow : Window {
     viewModel.LoadCatalogCommand.Execute(null);
     if (!string.IsNullOrWhiteSpace(connect))
       await viewModel.ConnectNamedAsync(connect);
+  }
+
+  private void OnResourceGridSelectionChanged(object? sender, SelectionChangedEventArgs e) {
+    if (DataContext is not MainViewModel { ActivePage: { } page })
+      return;
+    if (page.SyncingSelection || sender is not DataGrid grid)
+      return;
+
+    page.ReplaceSelectedRows(grid.SelectedItems.OfType<ResourceRow>());
+  }
+
+  private void OnSelectedRowsRestored(IReadOnlyList<ResourceRow> rows) {
+    var grid = this.FindControl<DataGrid>("ResourceGrid");
+    if (grid is null)
+      return;
+
+    ApplyGridSelection(grid, rows, _activePage?.SelectedRow);
+  }
+
+  private static void ApplyGridSelection(DataGrid grid, IReadOnlyList<ResourceRow> rows, ResourceRow? current) {
+    var wanted = rows.ToHashSet();
+    for (var i = grid.SelectedItems.Count - 1; i >= 0; i--) {
+      if (grid.SelectedItems[i] is not ResourceRow row || !wanted.Contains(row))
+        grid.SelectedItems.RemoveAt(i);
+    }
+
+    foreach (var row in rows) {
+      if (!grid.SelectedItems.Contains(row))
+        grid.SelectedItems.Add(row);
+    }
+
+    if (current is not null && !ReferenceEquals(grid.SelectedItem, current))
+      grid.SelectedItem = current;
   }
 
   private void OnResourceGridDoubleTapped(object? sender, TappedEventArgs e) {

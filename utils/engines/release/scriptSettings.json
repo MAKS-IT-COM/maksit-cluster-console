@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema",
   "title": "MaksIT.ClusterConsole Release Script Settings",
-  "description": "RepoUtils release pipeline for MaksIT.ClusterConsole Avalonia UI.",
+  "description": "Community desktop pipeline. GitHub assets are siblings: portable zip, Windows setup exe, Flatpak. The zip never contains the installer or Flatpak.",
   "plugins": [
     {
       "name": "DotNetReleaseVersion",
@@ -35,13 +35,51 @@
       "projectFiles": [
         "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\MaksIT.ClusterConsole.UI.csproj"
       ],
-      "artifactsDir": "..\\..\\..\\releases"
+      "artifactsDir": "..\\..\\..\\releases",
+      "runtimeIdentifiers": [
+        "win-x64",
+        "linux-x64"
+      ],
+      "selfContained": true,
+      "publishSingleFile": false
     },
     {
       "name": "DotNetCreateArchive",
       "stageLabel": "build",
       "enabled": true,
-      "zipNamePattern": "maksit-cluster-console-{version}.zip"
+      "zipNamePattern": "maksit-cluster-console-{version}.zip",
+      "portableRuntimeIdentifier": "win-x64"
+    },
+    {
+      "name": "WindowsInstaller",
+      "stageLabel": "build",
+      "enabled": true,
+      "appName": "MaksIT Cluster Console",
+      "manufacturer": "MaksIT",
+      "upgradeCode": "3e45e88a-6524-49cc-88e9-d522d1261b3a",
+      "executableName": "MaksIT.ClusterConsole.UI.exe",
+      "runtimeIdentifier": "win-x64",
+      "installScope": "perUser",
+      "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.ico",
+      "exeNamePattern": "maksit-cluster-console-{version}.exe"
+    },
+    {
+      "name": "FlatpakPack",
+      "stageLabel": "build",
+      "enabled": true,
+      "appId": "com.maks_it.ClusterConsole",
+      "appName": "MaksIT Cluster Console",
+      "command": "maksit-cluster-console",
+      "executableName": "MaksIT.ClusterConsole.UI",
+      "runtimeIdentifier": "linux-x64",
+      "summary": "Kubernetes desktop console",
+      "projectLicense": "Apache-2.0",
+      "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.png",
+      "bundleNamePattern": "maksit-cluster-console-{version}.flatpak",
+      "buildBundle": true,
+      "attachSourceZip": false,
+      "wslDistro": "Debian",
+      "whenBuilderMissing": "skip"
     },
     {
       "name": "ReleasePublishGuard",
@@ -64,33 +102,20 @@
       "githubSecret": "GitHub",
       "repository": "https://github.com/MAKS-IT-COM/maksit-cluster-console",
       "releaseNotesFile": "..\\..\\..\\CHANGELOG.md",
-      "releaseTitlePattern": "Release {version}"
+      "releaseTitlePattern": "Release {version}",
+      "requireReleaseAssets": true
     },
     {
-      "name": "DotNetNuGet",
-      "stageLabel": "release",
-      "enabled": false,
-      "nugetSecret": "NuGet",
-      "source": "https://api.nuget.org/v3/index.json"
-    },
-    {
-      "name": "NpmPublish",
-      "stageLabel": "release",
-      "enabled": false,
-      "npmSecret": "Npm",
-      "registry": "https://registry.npmjs.org",
-      "access": "public",
-      "workspaceRoot": "..\\..\\.."
-    },
-    {
-      "name": "DotNetCleanupArtifacts",
+      "name": "CleanupArtifacts",
       "stageLabel": "release",
       "enabled": true,
       "includePatterns": [
         "*"
       ],
       "excludePatterns": [
-        "*.zip"
+        "*.zip",
+        "*.exe",
+        "*.flatpak"
       ]
     }
   ]

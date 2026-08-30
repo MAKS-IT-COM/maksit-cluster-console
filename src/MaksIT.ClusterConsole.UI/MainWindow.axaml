@@ -547,11 +547,13 @@
           <DataGrid Name="ResourceGrid"
                     ItemsSource="{Binding ActivePage.Rows}"
                     SelectedItem="{Binding ActivePage.SelectedRow}"
+                    SelectionMode="Extended"
                     AutoGenerateColumns="False"
                     IsReadOnly="True"
                     CanUserResizeColumns="True"
                     CanUserSortColumns="True"
                     ClipboardCopyMode="IncludeHeader"
+                    SelectionChanged="OnResourceGridSelectionChanged"
                     CopyingRowClipboardContent="OnResourceGridCopyingRowClipboardContent"
                     DoubleTapped="OnResourceGridDoubleTapped" />
           <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
