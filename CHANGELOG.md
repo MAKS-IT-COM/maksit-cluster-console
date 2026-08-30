@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-30
+
+### Changed
+
+- Windows setup is per-machine: install path `C:\Program Files\MaksIT\Cluster Console`, Start Menu folder **MaksIT**, shortcuts named **Cluster Console**. The bootstrapper install-folder box expands Program Files instead of showing a raw `[ProgramFiles6432Folder]` token.
+
 ## [0.6.0] - 2026-08-30
 
 ### Fixed
