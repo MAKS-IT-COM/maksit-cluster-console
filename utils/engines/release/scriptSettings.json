@@ -56,10 +56,11 @@
       "enabled": true,
       "appName": "MaksIT Cluster Console",
       "manufacturer": "MaksIT",
+      "installFolderName": "Cluster Console",
       "upgradeCode": "3e45e88a-6524-49cc-88e9-d522d1261b3a",
       "executableName": "MaksIT.ClusterConsole.UI.exe",
       "runtimeIdentifier": "win-x64",
-      "installScope": "perUser",
+      "installScope": "perMachine",
       "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.ico",
       "exeNamePattern": "maksit-cluster-console-{version}.exe"
     },

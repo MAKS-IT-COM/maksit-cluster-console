@@ -102,7 +102,8 @@ function Invoke-Plugin {
     $upgradeCode = [guid]$upgradeCodeRaw
     $manufacturer = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'manufacturer' -Default 'MaksIT')
     $runtimeIdentifier = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'runtimeIdentifier' -Default 'win-x64')
-    $installScope = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'installScope' -Default 'perUser')
+    $installScope = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'installScope' -Default 'perMachine')
+    $installFolderName = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'installFolderName')
     $executableName = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'executableName')
     $publishDirSetting = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'publishDir')
     $iconSetting = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'iconPath')
@@ -217,6 +218,7 @@ function Invoke-Plugin {
         -PublishDirectory $publishDirectory `
         -ExecutablePath $executablePath `
         -InstallScope $installScope `
+        -InstallFolderName $installFolderName `
         -IconPath $iconPath
 
     $xml.Save($wxsPath)
@@ -262,7 +264,8 @@ function Invoke-Plugin {
         -LogoPath $logoPath `
         -LogoSidePath $logoSidePath `
         -ThemePath $themePath `
-        -InstallScope $installScope
+        -InstallScope $installScope `
+        -InstallFolderName $installFolderName
     [System.IO.File]::WriteAllText($bundleWxsPath, $bundleXml, [System.Text.UTF8Encoding]::new($false))
 
     if (Test-Path -LiteralPath $exePath -PathType Leaf) {
