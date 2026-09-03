@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-03
+
+### Changed
+
+- Operator settings (layout, port-forwards, Chat) are written to `%AppData%/MaksIT/Cluster Console/settings.json` (WiX `installFolderName`). Shipped `appsettings.json` next to the exe keeps host logging only; a leftover `Configuration` block is copied once into the user file.
+- Synced RepoUtils: ContainerRegistry JSON catalog (PascalCase Harbor / InCluster keys) and `RepoUtilsSecrets` pack slots instead of per-plugin `*Secret` env names.
+
 ## [0.6.1] - 2026-08-30
 
 ### Changed
@@ -133,3 +140,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Helm releases, Dapr CRDs, Applications view, force-delete, volume file browse, resource-limit patches, and a read-only local Ollama **Chat** tab.
 
 See [README.md](README.md) for the full feature list.
+

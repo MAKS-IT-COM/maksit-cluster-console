@@ -9,6 +9,8 @@
     Harvests a win-* (or sole) DotNetPublish folder into a WiX MSI, then wraps
     it in a Burn bootstrapper .exe. The .exe is the GitHub asset; the MSI/WXS
     stay in a staging folder and are not added to the portable zip.
+    `wix build -arch` follows `runtimeIdentifier` (default win-x64 → x64) so
+    per-machine installs go to `C:\Program Files`, not Program Files (x86).
     Requires the WiX CLI (`dotnet tool install -g wix`). WiX v7: accept the
     OSMF EULA (`wix eula accept wix7` or `-acceptEula wix7`) and
     `wix extension add -g WixToolset.BootstrapperApplications.wixext`.
@@ -102,6 +104,8 @@ function Invoke-Plugin {
     $upgradeCode = [guid]$upgradeCodeRaw
     $manufacturer = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'manufacturer' -Default 'MaksIT')
     $runtimeIdentifier = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'runtimeIdentifier' -Default 'win-x64')
+    $wixArch = Get-WixArchitectureFromRuntimeIdentifier -RuntimeIdentifier $runtimeIdentifier
+    $archArgs = @('-arch', $wixArch)
     $installScope = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'installScope' -Default 'perMachine')
     $installFolderName = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'installFolderName')
     $executableName = [string](Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'executableName')
@@ -209,7 +213,7 @@ function Invoke-Plugin {
     $msiPath = Join-Path $stageDir ($safeName + '-' + $version + '.msi')
     $bundleWxsPath = Join-Path $stageDir ($safeName + '-' + $version + '-bundle.wxs')
 
-    Write-Log -Level "STEP" -Message "Generating WiX source for '$appName' from $publishDirectory"
+    Write-Log -Level "STEP" -Message "Generating WiX source for '$appName' from $publishDirectory ($wixArch)"
     $xml = New-WixPackageXml `
         -AppName $appName `
         -Manufacturer $manufacturer `
@@ -219,6 +223,7 @@ function Invoke-Plugin {
         -ExecutablePath $executablePath `
         -InstallScope $installScope `
         -InstallFolderName $installFolderName `
+        -Architecture $wixArch `
         -IconPath $iconPath
 
     $xml.Save($wxsPath)
@@ -238,9 +243,9 @@ function Invoke-Plugin {
     $eulaArgs = @(Get-WixAcceptEulaArguments -VersionText $wixVersion)
     $bundleExt = Get-WixBundleExtensionName -VersionText $wixVersion
 
-    Write-Log -Level "STEP" -Message "Building MSI with WiX..."
+    Write-Log -Level "STEP" -Message "Building MSI with WiX ($wixArch)..."
     try {
-        Invoke-ExternalCommand -Name wix -ArgumentList (@('build') + $eulaArgs + @($wxsPath, '-o', $msiPath)) | Out-Null
+        Invoke-ExternalCommand -Name wix -ArgumentList (@('build') + $eulaArgs + $archArgs + @($wxsPath, '-o', $msiPath)) | Out-Null
     }
     catch {
         if (Test-WixMissingException -ErrorRecord $_) {
@@ -265,16 +270,17 @@ function Invoke-Plugin {
         -LogoSidePath $logoSidePath `
         -ThemePath $themePath `
         -InstallScope $installScope `
-        -InstallFolderName $installFolderName
+        -InstallFolderName $installFolderName `
+        -Architecture $wixArch
     [System.IO.File]::WriteAllText($bundleWxsPath, $bundleXml, [System.Text.UTF8Encoding]::new($false))
 
     if (Test-Path -LiteralPath $exePath -PathType Leaf) {
         Remove-Item -LiteralPath $exePath -Force
     }
 
-    Write-Log -Level "STEP" -Message "Building Windows installer exe..."
+    Write-Log -Level "STEP" -Message "Building Windows installer exe ($wixArch)..."
     try {
-        Invoke-ExternalCommand -Name wix -ArgumentList (@('build') + $eulaArgs + @($bundleWxsPath, '-ext', $bundleExt, '-o', $exePath)) | Out-Null
+        Invoke-ExternalCommand -Name wix -ArgumentList (@('build') + $eulaArgs + $archArgs + @($bundleWxsPath, '-ext', $bundleExt, '-o', $exePath)) | Out-Null
     }
     catch {
         if (Test-WixMissingException -ErrorRecord $_) {

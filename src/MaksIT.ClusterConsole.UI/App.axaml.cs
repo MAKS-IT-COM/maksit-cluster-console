@@ -22,6 +22,10 @@ public partial class App : Application {
       .ConfigureAppConfiguration(builder => {
         builder.SetBasePath(AppContext.BaseDirectory);
         builder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+        builder.AddJsonFile(
+          UserSettingsPath.Get(ConfigurationFileService.ProductFolder),
+          optional: true,
+          reloadOnChange: true);
       })
       .ConfigureServices((_, services) => {
         services.AddSingleton(_ => new ConfigurationFileService());

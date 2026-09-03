@@ -55,6 +55,37 @@ function Get-DesktopInstallFolderName {
     return $name
 }
 
+function Get-WixArchitectureFromRuntimeIdentifier {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$RuntimeIdentifier = ''
+    )
+
+    $rid = [string]$RuntimeIdentifier
+    if ($rid -match '(?i)arm64') {
+        return 'arm64'
+    }
+
+    if ($rid -match '(?i)(^|-)x86($|-)') {
+        return 'x86'
+    }
+
+    return 'x64'
+}
+
+function Get-WixPerMachineProgramFilesFolderId {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Architecture = 'x64'
+    )
+
+    if ($Architecture -eq 'x86') {
+        return 'ProgramFilesFolder'
+    }
+
+    return 'ProgramFiles64Folder'
+}
+
 function Get-MsiProductVersion {
     param(
         [Parameter(Mandatory = $true)]
@@ -249,6 +280,9 @@ function New-WixPackageXml {
         [string]$InstallFolderName,
 
         [Parameter(Mandatory = $false)]
+        [string]$Architecture = 'x64',
+
+        [Parameter(Mandatory = $false)]
         [string]$IconPath
     )
 
@@ -297,7 +331,12 @@ function New-WixPackageXml {
         -InstallFolderName $InstallFolderName
 
     $stdLocal = $xml.CreateElement('StandardDirectory', $ns)
-    $rootFolderId = if ($scope -eq 'perMachine') { 'ProgramFiles6432Folder' } else { 'LocalAppDataFolder' }
+    $rootFolderId = if ($scope -eq 'perMachine') {
+        Get-WixPerMachineProgramFilesFolderId -Architecture $Architecture
+    }
+    else {
+        'LocalAppDataFolder'
+    }
     $null = $stdLocal.SetAttribute('Id', $rootFolderId)
     $null = $package.AppendChild($stdLocal)
 
@@ -890,7 +929,10 @@ function New-WixBundleXml {
         [string]$InstallScope = 'perMachine',
 
         [Parameter(Mandatory = $false)]
-        [string]$InstallFolderName
+        [string]$InstallFolderName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Architecture = 'x64'
     )
 
     $escapedName = [System.Security.SecurityElement]::Escape($AppName)
@@ -923,7 +965,7 @@ function New-WixBundleXml {
     }
 
     # Type=formatted so WixStdBA expands well-known folders in the InstallFolder edit box.
-    # Type=string shows the raw token, e.g. [ProgramFiles6432Folder]MaksIT\Cluster Console.
+    # Type=string shows the raw token, e.g. [ProgramFiles64Folder]MaksIT\Cluster Console.
     # Burn CSIDL folders already end with a backslash, so do not insert another one.
     # Layout is {ProgramFiles|LocalAppData}\{Manufacturer}\{product} — product folder is the
     # internal name (appName with manufacturer prefix stripped, or installFolderName).
@@ -931,7 +973,7 @@ function New-WixBundleXml {
         '[LocalAppDataFolder]'
     }
     else {
-        '[ProgramFiles6432Folder]'
+        '[' + (Get-WixPerMachineProgramFilesFolderId -Architecture $Architecture) + ']'
     }
 
     $folderPath = if ([string]::IsNullOrWhiteSpace($Manufacturer)) {
@@ -968,6 +1010,8 @@ Export-ModuleMember -Function `
     ConvertTo-WixIdentifier, `
     Get-MsiProductVersion, `
     Get-DesktopInstallFolderName, `
+    Get-WixArchitectureFromRuntimeIdentifier, `
+    Get-WixPerMachineProgramFilesFolderId, `
     Get-PluginPropertyValue, `
     Resolve-DesktopPublishDirectory, `
     Resolve-DesktopExecutablePath, `

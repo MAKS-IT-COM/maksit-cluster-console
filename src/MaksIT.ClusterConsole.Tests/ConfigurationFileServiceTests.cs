@@ -247,9 +247,76 @@ public class ConfigurationFileServiceTests {
   }
 
   [Fact]
-  public void Default_path_is_appsettings_beside_the_executable() {
+  public void Default_path_is_appdata_under_maksit() {
     var service = new ConfigurationFileService();
-    Assert.Equal(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), service.FilePath);
+    Assert.Equal(UserSettingsPath.Get(ConfigurationFileService.ProductFolder), service.FilePath);
+  }
+
+  [Fact]
+  public void Save_to_new_file_writes_only_configuration() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    try {
+      var service = new ConfigurationFileService(path);
+      service.Save(new Configuration { SelectedNamespace = "kube-system" });
+
+      var json = File.ReadAllText(path);
+      Assert.Contains("\"Configuration\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"Logging\"", json, StringComparison.Ordinal);
+      Assert.Equal("kube-system", new ConfigurationFileService(path).Current.SelectedNamespace);
+    }
+    finally {
+      if (File.Exists(path))
+        File.Delete(path);
+    }
+  }
+
+  [Fact]
+  public void Copies_seed_configuration_without_logging() {
+    var dir = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(dir);
+    var seed = Path.Combine(dir, "appsettings.json");
+    var user = Path.Combine(dir, "settings.json");
+    File.WriteAllText(seed, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } },
+        "Configuration": { "SelectedNamespace": "kube-system" }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(user, seed);
+      Assert.True(File.Exists(user));
+      Assert.Equal("kube-system", service.Current.SelectedNamespace);
+
+      var json = File.ReadAllText(user);
+      Assert.Contains("\"Configuration\"", json, StringComparison.Ordinal);
+      Assert.DoesNotContain("\"Logging\"", json, StringComparison.Ordinal);
+    }
+    finally {
+      Directory.Delete(dir, true);
+    }
+  }
+
+  [Fact]
+  public void Logging_only_seed_does_not_create_user_file() {
+    var dir = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(dir);
+    var seed = Path.Combine(dir, "appsettings.json");
+    var user = Path.Combine(dir, "settings.json");
+    File.WriteAllText(seed, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(user, seed);
+      Assert.False(File.Exists(user));
+      Assert.Equal(Configuration.AllNamespaces, service.Current.SelectedNamespace);
+    }
+    finally {
+      Directory.Delete(dir, true);
+    }
   }
 
   [Fact]
