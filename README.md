@@ -61,7 +61,9 @@ Connect a context from the catalog, pick a navigator item, then use the table, d
 
 ## Configuration
 
-Defaults live in `src/MaksIT.ClusterConsole.Shared/appsettings.json` (copied next to the UI). Notable keys under `Configuration`:
+Host logging lives in `src/MaksIT.ClusterConsole.Shared/appsettings.json` (copied next to the UI under Program Files; normal users cannot write it). Operator layout, open clusters, port-forwards, and Chat settings are saved to `%AppData%/MaksIT/Cluster Console/settings.json` (same folder name as WiX: `Program Files\MaksIT\Cluster Console`). On first launch, a leftover `Configuration` block next to the exe is copied once into that user file.
+
+Notable keys under `Configuration` in the user file:
 
 | Key | Role |
 |-----|------|

@@ -86,89 +86,23 @@ function Get-RepoUtilsVaultConnectionSecretName {
     return 'MAKSIT_VAULT'
 }
 
-function Add-RepoUtilsSecretNamesFromObject {
-    param(
-        $Object,
-        [Parameter(Mandatory = $true)]
-        [AllowEmptyCollection()]
-        [System.Collections.Generic.HashSet[string]]$Names
-    )
-
-    if ($null -eq $Object -or $Object -is [string] -or $Object -is [ValueType]) {
-        return
-    }
-
-    if ($Object -is [System.Collections.IDictionary]) {
-        foreach ($key in @($Object.Keys)) {
-            $name = [string]$key
-            $value = $Object[$key]
-            if ($name -like '*Secret') {
-                $trimmed = ([string]$value).Trim()
-                if (-not [string]::IsNullOrWhiteSpace($trimmed) -and
-                    -not [string]::Equals($trimmed, 'WebhookSecret', [System.StringComparison]::Ordinal)) {
-                    [void]$Names.Add($trimmed)
-                }
-            }
-            else {
-                Add-RepoUtilsSecretNamesFromObject -Object $value -Names $Names
-            }
-        }
-
-        return
-    }
-
-    if ($Object -is [System.Collections.IEnumerable]) {
-        foreach ($item in @($Object)) {
-            Add-RepoUtilsSecretNamesFromObject -Object $item -Names $Names
-        }
-
-        return
-    }
-
-    if ($null -eq $Object.PSObject) {
-        return
-    }
-
-    foreach ($property in $Object.PSObject.Properties) {
-        if ($property.MemberType -notin @('NoteProperty', 'Property')) {
-            continue
-        }
-
-        $value = $property.Value
-        if ($property.Name -like '*Secret') {
-            $trimmed = ([string]$value).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($trimmed) -and
-                -not [string]::Equals($trimmed, 'WebhookSecret', [System.StringComparison]::Ordinal)) {
-                [void]$Names.Add($trimmed)
-            }
-
-            continue
-        }
-
-        Add-RepoUtilsSecretNamesFromObject -Object $value -Names $Names
-    }
-}
-
-function Get-EnabledPluginSecretNames {
+function Get-RepoUtilsVaultOrgPackApplicationName {
     param(
         [Parameter(Mandatory = $true)]
-        $Plugins
+        $Settings
     )
 
-    $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($plugin in @($Plugins)) {
-        if ($null -eq $plugin) {
-            continue
-        }
-
-        if (($plugin.PSObject.Properties.Name -contains 'enabled') -and ($plugin.enabled -eq $false)) {
-            continue
-        }
-
-        Add-RepoUtilsSecretNamesFromObject -Object $plugin -Names $names
+    $application = $null
+    if ($Settings.PSObject.Properties.Name -contains 'vaultRepoUtilsApplication') {
+        $application = [string]$Settings.vaultRepoUtilsApplication
     }
 
-    return @($names)
+    $application = if ($null -eq $application) { '' } else { $application.Trim() }
+    if ([string]::IsNullOrWhiteSpace($application)) {
+        throw "useVault is true but vaultRepoUtilsApplication is not set in scriptSettings.json (Vault application for the org-pack, e.g. Shared)."
+    }
+
+    return $application
 }
 
 function Get-VaultNameFilterExpression {
@@ -325,25 +259,23 @@ function Resolve-RepoUtilsVaultSecretValue {
         [string]$Mode
     )
 
-    foreach ($application in @($ApplicationName, 'Shared')) {
-        $match = Find-RepoUtilsVaultSecretMatch `
-            -OrganizationName $OrganizationName `
-            -ApplicationName $application `
-            -SecretName $SecretName `
-            -Connection $Connection `
-            -Mode $Mode
-        if ($null -eq $match) {
-            continue
-        }
-
-        $value = Get-RepoUtilsVaultSecretValue -Match $match -Connection $Connection -Mode $Mode
-        if (-not [string]::IsNullOrWhiteSpace($value)) {
-            Write-Log -Level 'INFO' -Message "Resolved Vault secret '$SecretName' from $OrganizationName/$application"
-            return $value
-        }
+    $match = Find-RepoUtilsVaultSecretMatch `
+        -OrganizationName $OrganizationName `
+        -ApplicationName $ApplicationName `
+        -SecretName $SecretName `
+        -Connection $Connection `
+        -Mode $Mode
+    if ($null -eq $match) {
+        return $null
     }
 
-    return $null
+    $value = Get-RepoUtilsVaultSecretValue -Match $match -Connection $Connection -Mode $Mode
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $null
+    }
+
+    Write-Log -Level 'INFO' -Message "Resolved Vault secret '$SecretName' from $OrganizationName/$ApplicationName"
+    return $value
 }
 
 function Initialize-RepoUtilsVaultSecrets {
@@ -359,6 +291,18 @@ function Initialize-RepoUtilsVaultSecrets {
         return
     }
 
+    $names = Get-RepoUtilsSecretsEnvNames -Settings $Settings
+    $sharedRaw = Get-RepoUtilsEnvironmentVariable -Name $names.SharedEnv
+    $packRaw = Get-RepoUtilsEnvironmentVariable -Name $names.PackEnv
+    $sharedPresent = -not [string]::IsNullOrWhiteSpace($sharedRaw)
+    $packPresent = -not [string]::IsNullOrWhiteSpace($packRaw)
+    if ($sharedPresent -and $packPresent) {
+        [void](ConvertFrom-RepoUtilsSecretsPackJson -Raw $sharedRaw -SourceName $names.SharedEnv)
+        [void](ConvertFrom-RepoUtilsSecretsPackJson -Raw $packRaw -SourceName $names.PackEnv)
+        Write-Log -Level 'INFO' -Message "Vault mode: pack env vars '$($names.SharedEnv)' and '$($names.PackEnv)' already set; skipping Vault fetch."
+        return
+    }
+
     $connectionName = Get-RepoUtilsVaultConnectionSecretName -Settings $Settings
     $raw = [Environment]::GetEnvironmentVariable($connectionName)
     if ([string]::IsNullOrWhiteSpace($raw)) {
@@ -367,9 +311,9 @@ function Initialize-RepoUtilsVaultSecrets {
 
     $connection = ConvertFrom-VaultConnectionSecret -Raw $raw
     $scope = Get-RepoUtilsVaultScope -Settings $Settings
-    $secretNames = @(Get-EnabledPluginSecretNames -Plugins $Plugins)
+    $orgPackApplication = Get-RepoUtilsVaultOrgPackApplicationName -Settings $Settings
 
-    Write-Log -Level 'INFO' -Message "Vault mode: loading $($secretNames.Count) plugin secret(s) for $($scope.Organization)/$($scope.Application)"
+    Write-Log -Level 'INFO' -Message "Vault mode: loading RepoUtilsSecrets packs for $($scope.Organization)/$orgPackApplication and $($scope.Organization)/$($scope.Application)"
 
     $mode = 'Rest'
     try {
@@ -388,18 +332,34 @@ function Initialize-RepoUtilsVaultSecrets {
         $mode = 'Rest'
     }
 
-    foreach ($secretName in $secretNames) {
-        $value = Resolve-RepoUtilsVaultSecretValue `
+    if (-not $sharedPresent) {
+        $sharedValue = Resolve-RepoUtilsVaultSecretValue `
             -OrganizationName $scope.Organization `
-            -ApplicationName $scope.Application `
-            -SecretName $secretName `
+            -ApplicationName $orgPackApplication `
+            -SecretName $names.SharedEnv `
             -Connection $connection `
             -Mode $mode
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            throw "Vault secret '$secretName' was not found for $($scope.Organization)/$($scope.Application) (or Shared) or has no current version."
+        if ([string]::IsNullOrWhiteSpace($sharedValue)) {
+            $sharedValue = '{}'
+            Write-Log -Level 'INFO' -Message "Vault secret '$($names.SharedEnv)' was not found for $($scope.Organization)/$orgPackApplication; using empty org-pack."
         }
 
-        [Environment]::SetEnvironmentVariable($secretName, $value, 'Process')
+        [Environment]::SetEnvironmentVariable($names.SharedEnv, $sharedValue, 'Process')
+    }
+
+    if (-not $packPresent) {
+        $packValue = Resolve-RepoUtilsVaultSecretValue `
+            -OrganizationName $scope.Organization `
+            -ApplicationName $scope.Application `
+            -SecretName $names.PackEnv `
+            -Connection $connection `
+            -Mode $mode
+        if ([string]::IsNullOrWhiteSpace($packValue)) {
+            $packValue = '{}'
+            Write-Log -Level 'INFO' -Message "Vault secret '$($names.PackEnv)' was not found for $($scope.Organization)/$($scope.Application); using empty slug-pack."
+        }
+
+        [Environment]::SetEnvironmentVariable($names.PackEnv, $packValue, 'Process')
     }
 }
 
@@ -408,6 +368,6 @@ Export-ModuleMember -Function @(
     'ConvertFrom-VaultConnectionSecret',
     'Get-RepoUtilsVaultScope',
     'Get-RepoUtilsVaultConnectionSecretName',
-    'Get-EnabledPluginSecretNames',
+    'Get-RepoUtilsVaultOrgPackApplicationName',
     'Initialize-RepoUtilsVaultSecrets'
 )
