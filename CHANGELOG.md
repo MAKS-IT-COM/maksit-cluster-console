@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- macOS GitHub Release assets for all Macs: `osx-arm64` (Apple Silicon) and `osx-x64` (Intel) DMGs, built on `macos-latest` when a release is published. Unsigned until Apple notarization (first launch: Open from the context menu).
+
 ## [0.6.2] - 2026-09-03
 
 ### Changed
