@@ -1,0 +1,80 @@
+name: macOS release assets
+
+# Public repo: GitHub-hosted macos-latest builds Intel and Apple Silicon DMGs.
+# Local Windows release still produces zip / setup / Flatpak; this job attaches Mac assets.
+
+on:
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    name: ${{ matrix.rid }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [osx-arm64, osx-x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' src/Directory.Build.props | head -1 | tr -d '[:space:]')"
+          fi
+          if [ -z "$version" ]; then
+            echo "Could not resolve version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        run: |
+          dotnet publish src/MaksIT.ClusterConsole.UI/MaksIT.ClusterConsole.UI.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:UseAppHost=true \
+            -p:PublishSingleFile=false \
+            -o "$RUNNER_TEMP/publish"
+
+      - name: Bundle .app and DMG
+        run: |
+          chmod +x packaging/macos/bundle.sh
+          packaging/macos/bundle.sh \
+            --publish-dir "$RUNNER_TEMP/publish" \
+            --version "${{ steps.ver.outputs.version }}" \
+            --rid "${{ matrix.rid }}" \
+            --icon src/MaksIT.ClusterConsole.UI/Assets/icon.png \
+            --output-dir "$RUNNER_TEMP/dist"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maksit-cluster-console-${{ steps.ver.outputs.version }}-${{ matrix.rid }}
+          path: ${{ runner.temp }}/dist/maksit-cluster-console-${{ steps.ver.outputs.version }}-${{ matrix.rid }}.dmg
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "$RUNNER_TEMP/dist/maksit-cluster-console-${{ steps.ver.outputs.version }}-${{ matrix.rid }}.dmg" \
+            --clobber
