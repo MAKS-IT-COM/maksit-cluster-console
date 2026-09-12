@@ -6,9 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-12
+
 ### Added
 
 - macOS GitHub Release assets for all Macs: `osx-arm64` (Apple Silicon) and `osx-x64` (Intel) DMGs, built on `macos-latest` when a release is published. Unsigned until Apple notarization (first launch: Open from the context menu).
+
+### Changed
+
+- Linux Flatpak app id is lowercase `com.maks_it.clusterconsole`. Uninstall the old `com.maks_it.ClusterConsole` id before installing a new bundle. AppStream and the desktop file live in `data/`. Avalonia 12.1.2.
+
+### Fixed
+
+- Linux Flatpak GNOME app icon uses X11/XWayland (`UsePlatformDetect` only). Avalonia 12.1.2 native Wayland still hangs on GNOME `xdg_toplevel.configure(0, 0)`.
+- Flatpak AppStream version is the same shared release version as zip and MSI (`DotNetReleaseVersion` from the UI csproj / `Directory.Build.props`), so `flatpak info` matches the bundle file name.
 
 ## [0.6.2] - 2026-09-03
 
