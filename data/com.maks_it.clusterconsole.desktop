@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Cluster Console
+GenericName=Kubernetes console
+Comment=Browse a Kubernetes cluster from the desktop
+Exec=maksit-cluster-console
+Icon=com.maks_it.clusterconsole
+StartupWMClass=com.maks_it.clusterconsole
+StartupNotify=true
+Terminal=false
+Categories=Development;Network;
+Keywords=kubernetes;k8s;kubeconfig;cluster;
