@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
         x:Class="MaksIT.ClusterConsole.UI.VolumeFilesWindow"
         x:DataType="vm:VolumeFilesViewModel"
         Title="{Binding WindowTitle}"
@@ -60,11 +61,9 @@
                    Classes="hint"
                    Margin="0,0,0,8"
                    TextWrapping="Wrap" />
-        <TextBox Text="{Binding EditorText}"
-                 AcceptsReturn="True"
-                 FontFamily="Consolas, Cascadia Mono, monospace"
-                 TextWrapping="NoWrap"
-                 IsReadOnly="{Binding EditorReadOnly}" />
+        <controls:SyntaxTextEditor Text="{Binding EditorText}"
+                                   FileName="{Binding OpenFilePath}"
+                                   IsReadOnly="{Binding EditorReadOnly}" />
       </DockPanel>
     </Grid>
   </DockPanel>

@@ -217,7 +217,7 @@ public static class ResourceCatalog {
       D("mutatingwebhookconfigurations", "Mutating Webhooks", Config, "admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations", "MutatingWebhookConfiguration", false, named, crud, yamlTabs),
       D("validatingwebhookconfigurations", "Validating Webhooks", Config, "admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations", "ValidatingWebhookConfiguration", false, named, crud, yamlTabs),
       D("services", "Services", Network, "", "v1", "services", "Service", true,
-        [..std, new("Type", "spec.type"), new("Cluster IP", "spec.clusterIP"), new("External IP", "service.externalIP"), new("Ports", "spec.ports")],
+        [..std, new("Type", "spec.type"), new("Status", "service.status"), new("Cluster IP", "spec.clusterIP"), new("External IP", "service.externalIP"), new("Ports", "spec.ports")],
         new ResourceActions(CanPortForward: true), serviceTabs),
       D("endpoints", "Endpoints", Network, "", "v1", "endpoints", "Endpoints", true, std, crud, yamlTabs),
       D("endpointslices", "Endpoint Slices", Network, "discovery.k8s.io", "v1", "endpointslices", "EndpointSlice", true, std, crud, yamlTabs),

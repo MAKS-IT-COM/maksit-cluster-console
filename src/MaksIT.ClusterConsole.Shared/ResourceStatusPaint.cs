@@ -21,7 +21,7 @@ public static class ResourceStatusPaint {
     if (Contains(value, "fail", "error", "backoff", "unhealthy", "denied"))
       return ResourceStatusTone.Error;
 
-    if (Matches(value, "Pending", "ContainerCreating", "PodInitializing", "Terminating",
+    if (Matches(value, "Pending", "Unreachable", "ContainerCreating", "PodInitializing", "Terminating",
           "Released", "Progressing", "Waiting", "Unknown", "Stopped", "NotReady",
           "Orphaned", "Missing"))
       return ResourceStatusTone.Warning;

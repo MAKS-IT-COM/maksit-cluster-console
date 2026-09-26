@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-26
+
+### Added
+
+- Help → Logs shows the app log and crash reports, and an unhandled error opens a copyable debug window instead of closing the app.
+- YAML view, volume files, and ConfigMap/Secret values highlight as JSON or YAML. A data key or file name uses its extension (`.json`, `.yaml`, `.yml`); a key without one stays plain. The resource YAML tab is always YAML.
+- Services table includes Status: Active when the load-balancer address is assigned, Pending when none is set, and Unreachable when a BGP or requested address is not the one in `status.loadBalancer.ingress` (or Cilium IPAM reports it unsatisfied).
+
+### Fixed
+
+- Applying YAML for a LoadBalancer service (for example a Cilium BGP service whose `last-applied-configuration` annotation contains a newline) no longer crashes. Multiline and quoted strings are written as valid YAML.
+
 ## [0.7.0] - 2026-09-12
 
 ### Added

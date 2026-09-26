@@ -1,3 +1,6 @@
+using System.Globalization;
+
+
 namespace MaksIT.ClusterConsole.Shared;
 
 public sealed record VolumeEntry(string Name, bool IsDirectory, long Size) {
@@ -9,11 +12,11 @@ public sealed record VolumeEntry(string Name, bool IsDirectory, long Size) {
 
   private static string FormatSize(long size) {
     if (size < 1024)
-      return $"{size} B";
+      return size.ToString(CultureInfo.InvariantCulture) + " B";
     if (size < 1024 * 1024)
-      return $"{size / 1024.0:0.#} KB";
+      return (size / 1024.0).ToString("0.#", CultureInfo.InvariantCulture) + " KB";
 
-    return $"{size / (1024.0 * 1024.0):0.#} MB";
+    return (size / (1024.0 * 1024.0)).ToString("0.#", CultureInfo.InvariantCulture) + " MB";
   }
 }
 

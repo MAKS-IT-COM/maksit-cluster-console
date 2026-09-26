@@ -13,7 +13,7 @@ public sealed record PortForwardTarget(string PodName, string Namespace, int Con
 
 public static class ServicePortForward {
   public static bool IsService(JsonObject? document) =>
-    string.Equals(document?["kind"]?.GetValue<string>(), "Service", StringComparison.OrdinalIgnoreCase);
+    string.Equals(JsonPath.Text(document?["kind"]), "Service", StringComparison.OrdinalIgnoreCase);
 
   public static int? DefaultPort(JsonObject? service) {
     var first = (service?["spec"]?["ports"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault();
