@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -75,14 +76,68 @@ public static class YamlFormatter {
     if (value.TryGetValue<bool>(out var b))
       return b ? "true" : "false";
     if (value.TryGetValue<long>(out var l))
-      return l.ToString();
+      return l.ToString(CultureInfo.InvariantCulture);
     if (value.TryGetValue<double>(out var d))
-      return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+      return d.ToString(CultureInfo.InvariantCulture);
+    if (value.TryGetValue<string>(out var text))
+      return Quote(text ?? "");
 
-    var s = value.ToString();
-    if (s.Contains(':') || s.Contains('#') || s.Contains('\n') || s.Length == 0)
-      return $"\"{s.Replace("\"", "\\\"")}\"";
-    return s;
+    return Quote(value.ToString());
+  }
+
+  private static string Quote(string text) {
+    if (!NeedsQuote(text))
+      return text;
+
+    var escaped = new StringBuilder(text.Length + 2);
+    escaped.Append('"');
+    foreach (var c in text) {
+      switch (c) {
+        case '\\':
+          escaped.Append("\\\\");
+          break;
+        case '"':
+          escaped.Append("\\\"");
+          break;
+        case '\n':
+          escaped.Append("\\n");
+          break;
+        case '\r':
+          escaped.Append("\\r");
+          break;
+        case '\t':
+          escaped.Append("\\t");
+          break;
+        default:
+          escaped.Append(c);
+          break;
+      }
+    }
+
+    escaped.Append('"');
+    return escaped.ToString();
+  }
+
+  private static bool NeedsQuote(string text) {
+    if (text.Length == 0)
+      return true;
+    if (text is "true" or "false" or "null" or "yes" or "no" or "~")
+      return true;
+    if (char.IsWhiteSpace(text[0]) || char.IsWhiteSpace(text[^1]))
+      return true;
+    if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+      return true;
+    if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+        && text.Contains('.') && !text.Contains(".."))
+      return true;
+
+    foreach (var c in text) {
+      if (c is ':' or '#' or '\n' or '\r' or '\t' or '"' or '\\'
+          or '{' or '}' or '[' or ']' or ',' or '&' or '*' or '!' or '|' or '>' or '%' or '@' or '`' or '\'')
+        return true;
+    }
+
+    return false;
   }
 
   private static JsonObject ParseSimpleYaml(string yaml) {

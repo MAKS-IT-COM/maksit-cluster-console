@@ -18,6 +18,9 @@ public static class JsonPath {
     if (path == "service.externalIP")
       return ServiceExternalIp(root as JsonObject);
 
+    if (path == "service.status")
+      return ServiceStatus(root as JsonObject);
+
     if (path == "pv.claim")
       return VolumeClaim(root as JsonObject);
 
@@ -100,32 +103,91 @@ public static class JsonPath {
     return string.IsNullOrWhiteSpace(ns) ? name : $"{ns}/{name}";
   }
 
+  public static string ServiceStatus(JsonObject? item) {
+    if (item is null)
+      return string.Empty;
+
+    var type = Text(item["spec"]?["type"]);
+    if (!type.Equals("LoadBalancer", StringComparison.OrdinalIgnoreCase))
+      return string.IsNullOrWhiteSpace(type) ? string.Empty : "Active";
+
+    var requested = RequestedLoadBalancerIps(item);
+    var assigned = AssignedLoadBalancerIps(item);
+    var requestedMissing = requested.Any(ip => !assigned.Contains(ip, StringComparer.OrdinalIgnoreCase));
+    if (requested.Count > 0 && (requestedMissing || !IpamSatisfied(item)))
+      return "Unreachable";
+    if (assigned.Count == 0)
+      return "Pending";
+
+    return "Active";
+  }
+
   public static string ServiceExternalIp(JsonObject? item) {
     if (item is null)
       return string.Empty;
 
     var ips = new List<string>();
-    AddUnique(ips, item["spec"]?["loadBalancerIP"]?.GetValue<string>());
+    AddUnique(ips, Text(item["spec"]?["loadBalancerIP"]));
 
     if (item["spec"]?["externalIPs"] is JsonArray external) {
       foreach (var ip in external)
-        AddUnique(ips, ip?.GetValue<string>());
+        AddUnique(ips, Text(ip));
     }
 
     if (item["status"]?["loadBalancer"]?["ingress"] is JsonArray ingress) {
       foreach (var entry in ingress.OfType<JsonObject>()) {
-        AddUnique(ips, entry["ip"]?.GetValue<string>());
-        AddUnique(ips, entry["hostname"]?.GetValue<string>());
+        AddUnique(ips, Text(entry["ip"]));
+        AddUnique(ips, Text(entry["hostname"]));
       }
     }
 
-    var annotation = item["metadata"]?["annotations"]?["lbipam.cilium.io/ips"]?.GetValue<string>();
+    var annotation = Text(item["metadata"]?["annotations"]?["lbipam.cilium.io/ips"]);
     if (!string.IsNullOrWhiteSpace(annotation)) {
       foreach (var ip in annotation.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         AddUnique(ips, ip);
     }
 
     return string.Join(",", ips);
+  }
+
+  private static List<string> RequestedLoadBalancerIps(JsonObject item) {
+    var ips = new List<string>();
+    AddUnique(ips, Text(item["spec"]?["loadBalancerIP"]));
+    var annotation = Text(item["metadata"]?["annotations"]?["lbipam.cilium.io/ips"]);
+    if (!string.IsNullOrWhiteSpace(annotation)) {
+      foreach (var ip in annotation.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        AddUnique(ips, ip);
+    }
+
+    return ips;
+  }
+
+  private static List<string> AssignedLoadBalancerIps(JsonObject item) {
+    var ips = new List<string>();
+    if (item["status"]?["loadBalancer"]?["ingress"] is JsonArray ingress) {
+      foreach (var entry in ingress.OfType<JsonObject>()) {
+        AddUnique(ips, Text(entry["ip"]));
+        AddUnique(ips, Text(entry["hostname"]));
+      }
+    }
+
+    return ips;
+  }
+
+  private static bool IpamSatisfied(JsonObject item) {
+    if (item["status"]?["conditions"] is not JsonArray conditions)
+      return true;
+
+    foreach (var condition in conditions.OfType<JsonObject>()) {
+      var type = Text(condition["type"]);
+      if (!type.Contains("ipam", StringComparison.OrdinalIgnoreCase)
+          || !type.Contains("satisfied", StringComparison.OrdinalIgnoreCase))
+        continue;
+
+      return Text(condition["status"]).Equals("True", StringComparison.OrdinalIgnoreCase);
+    }
+
+    return true;
   }
 
   private static void AddUnique(List<string> ips, string? value) {

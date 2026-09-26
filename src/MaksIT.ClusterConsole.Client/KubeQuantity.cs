@@ -45,7 +45,7 @@ public static class KubeQuantity {
 
   public static string FormatCores(double cores) {
     if (cores < 1)
-      return $"{cores * 1000:0}m";
+      return (cores * 1000).ToString("0", CultureInfo.InvariantCulture) + "m";
     return cores.ToString("0.##", CultureInfo.InvariantCulture);
   }
 
@@ -56,20 +56,20 @@ public static class KubeQuantity {
     const double gi = 1024d * 1024 * 1024;
     const double mi = 1024d * 1024;
     if (bytes >= gi)
-      return $"{bytes / gi:0.##} GiB";
+      return (bytes / gi).ToString("0.##", CultureInfo.InvariantCulture) + " GiB";
     if (bytes >= mi)
-      return $"{bytes / mi:0.##} MiB";
-    return $"{bytes} B";
+      return (bytes / mi).ToString("0.##", CultureInfo.InvariantCulture) + " MiB";
+    return bytes.ToString(CultureInfo.InvariantCulture) + " B";
   }
 
   public static string FormatBytesCompact(long bytes) {
     const double gi = 1024d * 1024 * 1024;
     const double mi = 1024d * 1024;
     if (bytes >= gi)
-      return $"{bytes / gi:0.0}GiB";
+      return (bytes / gi).ToString("0.0", CultureInfo.InvariantCulture) + "GiB";
     if (bytes >= mi)
-      return $"{bytes / mi:0.0}MiB";
-    return $"{bytes}B";
+      return (bytes / mi).ToString("0.0", CultureInfo.InvariantCulture) + "MiB";
+    return bytes.ToString(CultureInfo.InvariantCulture) + "B";
   }
 
   public static string FormatMegabytes(long bytes) {
@@ -78,7 +78,7 @@ public static class KubeQuantity {
     if (megabytes < 1)
       return "<1 MB";
 
-    return $"{Math.Round(megabytes):0} MB";
+    return Math.Round(megabytes).ToString("0", CultureInfo.InvariantCulture) + " MB";
   }
 
   public static string FormatMemoryQuantity(long bytes) {

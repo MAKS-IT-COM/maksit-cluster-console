@@ -13,6 +13,11 @@
         MinWidth="960"
         MinHeight="640">
   <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="Help">
+        <MenuItem Header="Logs" Click="OnLogsClick" />
+      </MenuItem>
+    </Menu>
     <Border DockPanel.Dock="Bottom" Padding="8,6" Background="#15171a">
       <TextBlock Text="{Binding Status}" Classes="hint" VerticalAlignment="Center" />
     </Border>
@@ -616,7 +621,7 @@
                     <Button Content="Apply YAML" Command="{Binding ActivePage.ApplyYamlCommand}" IsVisible="{Binding ActivePage.CanApplyYaml}" />
                     <TextBlock Text="Unsaved YAML" Classes="hint" IsVisible="{Binding ActivePage.IsDirty}" VerticalAlignment="Center" />
                   </StackPanel>
-                  <TextBox Text="{Binding ActivePage.YamlText}" AcceptsReturn="True" FontFamily="Consolas, monospace" TextWrapping="NoWrap" />
+                  <controls:SyntaxTextEditor Text="{Binding ActivePage.YamlText}" PreferYaml="True" />
                 </DockPanel>
               </TabItem>
               <TabItem Header="Data" IsVisible="{Binding ActivePage.IsDataEditor}">
@@ -631,12 +636,9 @@
                                Text="Value (multiline paste supported)"
                                Classes="hint"
                                Margin="0,0,0,4" />
-                    <TextBox Text="{Binding ActivePage.SelectedDataEntry.Value}"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             FontFamily="Consolas, monospace"
-                             IsEnabled="{Binding ActivePage.HasSelectedDataEntry}"
-                             PlaceholderText="Select a key, then edit or paste its value here" />
+                    <controls:SyntaxTextEditor Text="{Binding ActivePage.SelectedDataEntry.Value}"
+                                               FileName="{Binding ActivePage.SelectedDataEntry.Key}"
+                                               IsEnabled="{Binding ActivePage.HasSelectedDataEntry}" />
                   </DockPanel>
                   <DataGrid Name="DataEntriesGrid"
                             ItemsSource="{Binding ActivePage.DataEntries}"

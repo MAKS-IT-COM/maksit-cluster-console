@@ -13,6 +13,7 @@ using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Controls;
 using MaksIT.ClusterConsole.UI.Converters;
 using MaksIT.ClusterConsole.UI.ViewModels;
+using MaksIT.ClusterConsole.UI.Windows;
 
 
 namespace MaksIT.ClusterConsole.UI;
@@ -47,6 +48,9 @@ public partial class MainWindow : Window {
     viewModel.ConnectionsRequested += async (_, _) => await OpenConnectionsAsync(viewModel);
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
   }
+
+  private void OnLogsClick(object? sender, RoutedEventArgs e) =>
+    _ = LogWindow.ShowAsync(this);
 
   private void OpenVolumeFiles(VolumeFilesViewModel files) {
     var window = new VolumeFilesWindow(files);

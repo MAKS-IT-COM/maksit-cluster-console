@@ -394,8 +394,38 @@ public class ResourceCatalogTests {
     Assert.NotNull(service);
     var row = ResourceRow.From(service, ResourceCatalog.Find("services")!);
     Assert.Equal("LoadBalancer", row.Cells["Type"]);
+    Assert.Equal("Active", row.Cells["Status"]);
     Assert.Equal("10.43.131.123", row.Cells["Cluster IP"]);
     Assert.Equal("172.16.0.11", row.Cells["External IP"]);
     Assert.Equal("5432", row.Cells["Ports"]);
+
+    var pending = JsonNode.Parse("""
+      {
+        "metadata": { "name": "web" },
+        "spec": { "type": "LoadBalancer", "clusterIP": "10.43.1.2", "ports": [{ "port": 80 }] }
+      }
+      """) as JsonObject;
+    Assert.NotNull(pending);
+    Assert.Equal("Pending", ResourceRow.From(pending, ResourceCatalog.Find("services")!).Cells["Status"]);
+
+    var unreachable = JsonNode.Parse("""
+      {
+        "metadata": {
+          "name": "web",
+          "annotations": { "lbipam.cilium.io/ips": "172.16.0.99" }
+        },
+        "spec": { "type": "LoadBalancer", "clusterIP": "10.43.1.3", "ports": [{ "port": 80 }] },
+        "status": {
+          "conditions": [{
+            "type": "io.cilium/lb-ipam-request-satisfied",
+            "status": "False",
+            "reason": "no_pool"
+          }]
+        }
+      }
+      """) as JsonObject;
+    Assert.NotNull(unreachable);
+    Assert.Equal("Unreachable", ResourceRow.From(unreachable, ResourceCatalog.Find("services")!).Cells["Status"]);
+    Assert.Equal("172.16.0.99", ResourceRow.From(unreachable, ResourceCatalog.Find("services")!).Cells["External IP"]);
   }
 }

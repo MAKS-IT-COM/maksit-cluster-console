@@ -10,6 +10,7 @@ public class ResourceTableTests {
   [InlineData("Ready", ResourceStatusTone.Healthy)]
   [InlineData("deployed", ResourceStatusTone.Healthy)]
   [InlineData("Pending", ResourceStatusTone.Warning)]
+  [InlineData("Unreachable", ResourceStatusTone.Warning)]
   [InlineData("Unknown", ResourceStatusTone.Warning)]
   [InlineData("Failed", ResourceStatusTone.Error)]
   [InlineData("CrashLoopBackOff", ResourceStatusTone.Error)]

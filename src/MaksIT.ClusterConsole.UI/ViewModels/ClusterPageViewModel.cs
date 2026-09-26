@@ -673,21 +673,27 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (_workspace.Session is null)
       return;
 
-    var doc = YamlFormatter.ToJsonObject(YamlText);
-    if (doc is null) {
-      _setStatus("YAML is empty or invalid.");
-      return;
+    try {
+      var doc = YamlFormatter.ToJsonObject(YamlText);
+      if (doc is null) {
+        _setStatus("YAML is empty or invalid.");
+        return;
+      }
+
+      var applied = await _workspace.ApplyDocumentAsync(doc);
+      _setStatus(applied.IsSuccess ? "Applied YAML." : string.Join("; ", applied.Messages));
+      if (!applied.IsSuccess)
+        return;
+
+      IsDirty = false;
+      _detailsUid = null;
+      await RefreshRowsAsync();
+      await LoadDetailsAsync();
     }
-
-    var applied = await _workspace.ApplyDocumentAsync(doc);
-    _setStatus(applied.IsSuccess ? "Applied YAML." : string.Join("; ", applied.Messages));
-    if (!applied.IsSuccess)
-      return;
-
-    IsDirty = false;
-    _detailsUid = null;
-    await RefreshRowsAsync();
-    await LoadDetailsAsync();
+    catch (Exception ex) {
+      AppLog.Write(ex);
+      _setStatus(ex.Message);
+    }
   }
 
   [RelayCommand]
