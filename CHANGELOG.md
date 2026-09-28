@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-28
+
+### Added
+
+- Microsoft Store package is a full-trust x64 MSIX (`MAKS-IT.ClusterConsole`). The WiX setup exe remains the GitHub installer. The MSIX is not a GitHub release asset.
+
 ## [0.8.1] - 2026-09-27
 
 ### Fixed
