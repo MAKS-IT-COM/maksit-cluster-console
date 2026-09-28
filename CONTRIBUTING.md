@@ -47,6 +47,16 @@ Those name, publisher, and publisher display strings are `packageName`, `publish
 
 The `.msix` is not a GitHub release asset.
 
+Store listing copy:
+
+| Field | Document |
+|-------|----------|
+| Short description, description, extra requirements | [packaging/microsoft-store/description.md](packaging/microsoft-store/description.md) |
+| Product features (up to 20 bullets, 200 characters each) | [packaging/microsoft-store/product-features.md](packaging/microsoft-store/product-features.md) |
+| Keywords (up to 7, 40 characters each, 21 words total) | [packaging/microsoft-store/keywords.md](packaging/microsoft-store/keywords.md) |
+| Copyright, additional license terms, Developed by | [packaging/microsoft-store/additional-info.md](packaging/microsoft-store/additional-info.md) |
+| Store logos (9:16 poster, 1:1 box art, app tiles) | [packaging/microsoft-store/logos.md](packaging/microsoft-store/logos.md) |
+
 ### System requirements (Properties)
 
 Partner Center → **Properties** → **System requirements**. A blank cell stays unset. Minimum is what the Store may warn on; Recommended does not warn.
