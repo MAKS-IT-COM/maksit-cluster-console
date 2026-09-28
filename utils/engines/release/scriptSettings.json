@@ -71,7 +71,7 @@
       "packageName": "MAKS-IT.ClusterConsole",
       "publisher": "CN=FCC8C0E7-6D5F-4028-B8EE-903B88C0C8F9",
       "publisherDisplayName": "MaksIT",
-      "displayName": "MaksIT Cluster Console",
+      "displayName": "Cluster Console",
       "executableName": "MaksIT.ClusterConsole.UI.exe",
       "runtimeIdentifier": "win-x64",
       "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.png",
