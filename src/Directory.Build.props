@@ -3,8 +3,9 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.8.2</Version>
-    <Product>MaksIT.ClusterConsole</Product>
-    <AssemblyTitle>MaksIT.ClusterConsole</AssemblyTitle>
+    <Version>0.8.3</Version>
+    <Product>Cluster Console</Product>
+    <AssemblyTitle>Cluster Console</AssemblyTitle>
+    <Company>MaksIT</Company>
   </PropertyGroup>
 </Project>

@@ -12,7 +12,14 @@ public sealed record ResourceActions(
   bool CanPortForward = false,
   bool CanCordon = false,
   bool CanDrain = false,
-  bool CanTrigger = false);
+  bool CanTrigger = false,
+  bool CanResize = false,
+  bool CanRollout = false,
+  bool CanApprove = false,
+  bool CanToken = false,
+  bool CanAttach = false,
+  bool CanDebug = false,
+  bool CanRetain = false);
 
 public sealed record ResourceDescriptor(
   string Id,

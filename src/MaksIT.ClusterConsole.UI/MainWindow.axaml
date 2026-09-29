@@ -4,9 +4,10 @@
         xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
         xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
+        xmlns:terminal="using:SvcSystems.UI.Terminal"
         x:Class="MaksIT.ClusterConsole.UI.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="MaksIT.ClusterConsole"
+        Title="{x:Static shared:AppInfo.ProductName}"
         Icon="/Assets/icon.ico"
         Width="1400"
         Height="860"
@@ -14,8 +15,12 @@
         MinHeight="640">
   <DockPanel>
     <Menu DockPanel.Dock="Top">
+      <MenuItem Header="Settings">
+        <MenuItem Header="AI…" Command="{Binding OpenAiSettingsCommand}" />
+      </MenuItem>
       <MenuItem Header="Help">
         <MenuItem Header="Logs" Click="OnLogsClick" />
+        <MenuItem Header="{x:Static shared:AppInfo.AboutTitle}" Click="OnAboutClick" />
       </MenuItem>
     </Menu>
     <Border DockPanel.Dock="Bottom" Padding="8,6" Background="#15171a">
@@ -25,7 +30,7 @@
     <Grid Name="ShellGrid" ColumnDefinitions="248,4,228,4,*">
       <DockPanel Name="CatalogPane" Background="#121416">
         <StackPanel DockPanel.Dock="Top" Margin="12,12,12,8">
-          <TextBlock Text="MaksIT.ClusterConsole" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="{x:Static shared:AppInfo.ProductName}" FontSize="18" FontWeight="SemiBold" />
           <TextBlock Text="Catalog" Classes="hint" Margin="0,4,0,0" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="12" Spacing="6">
@@ -38,27 +43,28 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:CatalogItemViewModel">
                 <Grid ColumnDefinitions="*,Auto" Margin="0,1">
-                  <Grid>
-                    <Button Classes="catalog-item"
+                  <Grid RowDefinitions="Auto,Auto">
+                    <Button Grid.RowSpan="2"
+                            Classes="catalog-item"
                             Command="{Binding ActivateCommand}"
                             Classes.selected="{Binding IsActive}"
-                            Classes.connected="{Binding IsConnected}">
-                      <StackPanel>
-                        <Grid ColumnDefinitions="Auto,*">
-                          <TextBlock Text="●" Margin="0,0,6,0" Classes="connected-dot" IsVisible="{Binding IsConnected}" />
-                          <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                        <TextBlock Text="{Binding Cluster}"
-                                   Classes="hint"
-                                   Margin="18,4,0,0"
-                                   TextTrimming="CharacterEllipsis" />
-                      </StackPanel>
-                    </Button>
-                    <RadioButton Classes="catalog-current catalog-current-overlay"
-                                 GroupName="kubectl-current"
-                                 IsChecked="{Binding IsKubectlCurrent, Mode=OneWay}"
-                                 Command="{Binding UseForKubectlCommand}"
-                                 ToolTip.Tip="kubectl current-context" />
+                            Classes.connected="{Binding IsConnected}" />
+                    <Grid ColumnDefinitions="Auto,*" Margin="8,6,8,0" IsHitTestVisible="False">
+                      <TextBlock Text="●" Margin="0,0,6,0" Classes="connected-dot" IsVisible="{Binding IsConnected}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="8,2,8,6">
+                      <RadioButton Classes="catalog-current"
+                                   GroupName="kubectl-current"
+                                   IsChecked="{Binding IsKubectlCurrent, Mode=OneWay}"
+                                   Command="{Binding UseForKubectlCommand}"
+                                   VerticalAlignment="Center"
+                                   ToolTip.Tip="kubectl current-context" />
+                      <TextBlock Text="kubectl context"
+                                 Classes="hint"
+                                 VerticalAlignment="Center"
+                                 IsHitTestVisible="False" />
+                    </StackPanel>
                   </Grid>
                   <Button Grid.Column="1"
                           Content="×"
@@ -76,11 +82,19 @@
       <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
 
       <DockPanel Name="NavigatorPane" Grid.Column="2" Background="#16181b" IsVisible="{Binding IsClusterOpen}">
-        <TextBlock DockPanel.Dock="Top"
-                   Text="{Binding ClusterTitle}"
-                   FontWeight="SemiBold"
-                   Margin="12,12,12,8"
-                   TextTrimming="CharacterEllipsis" />
+        <Grid DockPanel.Dock="Top" Margin="12,12,8,8" ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ClusterTitle}"
+                     FontWeight="SemiBold"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" />
+          <Button Grid.Column="1"
+                  Classes="nav-link"
+                  Margin="8,0,0,0"
+                  Command="{Binding ActivePage.CollapseNavigatorCommand}"
+                  ToolTip.Tip="Collapse all menu categories">
+            <TextBlock Text="Collapse" TextDecorations="Underline" />
+          </Button>
+        </Grid>
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding ActivePage.Navigator}" Margin="8">
             <ItemsControl.ItemTemplate>
@@ -163,10 +177,11 @@
                  IsVisible="{Binding !IsClusterOpen}" />
 
       <Grid Grid.Column="4" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsClusterOpen}">
-        <Grid ColumnDefinitions="*,Auto" Margin="10,8" IsVisible="{Binding !ActivePage.IsClusterDashboard}">
-          <TextBox PlaceholderText="Search" Text="{Binding ActivePage.Filter}" MinWidth="180" Margin="0,0,8,0" />
-          <Button Grid.Column="1" Content="Refresh" Command="{Binding ActivePage.RefreshRowsCommand}" />
-        </Grid>
+        <StackPanel Orientation="Horizontal" Margin="10,8" Spacing="8" IsVisible="{Binding !ActivePage.IsClusterDashboard}">
+          <TextBox PlaceholderText="Search" Text="{Binding ActivePage.Filter}" MinWidth="180" />
+          <TextBox PlaceholderText="Label selector" Text="{Binding ActivePage.LabelSelector}" MinWidth="160" />
+          <Button Content="Refresh" Command="{Binding ActivePage.RefreshRowsCommand}" />
+        </StackPanel>
 
         <Grid Grid.Row="1" IsVisible="{Binding ActivePage.IsClusterDashboard}" Margin="16" RowDefinitions="Auto,*">
           <StackPanel Spacing="6">
@@ -609,7 +624,7 @@
                 </Grid>
               </StackPanel>
             </Border>
-            <TabControl Margin="0,8,0,0">
+            <TabControl Name="DetailsTabs" Margin="0,8,0,0" SelectionChanged="OnDetailsTabChanged">
               <TabItem Header="Overview">
                 <TextBox Text="{Binding ActivePage.OverviewText}" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
               </TabItem>
@@ -651,6 +666,39 @@
                       <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="140" />
                       <DataGridTextColumn Header="Value" Binding="{Binding ValuePreview}" IsReadOnly="True" Width="*" />
                       <DataGridCheckBoxColumn Header="Binary" Binding="{Binding IsBinary}" Width="80" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Images" IsVisible="{Binding ActivePage.ShowImagesTab}">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top"
+                             Text="{Binding ActivePage.NodeImagesCaption}"
+                             Classes="hint"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,6" />
+                  <DataGrid ItemsSource="{Binding ActivePage.NodeImages}"
+                            AutoGenerateColumns="False"
+                            IsReadOnly="True"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="True"
+                            x:CompileBindings="False">
+                    <DataGrid.Columns>
+                      <DataGridTemplateColumn Header="State" Width="80" SortMemberPath="State">
+                        <DataGridTemplateColumn.CellTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding State}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="6,0"
+                                       Foreground="{Binding State, Converter={x:Static converters:StatusBrushConverter.Instance}}" />
+                          </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                      </DataGridTemplateColumn>
+                      <DataGridTextColumn Header="Image" Binding="{Binding Image}" Width="*" />
+                      <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="SizeBytes" Width="90" />
+                      <DataGridTextColumn Header="Pods" Binding="{Binding Pods}" Width="*" />
+                      <DataGridTextColumn Header="Other names" Binding="{Binding OtherNames}" Width="*" />
                     </DataGrid.Columns>
                   </DataGrid>
                 </DockPanel>
@@ -698,14 +746,28 @@
               </TabItem>
               <TabItem Header="Terminal" IsVisible="{Binding ActivePage.ShowTerminalTab}">
                 <DockPanel>
-                  <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
-                    <Button DockPanel.Dock="Right" Content="Exec" Command="{Binding ActivePage.ExecCommand}" />
-                    <TextBox Text="{Binding ActivePage.TerminalCommand}" Margin="0,0,6,0" />
+                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <Button DockPanel.Dock="Right" Content="Reconnect" Command="{Binding ActivePage.ReconnectTerminalCommand}" />
+                    <Button DockPanel.Dock="Right" Content="Disconnect" Command="{Binding ActivePage.DisconnectTerminalCommand}" />
+                    <TextBox Text="{Binding ActivePage.TerminalCommand}"
+                             PlaceholderText="/bin/sh"
+                             Margin="0,0,6,0"
+                             ToolTip.Tip="Shell started in the container. Try /bin/bash when the image has it." />
                   </DockPanel>
-                  <TextBox Text="{Binding ActivePage.TerminalText}" AcceptsReturn="True" IsReadOnly="True" FontFamily="Consolas, monospace" />
+                  <TextBlock DockPanel.Dock="Bottom"
+                             Text="{Binding ActivePage.TerminalStatus}"
+                             Classes="hint"
+                             TextWrapping="Wrap"
+                             Margin="0,6,0,0" />
+                  <terminal:TerminalControl Name="PodTerminal"
+                                            Model="{Binding ActivePage.TerminalModel}"
+                                            FontFamily="Cascadia Mono, Consolas, monospace"
+                                            FontSize="13"
+                                            Background="#0E1620"
+                                            RightClickAction="CopyOrPaste" />
                 </DockPanel>
               </TabItem>
-              <TabItem Header="Chat">
+              <TabItem Header="Chat" IsVisible="{Binding ShowChat}">
                 <DockPanel>
                   <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
                     <TextBlock Text="{Binding ActivePage.ChatStatus}" Classes="hint" TextWrapping="Wrap" />
@@ -723,11 +785,6 @@
                       <Button Content="Clear" Command="{Binding ActivePage.ClearChatCommand}" />
                     </StackPanel>
                   </StackPanel>
-                  <TextBlock DockPanel.Dock="Top"
-                             Text="{Binding ActivePage.ChatModelCaption}"
-                             Classes="hint"
-                             Margin="0,0,0,8"
-                             TextWrapping="Wrap" />
                   <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding ActivePage.ChatMessages}">
                       <ItemsControl.ItemTemplate>
@@ -735,8 +792,23 @@
                           <Border Classes="chat-bubble"
                                   Classes.user="{Binding IsUser}"
                                   Classes.assistant="{Binding IsAssistant}"
-                                  Classes.tool="{Binding IsTool}">
-                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                  Classes.tool="{Binding IsTool}"
+                                  Classes.confirm="{Binding IsConfirm}">
+                            <StackPanel Spacing="8">
+                              <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                              <ScrollViewer IsVisible="{Binding HasChange}"
+                                            MaxHeight="220"
+                                            HorizontalScrollBarVisibility="Auto"
+                                            VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding Change}"
+                                           FontFamily="Consolas, monospace"
+                                           TextWrapping="NoWrap" />
+                              </ScrollViewer>
+                              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirm}">
+                                <Button Content="Approve" Command="{Binding ApproveCommand}" IsEnabled="{Binding IsPending}" />
+                                <Button Content="Reject" Command="{Binding RejectCommand}" IsEnabled="{Binding IsPending}" />
+                              </StackPanel>
+                            </StackPanel>
                           </Border>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
@@ -771,6 +843,26 @@
           <Button Content="Uncordon" Command="{Binding ActivePage.UncordonCommand}" IsVisible="{Binding ActivePage.CanCordon}" />
           <Button Content="Drain" Command="{Binding ActivePage.DrainCommand}" IsVisible="{Binding ActivePage.CanDrain}" />
           <Button Content="Trigger" Command="{Binding ActivePage.TriggerCronCommand}" IsVisible="{Binding ActivePage.CanTrigger}" />
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanResize}">
+            <TextBox Text="{Binding ActivePage.ResizeStorage}" Width="90" PlaceholderText="1Gi" />
+            <Button Content="Resize" Command="{Binding ActivePage.ResizeCommand}" />
+          </StackPanel>
+          <Button Content="Reclaim"
+                  Command="{Binding ActivePage.RetainCommand}"
+                  IsVisible="{Binding ActivePage.CanRetain}"
+                  ToolTip.Tip="Change reclaim policy" />
+          <Button Content="Pause" Command="{Binding ActivePage.PauseRolloutCommand}" IsVisible="{Binding ActivePage.CanRollout}" />
+          <Button Content="Resume" Command="{Binding ActivePage.ResumeRolloutCommand}" IsVisible="{Binding ActivePage.CanRollout}" />
+          <Button Content="History" Command="{Binding ActivePage.RolloutHistoryCommand}" IsVisible="{Binding ActivePage.CanRollout}" />
+          <Button Content="Undo" Command="{Binding ActivePage.UndoRolloutCommand}" IsVisible="{Binding ActivePage.CanRollout}" />
+          <Button Content="Approve" Command="{Binding ActivePage.ApproveCertificateCommand}" IsVisible="{Binding ActivePage.CanApprove}" />
+          <Button Content="Deny" Command="{Binding ActivePage.DenyCertificateCommand}" IsVisible="{Binding ActivePage.CanApprove}" />
+          <Button Content="Token" Command="{Binding ActivePage.CreateTokenCommand}" IsVisible="{Binding ActivePage.CanToken}" />
+          <Button Content="Attach" Command="{Binding ActivePage.AttachCommand}" IsVisible="{Binding ActivePage.CanAttach}" />
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanDebug}">
+            <TextBox Text="{Binding ActivePage.DebugImage}" Width="140" PlaceholderText="image" />
+            <Button Content="Debug" Command="{Binding ActivePage.DebugCommand}" />
+          </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding ActivePage.CanPortForward}">
             <TextBlock Text="Local" Classes="hint" VerticalAlignment="Center" ToolTip.Tip="Port on this machine" />
             <NumericUpDown Value="{Binding ActivePage.ForwardLocalPort}"

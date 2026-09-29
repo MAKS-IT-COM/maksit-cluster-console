@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
-        x:Class="MaksIT.ClusterConsole.UI.ConnectionsWindow"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.ConnectionsWindow"
         x:DataType="vm:ConnectionsViewModel"
         Title="Connections"
         Icon="/Assets/icon.ico"
@@ -39,19 +39,22 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:ConnectionItemViewModel">
             <StackPanel Margin="0,2">
-              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-              <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                 <RadioButton Classes="catalog-current"
                              GroupName="connection-kubectl-current"
                              IsChecked="{Binding IsCurrent, Mode=OneWay}"
                              Command="{Binding UseForKubectlCommand}"
+                             VerticalAlignment="Center"
                              ToolTip.Tip="kubectl current-context" />
-                <TextBlock Grid.Column="1"
-                           Text="{Binding Subtitle}"
+                <TextBlock Text="kubectl context"
                            Classes="hint"
-                           VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" />
-              </Grid>
+                           VerticalAlignment="Center" />
+              </StackPanel>
+              <TextBlock Text="{Binding Subtitle}"
+                         Classes="hint"
+                         Margin="18,2,0,0"
+                         TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>

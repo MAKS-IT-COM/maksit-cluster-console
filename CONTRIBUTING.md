@@ -31,7 +31,9 @@ Coverage shields in `README.md` are rewritten by **CoverageBadges**.
 
 ## Microsoft Store (MSIX)
 
-`MsixPack` writes `releases/maksit-cluster-console-{version}.msix` from the win-x64 publish. It is a full-trust desktop package (`runFullTrust`), x64, language English. Upload that file on an **MSIX** product in Partner Center. The Store re-signs it. An EXE/MSI product listing cannot take this file.
+`MsixPack` writes `releases/maksit-cluster-console-{version}.msix` from the win-x64 publish. It is a full-trust desktop package (`runFullTrust`), x64, language English (`en-us` only). Upload that file on an **MSIX** product in Partner Center. The Store re-signs it. An EXE/MSI product listing cannot take this file.
+
+The UI project sets `SatelliteResourceLanguages` to `en`, and `MsixPack` drops any leftover culture folder that contains `*.resources.dll` (AvaloniaEdit ships `zh-Hans`). If that folder is packed, makeappx treats it as a second package language. Partner Center then reports the English resources as incomplete, even though the app UI is English only. A Store listing language marked incomplete is separate: that means a required listing field for that language is still empty.
 
 Partner Center package identity for this product:
 

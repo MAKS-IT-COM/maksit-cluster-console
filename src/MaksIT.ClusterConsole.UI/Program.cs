@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Logging;
 using Avalonia.Threading;
+using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Dialogs;
 
 
@@ -43,6 +44,9 @@ internal static class Program {
 
   private static void OnUnobservedTask(object? sender, UnobservedTaskExceptionEventArgs e) {
     e.SetObserved();
+    if (ErrorReport.IsAbandonedTransportRead(e.Exception))
+      return;
+
     ErrorDialog.Report(e.Exception);
   }
 }

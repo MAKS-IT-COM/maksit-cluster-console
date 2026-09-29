@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -21,8 +22,8 @@ public static class ErrorReport {
   public static string Format(Exception exception) {
     ArgumentNullException.ThrowIfNull(exception);
     var text = new StringBuilder();
-    text.AppendLine("Cluster Console " + Version());
-    text.AppendLine("MaksIT");
+    text.AppendLine(AppInfo.ProductName + " " + Version());
+    text.AppendLine(AppInfo.Brand);
     text.AppendLine(DateTimeOffset.UtcNow.ToString("u"));
     text.AppendLine(RuntimeInformation.OSDescription);
     text.AppendLine(RuntimeInformation.FrameworkDescription);
@@ -30,6 +31,22 @@ public static class ErrorReport {
     text.AppendLine();
     AppendException(text, exception);
     return text.ToString().TrimEnd();
+  }
+
+  /// <summary>
+  /// A cancelled Kubernetes watch aborts the socket while <c>ReadLineAsync</c> is still running.
+  /// That task is not observed by KubernetesClient, so the finalizer rethrows it.
+  /// </summary>
+  public static bool IsAbandonedTransportRead(Exception exception) {
+    ArgumentNullException.ThrowIfNull(exception);
+    foreach (var current in Walk(exception)) {
+      if (current is SocketException { SocketErrorCode: SocketError.OperationAborted })
+        return true;
+      if (current.Message.Contains("I/O operation has been aborted", StringComparison.Ordinal))
+        return true;
+    }
+
+    return false;
   }
 
   public static string? TryWrite(string report) {
@@ -49,6 +66,29 @@ public static class ErrorReport {
   private static string Version() {
     var version = Assembly.GetEntryAssembly()?.GetName().Version;
     return version is null ? "" : version.ToString();
+  }
+
+  private static IEnumerable<Exception> Walk(Exception exception) {
+    var pending = new Stack<Exception>();
+    var seen = new HashSet<Exception>();
+    pending.Push(exception);
+    while (pending.Count > 0) {
+      var current = pending.Pop();
+      if (!seen.Add(current))
+        continue;
+
+      yield return current;
+      if (current is AggregateException aggregate) {
+        for (var i = aggregate.InnerExceptions.Count - 1; i >= 0; i--) {
+          var inner = aggregate.InnerExceptions[i];
+          if (inner is not null)
+            pending.Push(inner);
+        }
+      }
+
+      if (current.InnerException is not null)
+        pending.Push(current.InnerException);
+    }
   }
 
   private static void AppendException(StringBuilder text, Exception exception) {

@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using MaksIT.ClusterConsole.UI.ViewModels;
 
 
-namespace MaksIT.ClusterConsole.UI;
+namespace MaksIT.ClusterConsole.UI.Windows;
 
 public partial class ConnectionsWindow : Window {
   public ConnectionsWindow() {

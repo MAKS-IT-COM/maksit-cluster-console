@@ -22,6 +22,8 @@ public sealed partial class ClusterWorkspace {
 
   public IClusterSession? Session => _session;
 
+  public string? LastResourceVersion { get; private set; }
+
   public IReadOnlyList<NavigatorItem> Navigator { get; private set; } = BuildNavigator(ResourceCatalog.BuiltIns);
 
   public async Task<Result> ConnectAsync(IClusterSession session, CancellationToken cancellationToken = default) {
@@ -48,7 +50,8 @@ public sealed partial class ClusterWorkspace {
     string itemId,
     string? @namespace,
     string? filter,
-    CancellationToken cancellationToken = default) {
+    CancellationToken cancellationToken = default,
+    string? labelSelector = null) {
     if (_session is null)
       return Result<IReadOnlyList<ResourceRow>>.ServiceUnavailable(null, "not connected");
 
@@ -71,7 +74,11 @@ public sealed partial class ClusterWorkspace {
     if (descriptor is null)
       return Result<IReadOnlyList<ResourceRow>>.NotFound(null, $"unknown resource {itemId}");
 
-    var listed = await _session.ListAsync(descriptor.ToRef(), @namespace, cancellationToken).ConfigureAwait(false);
+    var options = string.IsNullOrWhiteSpace(labelSelector)
+      ? new ResourceListOptions()
+      : new ResourceListOptions { LabelSelector = labelSelector.Trim() };
+    var listed = await _session.ListAsync(descriptor.ToRef(), @namespace, cancellationToken, options).ConfigureAwait(false);
+    LastResourceVersion = options.ResourceVersion;
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
@@ -400,7 +407,7 @@ public sealed partial class ClusterWorkspace {
     return ApplicationManifest.WorkloadNames(row.Document).Contains(name, StringComparer.Ordinal);
   }
 
-  private static bool Matches(ResourceRow row, string? filter) {
+  public static bool Matches(ResourceRow row, string? filter) {
     if (string.IsNullOrWhiteSpace(filter))
       return true;
 

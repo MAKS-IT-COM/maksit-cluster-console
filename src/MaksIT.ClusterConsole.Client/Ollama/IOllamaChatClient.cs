@@ -1,7 +1,7 @@
 using MaksIT.Results;
 
 
-namespace MaksIT.ClusterConsole.Client;
+namespace MaksIT.ClusterConsole.Client.Ollama;
 
 public interface IOllamaChatClient {
   Task<Result<IReadOnlyList<string>>> ListModelsAsync(

@@ -5,7 +5,8 @@ public enum ResourceStatusTone {
   Healthy,
   Warning,
   Error,
-  Info
+  Info,
+  Muted
 }
 
 public static class ResourceStatusPaint {
@@ -35,11 +36,14 @@ public static class ResourceStatusPaint {
     if (Matches(value, "Succeeded", "Completed", "Bound", "Available"))
       return ResourceStatusTone.Info;
 
-    if (Matches(value, "Running", "Ready", "Active", "deployed", "True"))
+    if (Matches(value, "Running", "Ready", "Active", "Used", "deployed", "True"))
       return ResourceStatusTone.Healthy;
 
     if (Contains(value, "running", "ready", "active", "deployed", "succeed", "complete", "bound"))
       return ResourceStatusTone.Healthy;
+
+    if (Matches(value, "Unused"))
+      return ResourceStatusTone.Muted;
 
     return ResourceStatusTone.Neutral;
   }

@@ -121,6 +121,34 @@ function Invoke-MsixSign {
     }
 }
 
+function Remove-MsixSatelliteCultures {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Layout
+    )
+
+    $names = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($culture in [System.Globalization.CultureInfo]::GetCultures([System.Globalization.CultureTypes]::AllCultures)) {
+        if (-not [string]::IsNullOrWhiteSpace($culture.Name)) {
+            [void]$names.Add($culture.Name)
+        }
+    }
+
+    foreach ($dir in @(Get-ChildItem -LiteralPath $Layout -Directory -ErrorAction SilentlyContinue)) {
+        if (-not $names.Contains($dir.Name)) {
+            continue
+        }
+
+        $satellites = @(Get-ChildItem -LiteralPath $dir.FullName -Filter '*.resources.dll' -File -ErrorAction SilentlyContinue)
+        if ($satellites.Count -eq 0) {
+            continue
+        }
+
+        Write-Log -Level "STEP" -Message "Omitting '$($dir.Name)' satellite resources so the Store package stays English-only."
+        Remove-Item -LiteralPath $dir.FullName -Recurse -Force
+    }
+}
+
 function Invoke-Plugin {
     param(
         [Parameter(Mandatory = $true)]
@@ -247,6 +275,7 @@ function Invoke-Plugin {
         -Language $language
     [System.IO.File]::WriteAllText((Join-Path $layout 'AppxManifest.xml'), $manifest, [System.Text.UTF8Encoding]::new($false))
     Copy-MsixPackageLogos -IconPath $iconPath -AssetsDirectory (Join-Path $layout 'Assets')
+    Remove-MsixSatelliteCultures -Layout $layout
 
     $makeAppx = Get-MsixToolCommand -FileName 'makeappx.exe' -StubName 'makeappx'
     $signTool = Get-MsixToolCommand -FileName 'signtool.exe' -StubName 'signtool'

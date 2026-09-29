@@ -66,8 +66,21 @@ internal static class KubernetesResult {
     return [root];
   }
 
+  public static string? ResourceVersion(JsonObject? root) =>
+    Text(Property(root?["metadata"] as JsonObject, "resourceVersion"));
+
   public static string? ContinueToken(JsonObject? root) {
     var node = Property(root?["metadata"] as JsonObject, "continue");
+    if (node is null)
+      return null;
+
+    var text = node is JsonValue value && value.TryGetValue<string>(out var typed)
+      ? typed
+      : node.ToString();
+    return string.IsNullOrWhiteSpace(text) ? null : text;
+  }
+
+  private static string? Text(JsonNode? node) {
     if (node is null)
       return null;
 

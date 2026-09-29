@@ -13,6 +13,14 @@ public interface IClusterSession : IDisposable {
   Task<Result<IReadOnlyList<JsonObject>>> ListAsync(
     ResourceRef resource,
     string? @namespace,
+    CancellationToken cancellationToken = default,
+    ResourceListOptions? options = null);
+
+  IAsyncEnumerable<ClusterWatchEvent> WatchAsync(
+    ResourceRef resource,
+    string? @namespace,
+    string? resourceVersion,
+    string? labelSelector,
     CancellationToken cancellationToken = default);
 
   Task<Result<JsonObject>> GetAsync(
@@ -114,9 +122,71 @@ public interface IClusterSession : IDisposable {
     byte[]? stdin = null,
     CancellationToken cancellationToken = default);
 
+  Task<Result<PodTerminalConnection>> OpenTerminalAsync(
+    string podName,
+    string @namespace,
+    string? container,
+    string? shell,
+    CancellationToken cancellationToken = default);
+
   Task<Result> CordonAsync(string nodeName, bool unschedulable, CancellationToken cancellationToken = default);
 
   Task<Result> DrainAsync(string nodeName, CancellationToken cancellationToken = default);
 
   Task<Result> TriggerCronJobAsync(string name, string @namespace, CancellationToken cancellationToken = default);
+
+  Task<Result> ResizePersistentVolumeClaimAsync(
+    string name,
+    string @namespace,
+    string storage,
+    CancellationToken cancellationToken = default);
+
+  Task<Result> PauseRolloutAsync(string name, string @namespace, bool paused, CancellationToken cancellationToken = default);
+
+  Task<Result<IReadOnlyList<string>>> RolloutHistoryAsync(
+    string name,
+    string @namespace,
+    CancellationToken cancellationToken = default);
+
+  Task<Result> UndoRolloutAsync(string name, string @namespace, CancellationToken cancellationToken = default);
+
+  Task<Result> SetCertificateApprovalAsync(string name, bool approved, CancellationToken cancellationToken = default);
+
+  Task<Result<string>> CreateServiceAccountTokenAsync(
+    string name,
+    string @namespace,
+    CancellationToken cancellationToken = default);
+
+  Task<Result<string>> AttachAsync(
+    string podName,
+    string @namespace,
+    string? container,
+    CancellationToken cancellationToken = default);
+
+  Task<Result> AddEphemeralContainerAsync(
+    string podName,
+    string @namespace,
+    string image,
+    string? targetContainer,
+    CancellationToken cancellationToken = default);
+
+  Task<Result<StorageReclaimPreview>> PreviewStorageClassReclaimAsync(
+    string name,
+    CancellationToken cancellationToken = default);
+
+  Task<Result<StorageReclaimPreview>> PreviewPersistentVolumeReclaimAsync(
+    IReadOnlyList<string> names,
+    CancellationToken cancellationToken = default);
+
+  Task<Result<StorageReclaimOutcome>> ApplyStorageClassReclaimAsync(
+    string name,
+    string policy,
+    bool updateVolumes,
+    bool updateClass,
+    CancellationToken cancellationToken = default);
+
+  Task<Result<StorageReclaimOutcome>> ApplyPersistentVolumeReclaimAsync(
+    IReadOnlyList<string> names,
+    string policy,
+    CancellationToken cancellationToken = default);
 }
