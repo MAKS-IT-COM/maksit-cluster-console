@@ -4,7 +4,7 @@ using Avalonia.Platform.Storage;
 using MaksIT.ClusterConsole.UI.ViewModels;
 
 
-namespace MaksIT.ClusterConsole.UI;
+namespace MaksIT.ClusterConsole.UI.Windows;
 
 public partial class ConnectionWizardWindow : Window {
   public ConnectionWizardWindow() {

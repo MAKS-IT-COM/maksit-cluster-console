@@ -9,6 +9,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
+using SvcSystems.UI.Terminal;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Controls;
 using MaksIT.ClusterConsole.UI.Converters;
@@ -21,6 +23,7 @@ namespace MaksIT.ClusterConsole.UI;
 public partial class MainWindow : Window {
   private LayoutPersistence? _layout;
   private ClusterPageViewModel? _activePage;
+  private bool _syncingDetailsTab;
 
   public MainWindow() {
     InitializeComponent();
@@ -46,29 +49,88 @@ public partial class MainWindow : Window {
     };
     HookActivePage(viewModel.ActivePage);
     viewModel.ConnectionsRequested += async (_, _) => await OpenConnectionsAsync(viewModel);
+    viewModel.AiSettingsRequested += async (_, _) => await OpenAiSettingsAsync(viewModel);
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
+    viewModel.ShowRetainReclaim = ShowRetainReclaimAsync;
   }
 
   private void OnLogsClick(object? sender, RoutedEventArgs e) =>
     _ = LogWindow.ShowAsync(this);
+
+  private void OnAboutClick(object? sender, RoutedEventArgs e) =>
+    _ = AboutWindow.ShowAsync(this);
 
   private void OpenVolumeFiles(VolumeFilesViewModel files) {
     var window = new VolumeFilesWindow(files);
     window.Show(this);
   }
 
+  private async Task ShowRetainReclaimAsync(RetainReclaimViewModel reclaim) {
+    var window = new RetainReclaimWindow(reclaim);
+    await window.ShowDialog(this);
+  }
+
   private void HookActivePage(ClusterPageViewModel? page) {
     if (_activePage is not null) {
-      _activePage.PropertyChanged -= OnLogsPagePropertyChanged;
+      _activePage.PropertyChanged -= OnActivePagePropertyChanged;
       _activePage.SelectedRowsRestored -= OnSelectedRowsRestored;
     }
 
     _activePage = page;
     if (page is not null) {
-      page.PropertyChanged += OnLogsPagePropertyChanged;
+      page.PropertyChanged += OnActivePagePropertyChanged;
       page.SelectedRowsRestored += OnSelectedRowsRestored;
+      ApplyDetailsTab(page.SelectedTab);
     }
   }
+
+  private void OnActivePagePropertyChanged(object? sender, PropertyChangedEventArgs e) {
+    if (e.PropertyName == nameof(ClusterPageViewModel.SelectedTab) && sender is ClusterPageViewModel page)
+      ApplyDetailsTab(page.SelectedTab);
+
+    OnLogsPagePropertyChanged(sender, e);
+  }
+
+  private void OnDetailsTabChanged(object? sender, SelectionChangedEventArgs e) {
+    if (_syncingDetailsTab || sender is not TabControl tabs || !ReferenceEquals(e.Source, tabs))
+      return;
+    if (DataContext is not MainViewModel { ActivePage: { } page })
+      return;
+    if (tabs.SelectedItem is not TabItem { Header: string header } || page.SelectedTab == header)
+      return;
+
+    page.SelectedTab = header;
+    if (header == "Terminal")
+      FocusTerminal();
+  }
+
+  private void ApplyDetailsTab(string header) {
+    var tabs = this.FindControl<TabControl>("DetailsTabs");
+    if (tabs is null)
+      return;
+
+    foreach (var item in tabs.Items) {
+      if (item is not TabItem { Header: string title, IsVisible: true } tab)
+        continue;
+      if (!string.Equals(title, header, StringComparison.Ordinal))
+        continue;
+      if (ReferenceEquals(tabs.SelectedItem, tab)) {
+        if (header == "Terminal")
+          FocusTerminal();
+        return;
+      }
+
+      _syncingDetailsTab = true;
+      tabs.SelectedItem = tab;
+      _syncingDetailsTab = false;
+      if (header == "Terminal")
+        FocusTerminal();
+      return;
+    }
+  }
+
+  private void FocusTerminal() =>
+    Dispatcher.UIThread.Post(() => this.FindControl<TerminalControl>("PodTerminal")?.Focus());
 
   private void OnLogsPagePropertyChanged(object? sender, PropertyChangedEventArgs e) {
     if (e.PropertyName != nameof(ClusterPageViewModel.LogsText))
@@ -81,6 +143,16 @@ public partial class MainWindow : Window {
       return;
 
     box.CaretIndex = box.Text?.Length ?? 0;
+  }
+
+  private async Task OpenAiSettingsAsync(MainViewModel viewModel) {
+    var window = new AiSettingsWindow(viewModel.CreateAiSettingsViewModel());
+    await window.ShowDialog<bool>(this);
+    if (viewModel.ShowChat)
+      return;
+
+    if (this.FindControl<TabControl>("DetailsTabs") is { SelectedItem: TabItem { Header: "Chat" } } tabs)
+      tabs.SelectedIndex = 0;
   }
 
   private async Task OpenConnectionsAsync(MainViewModel viewModel) {

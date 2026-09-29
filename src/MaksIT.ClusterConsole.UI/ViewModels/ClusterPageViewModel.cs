@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using MaksIT.Results;
 using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
+using MaksIT.ClusterConsole.Shared.Chat;
+using MaksIT.ClusterConsole.Client.Ollama;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels;
@@ -18,8 +20,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private readonly ClusterChatService _chat;
   private readonly Action<string> _setStatus;
   private CancellationTokenSource? _logsCts;
+  private CancellationTokenSource? _watchCts;
   private DispatcherTimer? _refreshTimer;
   private bool _refreshBusy;
+  private bool _watchHealthy;
+  private int _watchGeneration;
   private int _logsGeneration;
   private bool _hasDaprCrd;
   private bool _syncingNamespace;
@@ -51,7 +56,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _setStatus = setStatus;
     selectedNamespace = NormalizeNamespace(_configuration.Current.NamespaceFor(context.Name));
     overviewPerNode = _configuration.Current.OverviewPerNode;
-    chatStatus = $"Local Ollama · {_configuration.Current.OllamaModel}. Pull: ollama pull {_configuration.Current.OllamaModel}";
+    chatStatus = ModelStatus();
+    WireTerminal();
   }
 
   public KubeContextInfo Context { get; }
@@ -67,6 +73,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public ObservableCollection<PortForwardItemViewModel> PortForwards { get; } = [];
 
   public ObservableCollection<ResourceRow> RelatedPods { get; } = [];
+
+  public ObservableCollection<NodeCachedImage> NodeImages { get; } = [];
 
   public ObservableCollection<PodContainer> Containers { get; } = [];
 
@@ -126,6 +134,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private string eventsText = string.Empty;
 
   [ObservableProperty]
+  private string nodeImagesCaption = string.Empty;
+
+  [ObservableProperty]
   private string logsText = string.Empty;
 
   [ObservableProperty]
@@ -139,6 +150,15 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [ObservableProperty]
   private int scaleReplicas = 1;
+
+  [ObservableProperty]
+  private string labelSelector = string.Empty;
+
+  [ObservableProperty]
+  private string resizeStorage = "1Gi";
+
+  [ObservableProperty]
+  private string debugImage = "busybox:1.36";
 
   [ObservableProperty]
   private int forwardLocalPort = 8080;
@@ -253,6 +273,29 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool CanTrigger =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanTrigger == true;
 
+  public bool CanResize =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanResize == true;
+
+  public bool CanRetain =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanRetain == true;
+
+  public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
+
+  public bool CanRollout =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanRollout == true;
+
+  public bool CanApprove =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanApprove == true;
+
+  public bool CanToken =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanToken == true;
+
+  public bool CanAttach =>
+    HasSelectedRow && (SelectedDescriptor?.Actions.CanAttach == true || IsPodSelection);
+
+  public bool CanDebug =>
+    HasSelectedRow && (SelectedDescriptor?.Actions.CanDebug == true || IsPodSelection);
+
   public bool CanApply =>
     (SelectedResourceRef() ?? SelectedDescriptor)?.Actions.CanApply != false;
 
@@ -280,10 +323,19 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     || CanCordon
     || CanDrain
     || CanTrigger
+    || CanResize
+    || CanRetain
+    || CanRollout
+    || CanApprove
+    || CanToken
+    || CanAttach
+    || CanDebug
     || CanPortForward
     || CanStopPortForward;
 
   public bool ShowEventsTab => HasDetailTab("Events");
+
+  public bool ShowImagesTab => HasDetailTab("Images");
 
   public bool ShowPodsTab => HasDetailTab("Pods");
 
@@ -402,8 +454,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     return MaksIT.Results.Result.Ok();
   }
 
-  public void PausePolling() =>
+  public void PausePolling() {
     _refreshTimer?.Stop();
+    StopWatch();
+  }
 
   public void ResumePolling() {
     _refreshTimer ??= CreateRefreshTimer();
@@ -418,6 +472,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
 
     _logsCts?.Cancel();
+    StopWatch();
+    CloseTerminalSession();
     _chatCts?.Cancel();
     foreach (var row in LimitRows)
       row.PropertyChanged -= OnLimitRowPropertyChanged;
@@ -539,6 +595,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _ = RefreshRowsAsync();
   }
 
+  partial void OnLabelSelectorChanged(string value) =>
+    _ = RefreshRowsAsync();
+
   partial void OnSelectedNamespaceChanged(string value) {
     if (_syncingNamespace)
       return;
@@ -584,6 +643,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       OverviewText = SelectedRow.FormatOverview(Containers);
     NotifyDetailsUi();
     _ = LoadLogsAsync();
+    _ = EnsureTerminalAsync();
   }
 
   partial void OnSelectedContainerChanged(PodContainer? value) {
@@ -591,6 +651,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     _ = LoadLogsAsync();
+    _ = EnsureTerminalAsync();
   }
 
   partial void OnIsDirtyChanged(bool value) {
@@ -612,6 +673,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     _refreshBusy = true;
+    StopWatch();
     try {
       await SampleClusterUsageAsync();
 
@@ -641,7 +703,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         return;
       }
 
-      var listed = await _workspace.ListAsync(SelectedNavItem.Id, Configuration.AllNamespaces, Filter);
+      var listed = await _workspace.ListAsync(
+        SelectedNavItem.Id,
+        Configuration.AllNamespaces,
+        Filter,
+        labelSelector: LabelSelector);
       var keepUids = SnapshotSelectedUids();
       _listedRows.Clear();
       if (!listed.IsSuccess) {
@@ -656,6 +722,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       SeedNamespaceColumnFromSelection();
 
       ApplyColumnFilters(keepUids);
+      StartWatch(SelectedDescriptor, _workspace.LastResourceVersion);
       NotifyActionFlags();
       NotifyDetailsUi();
       OnPropertyChanged(nameof(IsDataEditor));
@@ -868,6 +935,164 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   [RelayCommand]
+  private async Task ResizeAsync() {
+    var storage = ResizeStorage.Trim();
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.ResizePersistentVolumeClaimAsync(row.Name, row.Namespace ?? "default", storage)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format($"Resized to {storage}.", $"Resized {outcome.Total} to {storage}."));
+    await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task RetainAsync() {
+    if (_workspace.Session is null || SelectedDescriptor is null)
+      return;
+
+    RetainReclaimViewModel viewModel;
+    if (SelectedDescriptor.Id == "storageclasses") {
+      if (ActionTargets.Count > 1) {
+        _setStatus("Retain one storage class at a time.");
+        return;
+      }
+
+      if (SelectedRow is null)
+        return;
+
+      viewModel = RetainReclaimViewModel.ForStorageClass(_workspace.Session, SelectedRow.Name);
+    }
+    else {
+      var names = ActionTargets.Select(row => row.Name).ToList();
+      if (names.Count == 0)
+        return;
+
+      viewModel = RetainReclaimViewModel.ForVolumes(_workspace.Session, names);
+    }
+
+    if (ShowRetainReclaim is null)
+      return;
+
+    await ShowRetainReclaim(viewModel);
+    if (viewModel.StatusText.Length > 0)
+      _setStatus(viewModel.StatusText);
+    if (viewModel.Changed)
+      await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task PauseRolloutAsync() =>
+    await SetRolloutPausedAsync(true);
+
+  [RelayCommand]
+  private async Task ResumeRolloutAsync() =>
+    await SetRolloutPausedAsync(false);
+
+  private async Task SetRolloutPausedAsync(bool paused) {
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.PauseRolloutAsync(row.Name, row.Namespace ?? "default", paused)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format(paused ? "Rollout paused." : "Rollout resumed.", paused ? $"Paused {outcome.Total}." : $"Resumed {outcome.Total}."));
+  }
+
+  [RelayCommand]
+  private async Task RolloutHistoryAsync() {
+    var row = SelectedRow;
+    if (_workspace.Session is null || row is null)
+      return;
+
+    var history = await _workspace.Session.RolloutHistoryAsync(row.Name, row.Namespace ?? "default");
+    _setStatus(history.IsSuccess
+      ? (history.Value is { Count: > 0 } lines ? string.Join(" · ", lines) : "No rollout revisions.")
+      : string.Join("; ", history.Messages));
+  }
+
+  [RelayCommand]
+  private async Task UndoRolloutAsync() {
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.UndoRolloutAsync(row.Name, row.Namespace ?? "default")) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format("Rolled back.", $"Rolled back {outcome.Total}."));
+    await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task ApproveCertificateAsync() =>
+    await SetCertificateApprovalAsync(true);
+
+  [RelayCommand]
+  private async Task DenyCertificateAsync() =>
+    await SetCertificateApprovalAsync(false);
+
+  private async Task SetCertificateApprovalAsync(bool approved) {
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.SetCertificateApprovalAsync(row.Name, approved)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format(approved ? "Approved." : "Denied.", approved ? $"Approved {outcome.Total}." : $"Denied {outcome.Total}."));
+    await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task CreateTokenAsync() {
+    var row = SelectedRow;
+    if (_workspace.Session is null || row is null)
+      return;
+
+    var token = await _workspace.Session.CreateServiceAccountTokenAsync(row.Name, row.Namespace ?? "default");
+    if (!token.IsSuccess || string.IsNullOrEmpty(token.Value)) {
+      _setStatus(string.Join("; ", token.Messages));
+      return;
+    }
+
+    TerminalText = token.Value;
+    SelectedTab = "Overview";
+    _setStatus("Service account token created. It is shown once in the details pane.");
+    OverviewText = "Token (shown once):\n" + token.Value;
+  }
+
+  [RelayCommand]
+  private async Task AttachAsync() {
+    if (_workspace.Session is null || SelectedRow is null)
+      return;
+
+    var pod = TargetPodName;
+    var ns = TargetPodNamespace ?? "default";
+    if (pod is null) {
+      TerminalText = "Attach requires a pod.";
+      SelectedTab = "Terminal";
+      return;
+    }
+
+    var result = await _workspace.Session.AttachAsync(pod, ns, SelectedContainer?.Name);
+    ShowInTerminal(result.IsSuccess ? result.Value ?? "" : string.Join("; ", result.Messages));
+    TerminalStatus = result.IsSuccess
+      ? "Attached output. Reconnect opens a shell."
+      : string.Join("; ", result.Messages);
+    SelectedTab = "Terminal";
+  }
+
+  [RelayCommand]
+  private async Task DebugAsync() {
+    if (_workspace.Session is null || SelectedRow is null)
+      return;
+
+    var pod = TargetPodName;
+    var ns = TargetPodNamespace ?? "default";
+    if (pod is null) {
+      _setStatus("Debug requires a pod.");
+      return;
+    }
+
+    var result = await _workspace.Session.AddEphemeralContainerAsync(pod, ns, DebugImage, SelectedContainer?.Name);
+    _setStatus(result.IsSuccess ? $"Ephemeral container added with {DebugImage.Trim()}." : string.Join("; ", result.Messages));
+    if (result.IsSuccess)
+      await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
   private async Task CordonAsync() {
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.CordonAsync(row.Name, true)) is not { } outcome)
@@ -1064,33 +1289,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       await RebindPersistedAsync(oldPort, newPort);
   }
 
-  [RelayCommand]
-  private async Task ExecAsync() {
-    if (_workspace.Session is null || SelectedRow is null)
-      return;
-
-    var pod = TargetPodName;
-    var ns = TargetPodNamespace ?? "default";
-    if (pod is null) {
-      TerminalText = ShowPodsTab
-        ? "Select a pod in the details pane, then exec."
-        : "Exec requires a pod.";
-      SelectedTab = "Terminal";
-      return;
-    }
-
-    if (Containers.Count > 1 && SelectedContainer is null) {
-      TerminalText = "Select a container in the details pane, then exec.";
-      SelectedTab = "Terminal";
-      return;
-    }
-
-    var parts = TerminalCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    var result = await _workspace.Session.ExecAsync(pod, ns, SelectedContainer?.Name, parts);
-    TerminalText = result.IsSuccess ? result.Value ?? "" : string.Join("; ", result.Messages);
-    SelectedTab = "Terminal";
-  }
-
   [RelayCommand(CanExecute = nameof(CanBrowseFiles))]
   private void BrowseFiles() {
     if (SelectedRow is null)
@@ -1221,6 +1419,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     };
     group.IsExpanded = _configuration.Current.IsNavigatorExpanded(path);
     return group;
+  }
+
+  [RelayCommand]
+  private void CollapseNavigator() {
+    foreach (var group in Navigator)
+      CollapseGroup(group);
+
+    if (Navigator.Count > 0)
+      PersistNavigatorExpanded(Navigator[0]);
+  }
+
+  private static void CollapseGroup(NavGroupViewModel group) {
+    group.IsExpanded = false;
+    foreach (var child in group.Groups)
+      CollapseGroup(child);
   }
 
   private void PersistNavigatorExpanded(NavGroupViewModel _) {
@@ -1453,8 +1666,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       EventsText = "";
       LogsText = "";
       TerminalText = "";
+      CloseTerminalSession();
+      TerminalStatus = "Select a pod to open a shell.";
       ReplaceDataEntries(null);
       ReplaceRelatedPods([]);
+      ApplyNodeImages(null);
       ApplyContainers(null);
       NotifyDetailsUi();
       return;
@@ -1484,6 +1700,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
 
     ReplaceRelatedPods(related);
+    if (ShowImagesTab)
+      await LoadNodeImagesAsync(row, document);
+    else
+      ApplyNodeImages(null);
+    if (!DetailsStillCurrent(row))
+      return;
+
     var podDocument = IsPodSelection ? document : SelectedRelatedPod?.Document;
     ApplyContainers(podDocument);
     ApplyServiceForwardPorts(document);
@@ -1496,6 +1719,29 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       : string.Join("; ", events.Messages);
     NotifyDetailsUi();
     await LoadLogsAsync();
+    await EnsureTerminalAsync();
+  }
+
+  private async Task LoadNodeImagesAsync(ResourceRow row, JsonObject document) {
+    var listed = await _workspace.NodeImagesAsync(document);
+    if (!DetailsStillCurrent(row))
+      return;
+
+    ApplyNodeImages(listed.IsSuccess ? listed.Value : null);
+    if (!listed.IsSuccess)
+      NodeImagesCaption = string.Join("; ", listed.Messages);
+  }
+
+  private void ApplyNodeImages(NodeImageReport? report) {
+    NodeImages.Clear();
+    if (report is null) {
+      NodeImagesCaption = "";
+      return;
+    }
+
+    foreach (var image in report.Images)
+      NodeImages.Add(image);
+    NodeImagesCaption = report.Caption;
   }
 
   private bool DetailsStillCurrent(ResourceRow row) =>
@@ -2047,6 +2293,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanCordon));
     OnPropertyChanged(nameof(CanDrain));
     OnPropertyChanged(nameof(CanTrigger));
+    OnPropertyChanged(nameof(CanResize));
+    OnPropertyChanged(nameof(CanRetain));
+    OnPropertyChanged(nameof(CanRollout));
+    OnPropertyChanged(nameof(CanApprove));
+    OnPropertyChanged(nameof(CanToken));
+    OnPropertyChanged(nameof(CanAttach));
+    OnPropertyChanged(nameof(CanDebug));
     OnPropertyChanged(nameof(CanApply));
     OnPropertyChanged(nameof(CanCreateResource));
     OnPropertyChanged(nameof(CanReloadYaml));
@@ -2059,6 +2312,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void NotifyDetailsUi() {
     OnPropertyChanged(nameof(ShowEventsTab));
+    OnPropertyChanged(nameof(ShowImagesTab));
     OnPropertyChanged(nameof(ShowPodsTab));
     OnPropertyChanged(nameof(ShowLogsTab));
     OnPropertyChanged(nameof(ShowTerminalTab));
@@ -2091,10 +2345,103 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private async Task RefreshFromTimerAsync() {
     try {
+      if (_watchHealthy && IsWatchable(SelectedDescriptor)) {
+        await SampleClusterUsageAsync();
+        return;
+      }
+
       await RefreshRowsAsync();
     }
     catch (Exception ex) when (ex is not OperationCanceledException) {
       _setStatus(ex.Message);
     }
+  }
+
+  private void StartWatch(ResourceDescriptor? descriptor, string? resourceVersion) {
+    StopWatch();
+    if (!IsWatchable(descriptor) || _workspace.Session is null || descriptor is null)
+      return;
+
+    var generation = ++_watchGeneration;
+    var cts = new CancellationTokenSource();
+    _watchCts = cts;
+    _watchHealthy = true;
+    var selector = string.IsNullOrWhiteSpace(LabelSelector) ? null : LabelSelector.Trim();
+    var session = _workspace.Session;
+    _ = WatchLoopAsync(session, descriptor, resourceVersion, selector, generation, cts.Token);
+  }
+
+  private void StopWatch() {
+    _watchHealthy = false;
+    _watchCts?.Cancel();
+    _watchCts?.Dispose();
+    _watchCts = null;
+  }
+
+  private static bool IsWatchable(ResourceDescriptor? descriptor) =>
+    descriptor is not null
+    && descriptor.Id is not ResourceCatalog.ApplicationsId
+      and not ResourceCatalog.PortForwardingId
+      and not ResourceCatalog.HelmChartsId
+      and not ResourceCatalog.HelmReleasesId
+      and not ResourceCatalog.DaprSidecarsId
+      and not ResourceCatalog.DaprControlPlaneId
+      and not ResourceCatalog.OverviewId
+      and not ResourceCatalog.WorkloadsOverviewId;
+
+  private async Task WatchLoopAsync(
+    IClusterSession session,
+    ResourceDescriptor descriptor,
+    string? resourceVersion,
+    string? selector,
+    int generation,
+    CancellationToken cancellationToken) {
+    try {
+      await foreach (var ev in session.WatchAsync(
+        descriptor.ToRef(),
+        Configuration.AllNamespaces,
+        resourceVersion,
+        selector,
+        cancellationToken).ConfigureAwait(false)) {
+        if (generation != _watchGeneration)
+          return;
+        if (ev.Type is "Error")
+          break;
+
+        await Dispatcher.UIThread.InvokeAsync(() => ApplyWatchEvent(descriptor, ev, generation));
+      }
+    }
+    catch (OperationCanceledException) {
+      return;
+    }
+    catch (Exception) {
+    }
+
+    await Dispatcher.UIThread.InvokeAsync(() => {
+      if (generation == _watchGeneration)
+        _watchHealthy = false;
+    });
+  }
+
+  private void ApplyWatchEvent(ResourceDescriptor descriptor, ClusterWatchEvent ev, int generation) {
+    if (generation != _watchGeneration || SelectedDescriptor?.Id != descriptor.Id || ev.Object is null)
+      return;
+    if (ev.Type is not ("Added" or "Modified" or "Deleted"))
+      return;
+
+    var row = ResourceRow.From(ev.Object, descriptor);
+    var index = _listedRows.FindIndex(item => item.Uid == row.Uid);
+    if (ev.Type == "Deleted" || !ClusterWorkspace.Matches(row, Filter)) {
+      if (index >= 0)
+        _listedRows.RemoveAt(index);
+    }
+    else if (index < 0) {
+      _listedRows.Add(row);
+    }
+    else {
+      _listedRows[index].CopyFrom(row);
+    }
+
+    ApplyColumnFilters();
   }
 }

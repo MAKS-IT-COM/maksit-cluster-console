@@ -1,3 +1,6 @@
+using System.Text.Json.Nodes;
+
+
 namespace MaksIT.ClusterConsole.Client;
 
 public sealed record ClusterSummary(
@@ -91,6 +94,16 @@ public sealed record ResourceMetrics(
   string Memory);
 
 public sealed record ExecBytesResult(byte[] Stdout, string Stderr);
+
+public sealed class ResourceListOptions {
+  public string? LabelSelector { get; init; }
+
+  public string? FieldSelector { get; init; }
+
+  public string? ResourceVersion { get; set; }
+}
+
+public sealed record ClusterWatchEvent(string Type, JsonObject? Object);
 
 public sealed record HelmReleaseInfo(
   string Name,

@@ -3,7 +3,7 @@
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
         xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
-        x:Class="MaksIT.ClusterConsole.UI.VolumeFilesWindow"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.VolumeFilesWindow"
         x:DataType="vm:VolumeFilesViewModel"
         Title="{Binding WindowTitle}"
         Icon="/Assets/icon.ico"

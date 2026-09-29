@@ -1,14 +1,17 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Shared;
+using MaksIT.ClusterConsole.Client.Ollama;
 
 
-namespace MaksIT.ClusterConsole.Shared;
+namespace MaksIT.ClusterConsole.Shared.Chat;
 
 public sealed class ClusterChatTools(ClusterWorkspace workspace) {
   public const int MaxResultChars = 12_000;
+  public const string RejectedByOperator =
+    "Rejected by the operator. The cluster was not changed. Propose a different fix or explain the diagnosis.";
 
-  public IReadOnlyList<OllamaTool> Definitions { get; } = [
+  public IReadOnlyList<OllamaTool> ReadOnlyDefinitions { get; } = [
     Tool(
       "get_cluster_issues",
       "List cluster warning and error issues from nodes, pods, and events. Each line includes Active or Resolved.",
@@ -36,17 +39,97 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
         ("namespace", "Namespace. Defaults to the UI selection.", false)))
   ];
 
+  private IReadOnlyList<OllamaTool>? _agentDefinitions;
+
+  public IReadOnlyList<OllamaTool> AgentDefinitions => _agentDefinitions ??= [
+    ..ReadOnlyDefinitions,
+    Tool(
+      "restart_workload",
+      "Restart a Deployment, StatefulSet, or DaemonSet by rolling its pods.",
+      ObjectSchema(
+        ("kind", "Deployment, StatefulSet, or DaemonSet", true),
+        ("name", "Workload name", true),
+        ("namespace", "Namespace. Defaults to the UI selection.", false))),
+    Tool(
+      "delete_pod",
+      "Delete one Pod so its controller can recreate it. Never force-deletes.",
+      ObjectSchema(
+        ("name", "Pod name", true),
+        ("namespace", "Pod namespace. Defaults to the UI selection.", false))),
+    Tool(
+      "scale_workload",
+      "Set replica count. replicas must be an integer from 0 to 100.",
+      ScaleSchema()),
+    Tool(
+      "apply_manifest",
+      "Apply one YAML manifest. Status and server metadata are stripped before apply.",
+      ObjectSchema(
+        ("yaml", "Full YAML document for one object", true)))
+  ];
+
+  public static bool IsMutating(string name) =>
+    name is "restart_workload" or "delete_pod" or "scale_workload" or "apply_manifest";
+
+  public static JsonObject? PrepareManifest(string yaml) {
+    var document = YamlFormatter.ToJsonObject(yaml);
+    return document is null ? null : ResourceDocument.PrepareForApply(document);
+  }
+
+  public string Describe(string name, JsonObject args) {
+    var kind = Arg(args, "kind") ?? "resource";
+    var resourceName = Arg(args, "name") ?? "(unnamed)";
+    var ns = Arg(args, "namespace");
+    var where = string.IsNullOrWhiteSpace(ns) ? "" : $" in {ns}";
+    return name switch {
+      "restart_workload" => $"Restart {kind}/{resourceName}{where}.",
+      "delete_pod" => $"Delete Pod/{resourceName}{where}. The controller can recreate it.",
+      "scale_workload" => $"Scale {kind}/{resourceName}{where} to {Arg(args, "replicas") ?? "?"} replicas.",
+      "apply_manifest" => DescribeManifest(args),
+      _ => name
+    };
+  }
+
+  public string ChangePreview(string name, JsonObject args) {
+    if (name == "scale_workload" && TryReplicas(args, out var replicas, out _))
+      return $"replicas: {replicas}";
+
+    if (name != "apply_manifest")
+      return "";
+
+    var yaml = Arg(args, "yaml");
+    if (string.IsNullOrWhiteSpace(yaml))
+      return "No YAML was provided. Nothing will be applied.";
+
+    var prepared = PrepareManifest(yaml);
+    if (prepared is null)
+      return "The YAML could not be parsed. Nothing will be applied.";
+
+    var text = YamlFormatter.FromJson(prepared);
+    const int max = 6000;
+    return text.Length <= max
+      ? text
+      : text[..max] + $"{Environment.NewLine}… truncated";
+  }
+
   public async Task<string> InvokeAsync(
     string name,
     JsonObject args,
     ClusterChatContext context,
+    bool approved,
     CancellationToken cancellationToken) {
+    if (IsMutating(name) && !approved)
+      return RejectedByOperator;
+
     var result = name switch {
       "get_cluster_issues" => await GetIssuesAsync(cancellationToken).ConfigureAwait(false),
       "get_resource" => await GetResourceAsync(args, context, cancellationToken).ConfigureAwait(false),
       "get_logs" => await GetLogsAsync(args, context, cancellationToken).ConfigureAwait(false),
       "get_events" => await GetEventsAsync(args, context, cancellationToken).ConfigureAwait(false),
-      _ => $"Unknown tool '{name}'. Available: get_cluster_issues, get_resource, get_logs, get_events."
+      "restart_workload" => await RestartWorkloadAsync(args, context, cancellationToken).ConfigureAwait(false),
+      "delete_pod" => await DeletePodAsync(args, context, cancellationToken).ConfigureAwait(false),
+      "scale_workload" => await ScaleWorkloadAsync(args, context, cancellationToken).ConfigureAwait(false),
+      "apply_manifest" => await ApplyManifestAsync(args, cancellationToken).ConfigureAwait(false),
+      _ => $"Unknown tool '{name}'."
     };
     return Truncate(result);
   }
@@ -170,6 +253,159 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     return matches.Count == 0
       ? $"No events found for {name}."
       : string.Join(Environment.NewLine, matches);
+  }
+
+  private async Task<string> RestartWorkloadAsync(
+    JsonObject args,
+    ClusterChatContext context,
+    CancellationToken cancellationToken) {
+    if (workspace.Session is null)
+      return "Not connected to a cluster.";
+
+    var kind = Arg(args, "kind") ?? context.Kind;
+    var name = Arg(args, "name") ?? context.Name;
+    if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(name))
+      return "restart_workload needs kind and name.";
+
+    var descriptor = Resolve(kind);
+    if (descriptor is null || !descriptor.Actions.CanRestart)
+      return "restart_workload only supports Deployment, StatefulSet, and DaemonSet.";
+
+    var ns = NamespaceArg(args, context, descriptor.Namespaced);
+    var restarted = await workspace.Session.RestartAsync(descriptor.ToRef(), name, ns, cancellationToken)
+      .ConfigureAwait(false);
+    return restarted.IsSuccess
+      ? $"Restarted {descriptor.Kind}/{name}."
+      : JoinMessages(restarted.Messages);
+  }
+
+  private async Task<string> DeletePodAsync(
+    JsonObject args,
+    ClusterChatContext context,
+    CancellationToken cancellationToken) {
+    if (workspace.Session is null)
+      return "Not connected to a cluster.";
+
+    var name = Arg(args, "name") ?? (IsPod(context.Kind) ? context.Name : context.Pod);
+    if (string.IsNullOrWhiteSpace(name))
+      return "delete_pod needs a pod name.";
+
+    var pods = ResourceCatalog.Find("pods");
+    if (pods is null)
+      return "Pod catalog entry is missing.";
+
+    var ns = NamespaceArg(args, context, true);
+    var deleted = await workspace.Session.DeleteAsync(pods.ToRef(), name, ns, force: false, cancellationToken)
+      .ConfigureAwait(false);
+    return deleted.IsSuccess
+      ? $"Deleted Pod/{name}."
+      : JoinMessages(deleted.Messages);
+  }
+
+  private async Task<string> ScaleWorkloadAsync(
+    JsonObject args,
+    ClusterChatContext context,
+    CancellationToken cancellationToken) {
+    if (!TryReplicas(args, out var replicas, out var error))
+      return error;
+
+    if (workspace.Session is null)
+      return "Not connected to a cluster.";
+
+    var kind = Arg(args, "kind") ?? context.Kind;
+    var name = Arg(args, "name") ?? context.Name;
+    if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(name))
+      return "scale_workload needs kind and name.";
+
+    var descriptor = Resolve(kind);
+    if (descriptor is null || !descriptor.Actions.CanScale)
+      return "scale_workload only supports scalable workloads.";
+
+    var ns = NamespaceArg(args, context, descriptor.Namespaced);
+    var scaled = await workspace.Session.ScaleAsync(descriptor.ToRef(), name, ns, replicas, cancellationToken)
+      .ConfigureAwait(false);
+    return scaled.IsSuccess
+      ? $"Scaled {descriptor.Kind}/{name} to {replicas}."
+      : JoinMessages(scaled.Messages);
+  }
+
+  private async Task<string> ApplyManifestAsync(JsonObject args, CancellationToken cancellationToken) {
+    var yaml = Arg(args, "yaml");
+    if (string.IsNullOrWhiteSpace(yaml))
+      return "apply_manifest needs yaml.";
+
+    var prepared = PrepareManifest(yaml);
+    if (prepared is null)
+      return "apply_manifest could not parse the YAML.";
+
+    if (workspace.Session is null)
+      return "Not connected to a cluster.";
+
+    var applied = await workspace.ApplyDocumentAsync(prepared, cancellationToken).ConfigureAwait(false);
+    if (!applied.IsSuccess || applied.Value is null)
+      return JoinMessages(applied.Messages);
+
+    var kind = prepared["kind"]?.GetValue<string>() ?? "object";
+    var name = (prepared["metadata"] as JsonObject)?["name"]?.GetValue<string>() ?? "(unnamed)";
+    return $"Applied {kind}/{name}.";
+  }
+
+  private static string DescribeManifest(JsonObject args) {
+    var yaml = Arg(args, "yaml");
+    var prepared = string.IsNullOrWhiteSpace(yaml) ? null : PrepareManifest(yaml);
+    if (prepared is null)
+      return "Apply a manifest.";
+
+    var kind = prepared["kind"]?.GetValue<string>() ?? "object";
+    var meta = prepared["metadata"] as JsonObject;
+    var name = meta?["name"]?.GetValue<string>() ?? "(unnamed)";
+    var ns = meta?["namespace"]?.GetValue<string>();
+    var where = string.IsNullOrWhiteSpace(ns) ? "" : $" in {ns}";
+    return $"Apply {kind}/{name}{where}.";
+  }
+
+  private static bool TryReplicas(JsonObject args, out int replicas, out string error) {
+    replicas = 0;
+    error = "scale_workload replicas must be an integer from 0 to 100.";
+    var node = args["replicas"];
+    if (node is not JsonValue value)
+      return false;
+
+    int number;
+    if (value.TryGetValue<int>(out number)) {
+    }
+    else if (value.TryGetValue<long>(out var wide) && wide is >= 0 and <= 100) {
+      number = (int)wide;
+    }
+    else if (value.TryGetValue<string>(out var text) && int.TryParse(text, out number)) {
+    }
+    else {
+      return false;
+    }
+
+    if (number is < 0 or > 100)
+      return false;
+
+    replicas = number;
+    error = "";
+    return true;
+  }
+
+  private static JsonObject ScaleSchema() {
+    var schema = ObjectSchema(
+      ("kind", "Deployment, StatefulSet, ReplicaSet, or ReplicationController", true),
+      ("name", "Workload name", true),
+      ("namespace", "Namespace. Defaults to the UI selection.", false));
+    if (schema["properties"] is JsonObject properties)
+      properties["replicas"] = new JsonObject {
+        ["type"] = "integer",
+        ["description"] = "Desired replicas, from 0 to 100"
+      };
+    if (schema["required"] is JsonArray required)
+      required.Add("replicas");
+    else
+      schema["required"] = new JsonArray { "replicas" };
+    return schema;
   }
 
   private ResourceDescriptor? Resolve(string kind) {

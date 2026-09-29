@@ -1,13 +1,13 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-55%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-47.1%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-63.4%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-54.9%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-46.8%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-65%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
 
-**MaksIT Cluster Console** (also **ClusterConsole**, `MaksIT.ClusterConsole`) is an **open-source Kubernetes GUI** — a native desktop client for Windows, Linux, and macOS. It is an operator console: browse the Kubernetes API, apply YAML, follow pod logs, exec, port-forward to localhost, and inspect Helm releases and Dapr components already in the cluster.
+**MaksIT Cluster Console** (also **ClusterConsole**, `MaksIT.ClusterConsole`) is an **open-source Kubernetes GUI** — a native desktop client for Windows, Linux, and macOS. It is an operator console: browse the Kubernetes API, apply YAML, follow a live table, read pod logs, open an interactive shell, port-forward to localhost, and inspect Helm releases and Dapr components already in the cluster.
 
 It is a **Kubernetes desktop app**, not a web dashboard and not a command-line client. Cluster access uses the official **Kubernetes .NET client**, your **kubeconfig**, and the same **RBAC** as any other API client. The kubeconfig file on disk is the source of truth. A catalog radio sets kubectl `current-context`.
 
@@ -31,7 +31,7 @@ If you find this project useful, please consider supporting its development:
 
 [<img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px; width: 217px;">](https://www.buymeacoffee.com/maksitcom)
 
-## Screenshots
+## Features
 
 ### Cluster overview
 
@@ -47,7 +47,7 @@ One row per `app.kubernetes.io/instance` (or `name`) and namespace. CPU is perce
 
 ### Pods
 
-Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. Details: Overview, YAML, Events, Logs (Follow), Terminal.
+Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs (Follow), Terminal (interactive shell). Footer **Debug** adds an ephemeral container.
 
 ![Pods table](assets/images/MaksIT.ClusterConsole.UI_FNf58xBr0a.png)
 
@@ -75,20 +75,45 @@ First-class navigator: Components, Configurations, Subscriptions, Resiliency, HT
 
 ![Port forwarding](assets/images/MaksIT.ClusterConsole.UI_ktu7J3X0DP.png)
 
-## Features
+### Contexts
 
-- **Contexts** — kubeconfig catalog; radio selects kubectl `current-context`
-- **Navigator** — Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources
-- **Tables** — list and refresh; column filters and sort stored per cluster
-- **YAML** — view, apply, create, delete; force-delete (grace period 0, strip finalizers)
-- **Workloads** — scale, restart, CronJob trigger; node cordon and drain
-- **Pods** — follow logs, exec
-- **Applications** — one row per instance and namespace from standard labels
-- **Helm** — releases from cluster secrets
-- **Metrics** — CPU and memory when the metrics API is available
-- **Port-forwards** — persist, restore, open in the browser
-- **Chat** — local Ollama, read-only
-- **Volume files** — browse and edit PV/PVC contents
+Kubeconfig catalog. A radio selects kubectl `current-context`.
+
+### Navigator
+
+Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources. Built-in kinds include admission policies, CSR, CSI objects, API services, flow control, and dynamic resource allocation, plus any CRD installed in the cluster.
+
+### Tables
+
+List and refresh. The open table watches the API. A label selector is sent with the list. Column filters and sort stay on this machine, per cluster.
+
+### YAML
+
+View, server-side apply, create, and delete. Force-delete uses grace period 0 and strips finalizers. Apply falls back to create or replace when the API server rejects an apply patch.
+
+### Workloads
+
+Scale, restart, rollout pause, resume, history, and undo. CronJob trigger. Node cordon and drain.
+
+### Storage
+
+Resize a PersistentVolumeClaim. Change reclaim policy on a storage class and its volumes.
+
+### Access
+
+Approve or deny a certificate signing request. Create a ServiceAccount token and show it once.
+
+### Custom resources
+
+Extra columns from the CRD `additionalPrinterColumns`.
+
+### Helm
+
+Releases from cluster secrets.
+
+### Metrics
+
+CPU and memory when the metrics API is available.
 
 ## Requirements
 
@@ -141,8 +166,9 @@ Operator layout, open clusters, port-forwards, and Chat settings are stored in `
 
 | Key | Role |
 |-----|------|
-| `OllamaEndpoint` | Chat API, default `http://127.0.0.1:11434` |
-| `OllamaModel` | Chat model, default `qwen3:8b` |
+| `AiEnabled` | Chat tab. Off until enabled under Settings → AI |
+| `OllamaEndpoint` | Local Ollama API, default `http://127.0.0.1:11434` |
+| `OllamaModel` | Local Ollama model, default `qwen3:8b` |
 | `PortForwards` | Enabled localhost forwards; restored on reconnect |
 | `Layout` | Window, panes, last navigator item, per-cluster tables |
 

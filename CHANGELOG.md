@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-29
+
+### Added
+
+- Pod Terminal opens a live shell. Attach follows a container's output. Debug adds an ephemeral container.
+- Deployments, StatefulSets, and DaemonSets can pause, resume, show rollout history, and undo.
+- PersistentVolumeClaims can be resized. Storage classes and volumes can switch reclaim policy between Delete and Retain. A class change is delete-and-recreate; the dialog explains the gap for new claims.
+- Certificate signing requests can be approved or denied. A ServiceAccount token is created and shown once.
+- Node details include an Images tab. Cached images are marked Used or Unused from the pods on that node.
+- The navigator adds admission policies, CSI objects, API services, flow schemas, priority levels, and dynamic resource allocation types. Custom resource tables use the CRD `additionalPrinterColumns`.
+- A list can send a label selector with the API request.
+- YAML apply falls back to create or replace when the API server rejects an apply patch.
+- Settings → AI sets the local Ollama endpoint and model. Chat stays read-only unless the agent is enabled; restart, pod delete, scale, and apply then wait for a confirmation.
+- Help → About shows the product, license, and contact.
+
+### Fixed
+
+- YAML highlighting covers the whole document. Long values no longer drop color partway through a line, and later lines stay colored when you switch resources or open the YAML tab.
+
+### Changed
+
+- The README lists every feature under Features. Screenshots stay with the features that have one.
+- Microsoft Store product features and the listing description match that list.
+
 ## [0.8.2] - 2026-09-28
 
 ### Added

@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 
-namespace MaksIT.ClusterConsole.Client;
+namespace MaksIT.ClusterConsole.Client.Ollama;
 
 public sealed class OllamaChatRequest {
   [JsonPropertyName("model")]

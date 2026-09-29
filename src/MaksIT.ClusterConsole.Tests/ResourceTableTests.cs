@@ -7,6 +7,8 @@ namespace MaksIT.ClusterConsole.Tests;
 public class ResourceTableTests {
   [Theory]
   [InlineData("Running", ResourceStatusTone.Healthy)]
+  [InlineData("Used", ResourceStatusTone.Healthy)]
+  [InlineData("Unused", ResourceStatusTone.Muted)]
   [InlineData("Ready", ResourceStatusTone.Healthy)]
   [InlineData("deployed", ResourceStatusTone.Healthy)]
   [InlineData("Pending", ResourceStatusTone.Warning)]

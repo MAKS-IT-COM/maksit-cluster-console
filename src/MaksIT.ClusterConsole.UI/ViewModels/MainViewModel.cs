@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
+using MaksIT.ClusterConsole.Client.Ollama;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels;
@@ -194,8 +195,6 @@ public partial class CatalogItemViewModel : ObservableObject {
 
   public string Name => Context.Name;
 
-  public string Cluster => Context.Cluster;
-
   [ObservableProperty]
   private bool isConnected;
 
@@ -244,6 +243,8 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   private string status = "Select a cluster from the catalog.";
 
   public bool IsClusterOpen => ActivePage is not null;
+
+  public bool ShowChat => _configuration.Current.AiEnabled;
 
   public string ClusterTitle => ActivePage?.Name ?? "Catalog";
 
@@ -301,10 +302,36 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public event EventHandler? ConnectionsRequested;
 
+  [RelayCommand]
+  private void OpenAiSettings() =>
+    AiSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+  public event EventHandler? AiSettingsRequested;
+
   public event Action<VolumeFilesViewModel>? VolumeFilesRequested;
+
+  public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
 
   public ConnectionsViewModel CreateConnectionsViewModel() =>
     new(_kubeConfig);
+
+  public AiSettingsViewModel CreateAiSettingsViewModel() {
+    var cfg = _configuration.Current;
+    return new AiSettingsViewModel(cfg.AiEnabled, cfg.AiAgentEnabled, cfg.OllamaEndpoint, cfg.OllamaModel, ApplyAiSettings);
+  }
+
+  private void ApplyAiSettings(bool enabled, bool agent, string endpoint, string model) {
+    var cfg = _configuration.Current;
+    cfg.AiEnabled = enabled;
+    cfg.AiAgentEnabled = enabled && agent;
+    cfg.OllamaEndpoint = endpoint;
+    cfg.OllamaModel = model;
+    cfg.EnsureDefaults();
+    _configuration.Save(cfg);
+    OnPropertyChanged(nameof(ShowChat));
+    foreach (var page in _pages.Values)
+      page.NotifyChatSettingsChanged();
+  }
 
   public Task ConnectNamedAsync(string name) {
     var item = Catalog.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
@@ -432,6 +459,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   private ClusterPageViewModel CreatePage(KubeContextInfo context) {
     var page = new ClusterPageViewModel(context, new ClusterWorkspace(), _configuration, _ollama, text => Status = text);
     page.VolumeFilesRequested += vm => VolumeFilesRequested?.Invoke(vm);
+    page.ShowRetainReclaim = viewModel => ShowRetainReclaim?.Invoke(viewModel) ?? Task.CompletedTask;
     return page;
   }
 

@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.AiSettingsWindow"
+        x:DataType="vm:AiSettingsViewModel"
+        Title="AI"
+        Icon="/Assets/icon.ico"
+        Width="480"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <StackPanel Margin="16" Spacing="10">
+    <TextBlock Text="Local Ollama" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Chat stays on this machine and talks to a local Ollama server. Any GPU is fine. Repairs work best with qwen3:14b or larger (qwen3:32b, qwen3-coder:30b)." />
+    <CheckBox Content="Enable chat" IsChecked="{Binding EnabledChat}" />
+    <CheckBox Content="Allow the assistant to change the cluster"
+              IsChecked="{Binding AgentEnabled}"
+              IsEnabled="{Binding EnabledChat}" />
+    <Grid ColumnDefinitions="88,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+      <TextBlock Text="Endpoint" Classes="hint" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding EndpointText}" />
+      <TextBlock Grid.Row="1" Text="Model" Classes="hint" VerticalAlignment="Center" />
+      <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ModelText}" />
+    </Grid>
+    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True" Padding="12,7" />
+      <Button Content="Save" Command="{Binding SaveCommand}" IsDefault="True" Padding="12,7" />
+    </StackPanel>
+  </StackPanel>
+</Window>

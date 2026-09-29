@@ -2,22 +2,53 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
+using MaksIT.ClusterConsole.Shared.Chat;
+using MaksIT.ClusterConsole.Client.Ollama;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels;
 
 public partial class ChatMessageViewModel : ObservableObject {
+  private TaskCompletionSource<bool>? _decision;
+
   public required string Role { get; init; }
 
   public required string Text { get; init; }
+
+  public string Change { get; init; } = "";
+
+  public bool HasChange => !string.IsNullOrWhiteSpace(Change);
 
   public bool IsUser => Role == "user";
 
   public bool IsAssistant => Role == "assistant";
 
   public bool IsTool => Role == "tool";
+
+  public bool IsConfirm => Role == "confirm";
+
+  [ObservableProperty]
+  private bool isPending;
+
+  public void Arm(TaskCompletionSource<bool> decision) =>
+    _decision = decision;
+
+  [RelayCommand]
+  private void Approve() =>
+    Finish(true);
+
+  [RelayCommand]
+  private void Reject() =>
+    Finish(false);
+
+  private void Finish(bool approved) {
+    if (!IsPending)
+      return;
+
+    IsPending = false;
+    _decision?.TrySetResult(approved);
+  }
 }
 
 public partial class ClusterPageViewModel {
@@ -35,9 +66,6 @@ public partial class ClusterPageViewModel {
   [ObservableProperty]
   private bool chatBusy;
 
-  public string ChatModelCaption =>
-    $"Model {_configuration.Current.OllamaModel} · RTX 3060 · read-only tools (issues, get, logs, events)";
-
   private bool CanSendChat =>
     !ChatBusy && !string.IsNullOrWhiteSpace(ChatInput);
 
@@ -47,12 +75,35 @@ public partial class ClusterPageViewModel {
   partial void OnChatBusyChanged(bool value) =>
     SendChatCommand.NotifyCanExecuteChanged();
 
+  private string ModelStatus(string? activity = null) =>
+    string.IsNullOrWhiteSpace(activity)
+      ? $"Model · {_configuration.Current.OllamaModel}"
+      : $"Model · {_configuration.Current.OllamaModel} · {activity}";
+
+  private static string Activity(string status) {
+    if (status.StartsWith("Tool · ", StringComparison.Ordinal))
+      return status["Tool · ".Length..];
+
+    if (status.StartsWith("Confirm · ", StringComparison.Ordinal))
+      return "waiting for approval";
+
+    if (status is "Processing" or "Sending…")
+      return "processing";
+
+    return status;
+  }
+
+  public void NotifyChatSettingsChanged() {
+    if (!ChatBusy)
+      ChatStatus = ModelStatus();
+  }
+
   [RelayCommand]
   private void ClearChat() {
     _chatCts?.Cancel();
     _chatHistory.Clear();
     ChatMessages.Clear();
-    ChatStatus = $"Local Ollama · {_configuration.Current.OllamaModel}";
+    ChatStatus = ModelStatus();
   }
 
   [RelayCommand]
@@ -87,7 +138,7 @@ public partial class ClusterPageViewModel {
     _chatCts = new CancellationTokenSource();
     var token = _chatCts.Token;
     ChatMessages.Add(new ChatMessageViewModel { Role = "user", Text = prompt });
-    ChatStatus = "Sending…";
+    ChatStatus = ModelStatus("processing");
 
     var history = _chatHistory.ToList();
     history.Add(new OllamaChatMessage { Role = "user", Content = prompt });
@@ -95,22 +146,25 @@ public partial class ClusterPageViewModel {
     var cfg = _configuration.Current;
 
     try {
+      var agent = cfg.AiEnabled && cfg.AiAgentEnabled;
       var result = await _chat.AskAsync(
         cfg.OllamaEndpoint,
         cfg.OllamaModel,
         history,
         context,
         status => Dispatcher.UIThread.Post(() => {
-          ChatStatus = status;
+          ChatStatus = ModelStatus(Activity(status));
           if (status.StartsWith("Tool · ", StringComparison.Ordinal))
             ChatMessages.Add(new ChatMessageViewModel { Role = "tool", Text = status["Tool · ".Length..] });
         }),
-        token);
+        token,
+        agent,
+        agent ? ConfirmToolAsync : null);
 
       if (!result.IsSuccess) {
         var error = string.Join("; ", result.Messages);
         ChatMessages.Add(new ChatMessageViewModel { Role = "assistant", Text = error });
-        ChatStatus = error;
+        ChatStatus = ModelStatus(error);
         return;
       }
 
@@ -118,14 +172,30 @@ public partial class ClusterPageViewModel {
       _chatHistory.Add(new OllamaChatMessage { Role = "user", Content = prompt });
       _chatHistory.Add(new OllamaChatMessage { Role = "assistant", Content = answer });
       ChatMessages.Add(new ChatMessageViewModel { Role = "assistant", Text = answer });
-      ChatStatus = $"Ollama · {cfg.OllamaModel}";
+      ChatStatus = ModelStatus();
     }
     catch (OperationCanceledException) {
-      ChatStatus = "Cancelled.";
+      ChatStatus = ModelStatus("cancelled");
     }
     finally {
       ChatBusy = false;
     }
+  }
+
+  private Task<bool> ConfirmToolAsync(string description, string change, CancellationToken cancellationToken) {
+    var decision = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+    Dispatcher.UIThread.Post(() => {
+      var message = new ChatMessageViewModel {
+        Role = "confirm",
+        Text = description,
+        Change = change,
+        IsPending = true
+      };
+      message.Arm(decision);
+      ChatMessages.Add(message);
+    });
+    cancellationToken.Register(() => decision.TrySetCanceled(cancellationToken));
+    return decision.Task;
   }
 
   private ClusterChatContext BuildChatContext() =>

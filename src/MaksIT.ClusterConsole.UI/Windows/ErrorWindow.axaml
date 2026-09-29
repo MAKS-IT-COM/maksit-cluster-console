@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        xmlns:shared="using:MaksIT.ClusterConsole.Shared"
         x:Class="MaksIT.ClusterConsole.UI.Windows.ErrorWindow"
         x:DataType="vm:ErrorReportViewModel"
         Width="720"
@@ -12,7 +13,7 @@
         Topmost="True"
         WindowStartupLocation="CenterOwner"
         Icon="/Assets/icon.ico"
-        Title="Cluster Console">
+        Title="{x:Static shared:AppInfo.ProductName}">
   <DockPanel Margin="16">
     <StackPanel DockPanel.Dock="Bottom"
                 Orientation="Horizontal"

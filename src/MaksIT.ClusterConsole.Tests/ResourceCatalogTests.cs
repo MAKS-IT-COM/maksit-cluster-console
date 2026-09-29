@@ -18,6 +18,37 @@ public class ResourceCatalogTests {
     Assert.Contains(ResourceCatalog.CustomResources, sections);
     Assert.NotNull(ResourceCatalog.Find("pods"));
     Assert.NotNull(ResourceCatalog.Find("deployments"));
+    Assert.Equal(ResourceCatalog.Workloads, ResourceCatalog.Find("controllerrevisions")!.Section);
+    Assert.Equal(ResourceCatalog.Config, ResourceCatalog.Find("podtemplates")!.Section);
+    Assert.Equal(ResourceCatalog.Config, ResourceCatalog.Find("validatingadmissionpolicies")!.Section);
+    Assert.Equal(ResourceCatalog.Config, ResourceCatalog.Find("mutatingadmissionpolicies")!.Section);
+    Assert.Equal(ResourceCatalog.AccessControl, ResourceCatalog.Find("certificatesigningrequests")!.Section);
+    Assert.Equal(ResourceCatalog.AccessControl, ResourceCatalog.Find("clustertrustbundles")!.Section);
+    Assert.Equal(ResourceCatalog.Network, ResourceCatalog.Find("ipaddresses")!.Section);
+    Assert.Equal(ResourceCatalog.Network, ResourceCatalog.Find("servicecidrs")!.Section);
+    Assert.Equal(ResourceCatalog.Storage, ResourceCatalog.Find("csidrivers")!.Section);
+    Assert.Equal(ResourceCatalog.Storage, ResourceCatalog.Find("volumeattributesclasses")!.Section);
+    Assert.Equal(ResourceCatalog.Cluster, ResourceCatalog.Find("apiservices")!.Section);
+    Assert.Equal(ResourceCatalog.Cluster, ResourceCatalog.Find("flowschemas")!.Section);
+    Assert.Equal(ResourceCatalog.Cluster, ResourceCatalog.Find("deviceclasses")!.Section);
+    Assert.Equal(ResourceCatalog.Workloads, ResourceCatalog.Find("resourceclaims")!.Section);
+    Assert.Equal(ResourceCatalog.Config, ResourceCatalog.Find("storageversionmigrations")!.Section);
+    Assert.True(ResourceCatalog.Find("deployments")!.Actions.CanRollout);
+    Assert.True(ResourceCatalog.Find("persistentvolumeclaims")!.Actions.CanResize);
+    Assert.True(ResourceCatalog.Find("persistentvolumes")!.Actions.CanRetain);
+    Assert.True(ResourceCatalog.Find("storageclasses")!.Actions.CanRetain);
+    Assert.False(ResourceCatalog.Find("persistentvolumeclaims")!.Actions.CanRetain);
+    Assert.True(ResourceCatalog.Find("pods")!.Actions.CanAttach);
+    Assert.True(ResourceCatalog.Find("pods")!.Actions.CanDebug);
+    foreach (var id in new[] {
+      "controllerrevisions", "resourceclaims", "resourceclaimtemplates", "podtemplates",
+      "validatingadmissionpolicies", "mutatingadmissionpolicies", "storageversionmigrations",
+      "ipaddresses", "servicecidrs", "csidrivers", "csinodes", "csistoragecapacities",
+      "volumeattachments", "volumeattributesclasses", "certificatesigningrequests",
+      "clustertrustbundles", "apiservices", "flowschemas", "prioritylevelconfigurations",
+      "deviceclasses", "resourceslices"
+    })
+      Assert.EndsWith("(new)", ResourceCatalog.Find(id)!.Title);
     Assert.NotNull(ResourceCatalog.Find("components"));
     Assert.NotNull(ResourceCatalog.Find("customresourcedefinitions"));
   }
@@ -134,6 +165,31 @@ public class ResourceCatalogTests {
     var row = ResourceRow.From(pod, ResourceCatalog.Find("pods")!);
     Assert.Equal("web", row.Name);
     Assert.Equal("Running", row.Cells["Status"]);
+  }
+
+  [Fact]
+  public void IpAddress_row_shows_parent_ref() {
+    var address = JsonNode.Parse("""
+      {
+        "metadata": { "name": "10.0.0.8", "uid": "ip-1", "creationTimestamp": "2020-01-01T00:00:00Z" },
+        "spec": {
+          "parentRef": {
+            "group": "",
+            "resource": "services",
+            "namespace": "default",
+            "name": "kubernetes"
+          }
+        }
+      }
+      """) as JsonObject;
+
+    Assert.NotNull(address);
+    var row = ResourceRow.From(address, ResourceCatalog.Find("ipaddresses")!);
+    Assert.Equal("10.0.0.8", row.Cells["Name"]);
+    Assert.Equal("default", row.Cells["Parent namespace"]);
+    Assert.Equal("kubernetes", row.Cells["Parent name"]);
+    Assert.Equal("services", row.Cells["Resource"]);
+    Assert.Equal("", row.Cells["Group"]);
   }
 
   [Fact]
@@ -293,6 +349,33 @@ public class ResourceCatalogTests {
     Assert.True(descriptors[0].Namespaced);
     Assert.False(descriptors[2].Namespaced);
     Assert.Equal("crd:cilium.io/v2/ciliumendpoints", descriptors[0].Id);
+    Assert.Equal("spec.topic", ResourceCatalog.PrinterColumnPath(".spec.topic"));
+    Assert.Equal("status.conditions", ResourceCatalog.PrinterColumnPath(".status.conditions[?(@.type==\"Ready\")].status"));
+
+    var printed = JsonNode.Parse("""
+      {
+        "spec": {
+          "group": "example.com",
+          "scope": "Namespaced",
+          "names": { "kind": "Widget", "plural": "widgets" },
+          "versions": [ {
+            "name": "v1",
+            "served": true,
+            "storage": true,
+            "additionalPrinterColumns": [
+              { "name": "Topic", "jsonPath": ".spec.topic" },
+              { "name": "Name", "jsonPath": ".metadata.name" }
+            ]
+          } ]
+        }
+      }
+      """) as JsonObject;
+    Assert.NotNull(printed);
+    var widget = ResourceCatalog.FromCustomResourceDefinition(printed!);
+    Assert.NotNull(widget);
+    Assert.Contains(widget!.Columns, column => column.Header == "Topic" && column.Path == "spec.topic");
+    Assert.Equal(1, widget.Columns.Count(column => column.Header == "Name"));
+    Assert.Equal("Age", widget.Columns[^1].Header);
 
     var groups = ResourceCatalog.GroupCustomResources([
       ResourceCatalog.Find("customresourcedefinitions")!,
@@ -427,5 +510,41 @@ public class ResourceCatalogTests {
     Assert.NotNull(unreachable);
     Assert.Equal("Unreachable", ResourceRow.From(unreachable, ResourceCatalog.Find("services")!).Cells["Status"]);
     Assert.Equal("172.16.0.99", ResourceRow.From(unreachable, ResourceCatalog.Find("services")!).Cells["External IP"]);
+  }
+
+  [Fact]
+  public void RolloutHistory_picks_the_previous_revision_template() {
+    var deployment = JsonNode.Parse("""
+      {
+        "metadata": {
+          "name": "web",
+          "annotations": { "deployment.kubernetes.io/revision": "3" }
+        },
+        "spec": { "selector": { "matchLabels": { "app": "web" } } }
+      }
+      """) as JsonObject;
+    var current = ReplicaSet(3, "web");
+    var previous = ReplicaSet(2, "web");
+    var other = ReplicaSet(4, "api");
+    Assert.NotNull(deployment);
+    Assert.Equal("app=web", RolloutHistory.LabelSelector(deployment!));
+    Assert.Equal(["3  web-3  1/1", "2  web-2  1/1"], RolloutHistory.Lines([current, previous]));
+    var template = RolloutHistory.PreviousTemplate(deployment, [current, previous, other]);
+    Assert.Equal("two", template?["spec"]?["containers"]?[0]?["image"]?.GetValue<string>());
+  }
+
+  private static JsonObject ReplicaSet(int revision, string owner) {
+    var image = revision == 2 ? "two" : "other";
+    return JsonNode.Parse($$"""
+      {
+        "metadata": {
+          "name": "{{owner}}-{{revision}}",
+          "annotations": { "deployment.kubernetes.io/revision": "{{revision}}" },
+          "ownerReferences": [{ "kind": "Deployment", "name": "{{owner}}" }]
+        },
+        "spec": { "template": { "spec": { "containers": [{ "image": "{{image}}" }] } } },
+        "status": { "replicas": 1, "readyReplicas": 1 }
+      }
+      """) as JsonObject ?? new JsonObject();
   }
 }

@@ -1,12 +1,13 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Controls.ApplicationLifetimes;
 using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.ViewModels;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using MaksIT.ClusterConsole.Client.Extensions;
 
 
 namespace MaksIT.ClusterConsole.UI;

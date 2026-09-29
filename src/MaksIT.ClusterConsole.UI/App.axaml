@@ -1,12 +1,18 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
              x:Class="MaksIT.ClusterConsole.UI.App"
-             Name="MaksIT.ClusterConsole"
+             Name="{x:Static shared:AppInfo.ProductName}"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="SvcSystems.UI.TerminalColor0" Color="#0E1620" />
+    <SolidColorBrush x:Key="SvcSystems.UI.TerminalColor15" Color="#E8F4FC" />
+  </Application.Resources>
   <Application.Styles>
     <SimpleTheme />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
+    <StyleInclude Source="avares://SvcSystems.UI.Terminal/Styles/Colors.axaml" />
     <StyleInclude Source="avares://MaksIT.ClusterConsole.UI/Themes/Dark.axaml" />
   </Application.Styles>
 </Application>

@@ -11,7 +11,7 @@ using MaksIT.Results;
 
 namespace MaksIT.ClusterConsole.Client;
 
-public sealed class ClusterSession : IClusterSession {
+public sealed partial class ClusterSession : IClusterSession {
   private readonly Kubernetes _client;
 
   public ClusterSession(string contextName, KubernetesClientConfiguration configuration) {
@@ -26,30 +26,45 @@ public sealed class ClusterSession : IClusterSession {
   public async Task<Result<IReadOnlyList<JsonObject>>> ListAsync(
     ResourceRef resource,
     string? @namespace,
-    CancellationToken cancellationToken = default) {
+    CancellationToken cancellationToken = default,
+    ResourceListOptions? options = null) {
     try {
+      var selector = string.IsNullOrWhiteSpace(options?.LabelSelector) ? null : options.LabelSelector.Trim();
+      var fieldSelector = string.IsNullOrWhiteSpace(options?.FieldSelector) ? null : options.FieldSelector.Trim();
       object raw;
-      if (IsCoreNamespaces(resource))
+      string? resourceVersion;
+      if (IsCoreNamespaces(resource)) {
         raw = await ListNamespacesPagedAsync(cancellationToken).ConfigureAwait(false);
-      else if (!resource.Namespaced || string.IsNullOrWhiteSpace(@namespace) || @namespace == "all")
-        raw = await ListPagedAsync(
+        resourceVersion = KubernetesResult.ResourceVersion(KubernetesResult.ToObject(raw));
+      }
+      else if (!resource.Namespaced || string.IsNullOrWhiteSpace(@namespace) || @namespace == "all") {
+        (raw, resourceVersion) = await ListPagedAsync(
           cont => _client.CustomObjects.ListClusterCustomObjectAsync(
             resource.Group,
             resource.Version,
             resource.Plural,
             continueParameter: cont,
+            fieldSelector: fieldSelector,
+            labelSelector: selector,
             cancellationToken: cancellationToken),
           cancellationToken).ConfigureAwait(false);
-      else
-        raw = await ListPagedAsync(
+      }
+      else {
+        (raw, resourceVersion) = await ListPagedAsync(
           cont => _client.CustomObjects.ListNamespacedCustomObjectAsync(
             resource.Group,
             resource.Version,
             @namespace,
             resource.Plural,
             continueParameter: cont,
+            fieldSelector: fieldSelector,
+            labelSelector: selector,
             cancellationToken: cancellationToken),
           cancellationToken).ConfigureAwait(false);
+      }
+
+      if (options is not null)
+        options.ResourceVersion = resourceVersion;
 
       return Result<IReadOnlyList<JsonObject>>.Ok(KubernetesResult.Items(raw));
     }
@@ -113,24 +128,24 @@ public sealed class ClusterSession : IClusterSession {
         ns = "default";
 
       var body = ResourceDocumentPrepare(document);
-
       object raw;
-      var existing = namespaced
-        ? await TryGet(() => _client.CustomObjects.GetNamespacedCustomObjectAsync(group, version, ns!, plural, name, cancellationToken: cancellationToken))
-        : await TryGet(() => _client.CustomObjects.GetClusterCustomObjectAsync(group, version, plural, name, cancellationToken: cancellationToken));
-
-      if (existing is null) {
-        if (body["metadata"] is JsonObject createMeta)
-          createMeta.Remove("resourceVersion");
-
+      try {
+        var patch = new V1Patch(body.ToJsonString(), V1Patch.PatchType.ApplyPatch);
         raw = namespaced
-          ? await _client.CustomObjects.CreateNamespacedCustomObjectAsync(body, group, version, ns!, plural, cancellationToken: cancellationToken).ConfigureAwait(false)
-          : await _client.CustomObjects.CreateClusterCustomObjectAsync(body, group, version, plural, cancellationToken: cancellationToken).ConfigureAwait(false);
+          ? await _client.CustomObjects.PatchNamespacedCustomObjectAsync(
+            patch, group, version, ns!, plural, name,
+            fieldManager: FieldManager,
+            force: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false)
+          : await _client.CustomObjects.PatchClusterCustomObjectAsync(
+            patch, group, version, plural, name,
+            fieldManager: FieldManager,
+            force: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
       }
-      else {
-        raw = namespaced
-          ? await _client.CustomObjects.ReplaceNamespacedCustomObjectAsync(body, group, version, ns!, plural, name, cancellationToken: cancellationToken).ConfigureAwait(false)
-          : await _client.CustomObjects.ReplaceClusterCustomObjectAsync(body, group, version, plural, name, cancellationToken: cancellationToken).ConfigureAwait(false);
+      catch (Exception ex) when (IsApplyUnsupported(ex)) {
+        raw = await CreateOrReplaceAsync(body, group, version, plural, name, namespaced, ns, cancellationToken)
+          .ConfigureAwait(false);
       }
 
       var obj = KubernetesResult.ToObject(raw);
@@ -439,14 +454,23 @@ public sealed class ClusterSession : IClusterSession {
   }
 
   public async Task<Result<bool>> HasApiGroupAsync(string group, CancellationToken cancellationToken = default) {
+    if (string.IsNullOrWhiteSpace(group))
+      return Result<bool>.Ok(true);
+
     try {
-      var list = await _client.ApiextensionsV1.ListCustomResourceDefinitionAsync(cancellationToken: cancellationToken)
-        .ConfigureAwait(false);
-      var found = list.Items.Any(c => c.Spec.Group == group);
+      var versions = await _client.Apis.GetAPIVersionsAsync(cancellationToken).ConfigureAwait(false);
+      var found = versions.Groups?.Any(item => string.Equals(item.Name, group, StringComparison.OrdinalIgnoreCase)) == true;
       return Result<bool>.Ok(found);
     }
     catch (Exception ex) {
-      return KubernetesResult.Map<bool>(ex);
+      try {
+        var list = await _client.ApiextensionsV1.ListCustomResourceDefinitionAsync(cancellationToken: cancellationToken)
+          .ConfigureAwait(false);
+        return Result<bool>.Ok(list.Items.Any(c => string.Equals(c.Spec.Group, group, StringComparison.OrdinalIgnoreCase)));
+      }
+      catch {
+        return KubernetesResult.Map<bool>(ex);
+      }
     }
   }
 
@@ -969,22 +993,24 @@ public sealed class ClusterSession : IClusterSession {
     string.IsNullOrEmpty(resource.Group)
     && string.Equals(resource.Plural, "namespaces", StringComparison.OrdinalIgnoreCase);
 
-  private static async Task<object> ListPagedAsync(
+  private static async Task<(object Body, string? ResourceVersion)> ListPagedAsync(
     Func<string?, Task<object>> page,
     CancellationToken cancellationToken) {
     var items = new JsonArray();
     string? continueToken = null;
+    string? resourceVersion = null;
     do {
       var raw = await KubernetesApiRetry.ExecuteAsync(
         ct => page(continueToken),
         cancellationToken).ConfigureAwait(false);
       var root = KubernetesResult.ToObject(raw);
+      resourceVersion ??= KubernetesResult.ResourceVersion(root);
       foreach (var item in KubernetesResult.Items(raw))
         items.Add(item.DeepClone());
       continueToken = KubernetesResult.ContinueToken(root);
     } while (!string.IsNullOrEmpty(continueToken) && !cancellationToken.IsCancellationRequested);
 
-    return new JsonObject { ["items"] = items };
+    return (new JsonObject { ["items"] = items }, resourceVersion);
   }
 
   private static async Task<object?> TryGet(Func<Task<object>> get) {

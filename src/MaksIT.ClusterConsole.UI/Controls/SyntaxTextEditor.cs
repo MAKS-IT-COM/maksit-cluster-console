@@ -4,7 +4,6 @@ using Avalonia.Data;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
-using AvaloniaEdit.TextMate;
 using MaksIT.ClusterConsole.Shared;
 using TextMateSharp.Grammars;
 
@@ -25,7 +24,7 @@ public class SyntaxTextEditor : TextEditor {
 
   protected override Type StyleKeyOverride => typeof(TextEditor);
 
-  TextMate.Installation? _textMate;
+  readonly MarkupColorizer _colorizer = new();
   string? _scope;
   bool _updating;
 
@@ -33,6 +32,8 @@ public class SyntaxTextEditor : TextEditor {
     FontFamily = new FontFamily("Cascadia Mono, Consolas, Ubuntu Mono, monospace");
     ShowLineNumbers = true;
     Options.EnableHyperlinks = false;
+    TextArea.TextView.LineTransformers.Add(_colorizer);
+    _colorizer.Watch(Document);
     Document.Changed += OnDocumentChanged;
   }
 
@@ -51,12 +52,6 @@ public class SyntaxTextEditor : TextEditor {
     set => SetValue(PreferYamlProperty, value);
   }
 
-  protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
-    base.OnAttachedToVisualTree(e);
-    _textMate ??= this.InstallTextMate(Registry);
-    ApplySyntax();
-  }
-
   protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
     base.OnPropertyChanged(change);
     if (change.Property == TextProperty)
@@ -66,8 +61,12 @@ public class SyntaxTextEditor : TextEditor {
     else if (change.Property == DocumentProperty) {
       if (change.OldValue is TextDocument oldDocument)
         oldDocument.Changed -= OnDocumentChanged;
-      if (change.NewValue is TextDocument newDocument)
+      if (change.NewValue is TextDocument newDocument) {
         newDocument.Changed += OnDocumentChanged;
+        _colorizer.Watch(newDocument);
+      }
+
+      ApplySyntax();
     }
   }
 
@@ -90,22 +89,14 @@ public class SyntaxTextEditor : TextEditor {
   }
 
   void ApplySyntax() {
-    if (_textMate is null)
-      return;
-
     var syntax = MarkupSyntaxDetector.Detect(FileName, PreferYaml);
     var scope = ScopeFor(syntax);
     if (string.Equals(_scope, scope, StringComparison.Ordinal))
       return;
 
     _scope = scope;
-    if (scope is null) {
-      _textMate.Dispose();
-      _textMate = this.InstallTextMate(Registry);
-      return;
-    }
-
-    _textMate.SetGrammar(scope);
+    _colorizer.SetScope(scope);
+    TextArea.TextView.Redraw();
   }
 
   static string? ScopeFor(MarkupSyntax syntax) {

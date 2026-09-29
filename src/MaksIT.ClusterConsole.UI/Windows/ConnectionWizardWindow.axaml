@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
-        x:Class="MaksIT.ClusterConsole.UI.ConnectionWizardWindow"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.ConnectionWizardWindow"
         x:DataType="vm:ConnectionWizardViewModel"
         Title="Add connection"
         Icon="/Assets/icon.ico"

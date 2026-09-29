@@ -1,3 +1,6 @@
+using MaksIT.ClusterConsole.Shared.Chat;
+
+
 namespace MaksIT.ClusterConsole.Shared;
 
 public sealed class Configuration {
@@ -14,6 +17,10 @@ public sealed class Configuration {
   public Dictionary<string, bool> NavigatorExpanded { get; set; } = new(StringComparer.Ordinal);
 
   public bool OverviewPerNode { get; set; }
+
+  public bool AiEnabled { get; set; }
+
+  public bool AiAgentEnabled { get; set; }
 
   public string OllamaEndpoint { get; set; } = ClusterChatService.DefaultEndpoint;
 
@@ -34,6 +41,8 @@ public sealed class Configuration {
       OllamaEndpoint = ClusterChatService.DefaultEndpoint;
     if (string.IsNullOrWhiteSpace(OllamaModel))
       OllamaModel = ClusterChatService.DefaultModel;
+    if (!AiEnabled)
+      AiAgentEnabled = false;
   }
 
   public bool IsNavigatorExpanded(string path) {

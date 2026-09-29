@@ -57,6 +57,10 @@ resharper_sort_usings_system_first = true
 csharp_style_namespace_declarations = file_scoped:warning
 dotnet_diagnostic.IDE0160.severity = warning
 
+# Namespace matches the folder under the project root (IDE0130)
+dotnet_style_namespace_match_folder = true:warning
+dotnet_diagnostic.IDE0130.severity = warning
+
 # Omit braces on single-line if/else/for/foreach/while/using (IDE0011)
 csharp_prefer_braces = when_multiline:none
 dotnet_diagnostic.IDE0011.severity = none

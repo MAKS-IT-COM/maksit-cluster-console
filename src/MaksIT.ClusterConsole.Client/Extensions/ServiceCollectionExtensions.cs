@@ -1,7 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using MaksIT.ClusterConsole.Client.Ollama;
 
 
-namespace MaksIT.ClusterConsole.Client;
+namespace MaksIT.ClusterConsole.Client.Extensions;
 
 /// <summary>
 /// Registers the local Ollama chat client used by the cluster assistant.

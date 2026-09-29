@@ -23,11 +23,13 @@ Work on a Kubernetes cluster from Windows without keeping a browser dashboard or
 
 Connect with the kubeconfig you already use. What you can see and change is exactly what that identity is allowed to do. Choosing a context in the catalog also sets kubectl's current context, so this app and the command line stay on the same cluster.
 
-Move through the cluster from one navigator: cluster and nodes, applications, workloads, config, network, storage, namespaces, events, Helm releases, Dapr, access control, and custom resources. Tables keep filters and sort for each cluster. Open a row for YAML, events, and status.
+Move through the cluster from one navigator: cluster and nodes, applications, workloads, config, network, storage, namespaces, events, Helm releases, Dapr, access control, and custom resources, including CRDs already installed. The open table watches the API, and a label selector is sent with the list. Filters and sort stay per cluster. Custom resource tables show extra columns from the CRD. Open a row for YAML, events, and status.
 
-Everyday changes stay in the same window. Apply or create YAML, scale and restart workloads, trigger a CronJob, and cordon or drain a node. On a pod, follow the log or open a shell. Port forwards are saved, restored when you reconnect, and a double-click on an active forward opens it in the browser.
+Everyday changes stay in the same window. Apply or create YAML. If the API server rejects an apply patch, apply falls back to create or replace. Force-delete strips finalizers. Scale, restart, pause, resume, and undo workload rollouts, trigger a CronJob, and cordon or drain a node. On a pod, follow the log, open a shell, or add an ephemeral debug container.
 
-CPU and memory appear on the overview, applications, and workload tables when the cluster has metrics-server. Persistent volumes and claims open a file browser for viewing, editing, downloading, and uploading files. Helm and Dapr pages list objects that are already in the cluster.
+Resize a persistent volume claim, or change reclaim policy on a storage class and its volumes. Approve or deny a certificate signing request, and create a ServiceAccount token that is shown once. Port forwards are saved, restored when you reconnect, and a double-click on an active forward opens it in the browser.
+
+CPU and memory appear on the overview, applications, and workload tables when the cluster has metrics-server. From the overview you can patch container CPU and memory against node capacity. Persistent volumes and claims open a file browser for viewing, editing, downloading, and uploading files. Helm and Dapr pages list objects that are already in the cluster.
 
 Chat is optional and stays on this PC. It talks to a local Ollama server and can read issues, YAML, logs, and events for the resource you selected. Apply, restart, and delete stay manual. Cluster data is not sent to a cloud AI service.
 
