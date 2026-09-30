@@ -9,6 +9,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>Apache-2.0</project_license>
   <description>
+    <p>**After installation, point the app at a kubeconfig that can reach a running cluster (KUBECONFIG or ~/.kube/config).**</p>
     <p>Browse a Kubernetes cluster from the desktop using your kubeconfig. Apply YAML, follow logs, exec into pods, and manage port-forwards without a browser.</p>
     <p>Settings stay on this computer. Cluster access uses the network and files under the home folder (typically ~/.kube).</p>
     <ul>
@@ -32,7 +33,72 @@
     <color type="primary" scheme_preference="light">#33A5CF</color>
     <color type="primary" scheme_preference="dark">#003D7A</color>
   </branding>
-  <content_rating type="oars-1.1"/>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_jIJTQXS3pB.png</image>
+      <caption>Cluster overview</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_CmfgCLXO7x.png</image>
+      <caption>Applications table</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_FNf58xBr0a.png</image>
+      <caption>Pods table</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_k9oNwnqYrU.png</image>
+      <caption>Chat on a selected pod</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_VEkXUIQZ6N.png</image>
+      <caption>Volume files</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_zQePBIqSNT.png</image>
+      <caption>Dapr components</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_ktu7J3X0DP.png</image>
+      <caption>Port forwarding</caption>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.8.4" date="2026-09-30">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.4/CHANGELOG.md</url>
+      <description>
+        <p>Source folders follow the client and UI areas. Flathub and Store submission notes are in packaging.</p>
+      </description>
+    </release>
+    <release version="0.8.3" date="2026-09-29">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.3/CHANGELOG.md</url>
+      <description>
+        <p>Pod terminal, workload rollouts, storage and access actions, and YAML highlighting.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">none</content_attribute>
+    <content_attribute id="violence-fantasy">none</content_attribute>
+    <content_attribute id="violence-realistic">none</content_attribute>
+    <content_attribute id="violence-bloodshed">none</content_attribute>
+    <content_attribute id="violence-sexual">none</content_attribute>
+    <content_attribute id="drugs-alcohol">none</content_attribute>
+    <content_attribute id="drugs-narcotics">none</content_attribute>
+    <content_attribute id="drugs-tobacco">none</content_attribute>
+    <content_attribute id="sex-nudity">none</content_attribute>
+    <content_attribute id="sex-themes">none</content_attribute>
+    <content_attribute id="language-profanity">none</content_attribute>
+    <content_attribute id="language-humor">none</content_attribute>
+    <content_attribute id="language-discrimination">none</content_attribute>
+    <content_attribute id="social-chat">none</content_attribute>
+    <content_attribute id="social-info">none</content_attribute>
+    <content_attribute id="social-audio">none</content_attribute>
+    <content_attribute id="social-location">none</content_attribute>
+    <content_attribute id="social-contacts">none</content_attribute>
+    <content_attribute id="money-purchasing">none</content_attribute>
+    <content_attribute id="money-gambling">none</content_attribute>
+  </content_rating>
   <requires>
     <control>keyboard</control>
     <control>pointing</control>

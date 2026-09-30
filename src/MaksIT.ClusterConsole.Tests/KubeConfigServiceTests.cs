@@ -1,4 +1,4 @@
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Client.KubeConfig;
 
 
 namespace MaksIT.ClusterConsole.Tests;

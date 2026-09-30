@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using MaksIT.ClusterConsole.Shared;
-using MaksIT.ClusterConsole.UI.ViewModels;
+using MaksIT.ClusterConsole.UI.ViewModels.Storage;
 
 
 namespace MaksIT.ClusterConsole.UI.Windows;

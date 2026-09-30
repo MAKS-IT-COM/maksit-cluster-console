@@ -57,6 +57,7 @@ Store listing copy:
 | Product features (up to 20 bullets, 200 characters each) | [packaging/microsoft-store/product-features.md](packaging/microsoft-store/product-features.md) |
 | Keywords (up to 7, 40 characters each, 21 words total) | [packaging/microsoft-store/keywords.md](packaging/microsoft-store/keywords.md) |
 | Copyright, additional license terms, Developed by | [packaging/microsoft-store/additional-info.md](packaging/microsoft-store/additional-info.md) |
+| Restricted capability `runFullTrust` | [packaging/microsoft-store/restricted-capabilities.md](packaging/microsoft-store/restricted-capabilities.md) |
 | Store logos (9:16 poster, 1:1 box art, app tiles) | [packaging/microsoft-store/logos.md](packaging/microsoft-store/logos.md) |
 
 ### System requirements (Properties)
@@ -84,6 +85,18 @@ The app is a win-x64 desktop console (tables, YAML, terminal). It does not use a
 | Video memory | Not specified | Not specified |
 | Processor | x64 | Not specified |
 | Graphics | Not specified | Not specified |
+
+## Flathub
+
+`FlatpakPack` writes the GitHub Release `.flatpak` from the linux-x64 publish. A Flathub submission builds a release tag from source. Open the pull request on [flathub/flathub](https://github.com/flathub/flathub) against `new-pr`.
+
+| Field | Document |
+|-------|----------|
+| Pull request and local check | [packaging/flathub/submission.md](packaging/flathub/submission.md) |
+| Upstream files and NuGet sources | [packaging/flathub/sources.md](packaging/flathub/sources.md) |
+| Manifest values | [packaging/flathub/manifest.md](packaging/flathub/manifest.md) |
+| Finish args | [packaging/flathub/permissions.md](packaging/flathub/permissions.md) |
+| Verified app id | [packaging/flathub/verification.md](packaging/flathub/verification.md) |
 
 ## GitHub setup exe
 

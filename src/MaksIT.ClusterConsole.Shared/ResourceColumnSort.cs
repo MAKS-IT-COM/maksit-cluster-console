@@ -1,7 +1,7 @@
 using System.Net;
 using System.Collections;
 using System.Globalization;
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Client.Cluster;
 
 
 namespace MaksIT.ClusterConsole.Shared;

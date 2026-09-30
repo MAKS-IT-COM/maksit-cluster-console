@@ -2,9 +2,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using k8s;
 using MaksIT.Results;
-using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.Shared.Chat;
+using MaksIT.ClusterConsole.Client.Cluster;
+using MaksIT.ClusterConsole.Client.Terminal;
 
 
 namespace MaksIT.ClusterConsole.Tests;

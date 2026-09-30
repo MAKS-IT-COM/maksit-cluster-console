@@ -1,8 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
-        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
+        xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
         x:Class="MaksIT.ClusterConsole.UI.Windows.VolumeFilesWindow"
         x:DataType="vm:VolumeFilesViewModel"
         Title="{Binding WindowTitle}"
@@ -61,7 +61,7 @@
                    Classes="hint"
                    Margin="0,0,0,8"
                    TextWrapping="Wrap" />
-        <controls:SyntaxTextEditor Text="{Binding EditorText}"
+        <editor:SyntaxTextEditor Text="{Binding EditorText}"
                                    FileName="{Binding OpenFilePath}"
                                    IsReadOnly="{Binding EditorReadOnly}" />
       </DockPanel>

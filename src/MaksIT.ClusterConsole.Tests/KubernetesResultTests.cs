@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Client.Internal;
 
 
 namespace MaksIT.ClusterConsole.Tests;
