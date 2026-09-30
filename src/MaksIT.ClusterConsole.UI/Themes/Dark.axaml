@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls">
+        xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
+        xmlns:grid="using:MaksIT.ClusterConsole.UI.Controls.Grid">
   <Styles.Resources>
     <Color x:Key="BrandHighlight">#33A5CF</Color>
     <Color x:Key="BrandPrimary">#006199</Color>
@@ -22,7 +23,7 @@
     <Setter Property="FontFamily" Value="Segoe UI, Ubuntu, sans-serif" />
     <Setter Property="FontSize" Value="13" />
   </Style>
-  <Style Selector="controls|SyntaxTextEditor">
+  <Style Selector="editor|SyntaxTextEditor">
     <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Ubuntu Mono, monospace" />
     <Setter Property="FontSize" Value="12" />
     <Setter Property="ShowLineNumbers" Value="True" />
@@ -242,7 +243,7 @@
     <Setter Property="VerticalGridLinesBrush" Value="#33383e" />
     <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
     <Setter Property="ClipboardCopyMode" Value="IncludeHeader" />
-    <Setter Property="controls:DataGridColumns.IndependentResize" Value="True" />
+    <Setter Property="grid:DataGridColumns.IndependentResize" Value="True" />
   </Style>
   <Style Selector="DataGridRow:nth-child(even)">
     <Setter Property="Background" Value="#22262a" />

@@ -1,5 +1,5 @@
 using System.Net;
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Client.Internal;
 
 
 namespace MaksIT.ClusterConsole.Tests;

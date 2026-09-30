@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-30
+
+### Added
+
+- Flathub submission documents are in `packaging/flathub`.
+- Microsoft Store text for the `runFullTrust` capability is in `packaging/microsoft-store/restricted-capabilities.md`.
+
+### Changed
+
+- Client and UI code is grouped by area: cluster session, kubeconfig, terminal, charts, editor, grid, and the shell, connection, and storage windows.
+- AppStream includes screenshots, an age rating, and the kubeconfig step after install.
+
 ## [0.8.3] - 2026-09-29
 
 ### Added

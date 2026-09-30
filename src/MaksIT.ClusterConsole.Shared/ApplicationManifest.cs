@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
-using MaksIT.ClusterConsole.Client;
+using MaksIT.ClusterConsole.Client.Cluster;
 
 
 namespace MaksIT.ClusterConsole.Shared;

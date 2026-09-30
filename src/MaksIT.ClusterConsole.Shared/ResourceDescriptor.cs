@@ -33,6 +33,6 @@ public sealed record ResourceDescriptor(
   IReadOnlyList<ColumnSpec> Columns,
   ResourceActions Actions,
   IReadOnlyList<string> DetailTabs) {
-  public Client.ResourceRef ToRef() =>
+  public Client.Cluster.ResourceRef ToRef() =>
     new(Group, Version, Plural, Kind, Namespaced);
 }

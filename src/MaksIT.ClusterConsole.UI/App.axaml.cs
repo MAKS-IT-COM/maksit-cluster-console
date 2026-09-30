@@ -4,10 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Avalonia;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
-using MaksIT.ClusterConsole.Client;
 using MaksIT.ClusterConsole.Shared;
-using MaksIT.ClusterConsole.UI.ViewModels;
+using MaksIT.ClusterConsole.UI.Windows;
+using MaksIT.ClusterConsole.Client.Cluster;
 using MaksIT.ClusterConsole.Client.Extensions;
+using MaksIT.ClusterConsole.Client.KubeConfig;
+using MaksIT.ClusterConsole.UI.ViewModels.Shell;
 
 
 namespace MaksIT.ClusterConsole.UI;

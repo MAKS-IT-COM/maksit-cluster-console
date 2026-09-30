@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using MaksIT.ClusterConsole.UI.ViewModels;
+using MaksIT.ClusterConsole.UI.ViewModels.Connections;
 
 
 namespace MaksIT.ClusterConsole.UI.Windows;
@@ -67,4 +67,4 @@ public partial class ConnectionWizardWindow : Window {
     ];
 }
 
-public sealed record KubeConnectionRequestResult(MaksIT.ClusterConsole.Client.KubeConnectionRequest Request);
+public sealed record KubeConnectionRequestResult(MaksIT.ClusterConsole.Client.KubeConfig.KubeConnectionRequest Request);
