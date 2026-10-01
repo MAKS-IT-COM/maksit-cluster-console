@@ -61,6 +61,9 @@ public sealed partial class ClusterWorkspace {
     if (itemId == ResourceCatalog.HelmReleasesId)
       return await ListHelmAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
 
+    if (itemId == ResourceCatalog.HelmChartsId)
+      return await ListHelmChartsAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
+
     if (itemId == ResourceCatalog.DaprSidecarsId)
       return await ListDaprSidecarsAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
 
@@ -188,11 +191,15 @@ public sealed partial class ClusterWorkspace {
     var nodesTask = ListObjectsAsync("nodes", cancellationToken);
     var eventsTask = ListObjectsAsync("events", cancellationToken);
     var podsTask = ListObjectsAsync("pods", cancellationToken);
-    await Task.WhenAll(nodesTask, eventsTask, podsTask).ConfigureAwait(false);
+    var servicesTask = ListObjectsAsync("services", cancellationToken);
+    var claimsTask = ListObjectsAsync("persistentvolumeclaims", cancellationToken);
+    await Task.WhenAll(nodesTask, eventsTask, podsTask, servicesTask, claimsTask).ConfigureAwait(false);
 
     var nodes = nodesTask.Result;
     var events = eventsTask.Result;
     var pods = podsTask.Result;
+    var services = servicesTask.Result;
+    var claims = claimsTask.Result;
     if (!nodes.IsSuccess && !events.IsSuccess)
       return new Result<ClusterIssueSet>(
         null,
@@ -203,7 +210,45 @@ public sealed partial class ClusterWorkspace {
     return Result<ClusterIssueSet>.Ok(ClusterIssues.Collect(
       nodes.Value ?? [],
       events.Value ?? [],
-      pods.Value ?? []));
+      pods.Value ?? [],
+      services: services.IsSuccess ? services.Value : [],
+      claims: claims.IsSuccess ? claims.Value : []));
+  }
+
+  public async Task<Result<DrainPreview>> PreviewDrainAsync(
+    IReadOnlyList<string> nodeNames,
+    CancellationToken cancellationToken = default) {
+    if (_session is null)
+      return Result<DrainPreview>.ServiceUnavailable(null, "not connected");
+
+    var pods = await ListObjectsAsync("pods", cancellationToken).ConfigureAwait(false);
+    if (!pods.IsSuccess)
+      return new Result<DrainPreview>(null, false, pods.Messages, pods.StatusCode);
+
+    var budgets = await ListObjectsAsync("poddisruptionbudgets", cancellationToken).ConfigureAwait(false);
+    if (!budgets.IsSuccess)
+      return new Result<DrainPreview>(null, false, budgets.Messages, budgets.StatusCode);
+
+    var plans = nodeNames
+      .Distinct(StringComparer.Ordinal)
+      .Select(name => DrainPlan.ForNode(name, pods.Value ?? [], budgets.Value ?? []))
+      .ToList();
+    return Result<DrainPreview>.Ok(new DrainPreview(plans));
+  }
+
+  public async Task<Result<IReadOnlyList<HelmRevision>>> HelmHistoryAsync(
+    string name,
+    string? @namespace,
+    CancellationToken cancellationToken = default) {
+    if (_session is null)
+      return Result<IReadOnlyList<HelmRevision>>.ServiceUnavailable(null, "not connected");
+
+    var listed = await _session.ListHelmReleaseDocumentsAsync(@namespace, name, cancellationToken)
+      .ConfigureAwait(false);
+    if (!listed.IsSuccess)
+      return new Result<IReadOnlyList<HelmRevision>>(null, false, listed.Messages, listed.StatusCode);
+
+    return Result<IReadOnlyList<HelmRevision>>.Ok(ReadHelmRevisions(listed.Value));
   }
 
   private async Task<Result<IReadOnlyList<JsonObject>>> ListObjectsAsync(
@@ -312,47 +357,84 @@ public sealed partial class ClusterWorkspace {
     string? @namespace,
     string? filter,
     CancellationToken cancellationToken) {
-    var listed = await _session!.ListHelmReleasesAsync(@namespace, cancellationToken).ConfigureAwait(false);
+    var listed = await _session!.ListHelmReleaseDocumentsAsync(@namespace, null, cancellationToken)
+      .ConfigureAwait(false);
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
-    var fake = new ResourceDescriptor(
-      ResourceCatalog.HelmReleasesId,
-      "Releases",
-      ResourceCatalog.Helm,
-      "",
-      "v1",
-      "secrets",
-      "Secret",
-      true,
-      [new("Name", "name"), new("Namespace", "namespace"), new("Status", "status"), new("Chart", "chart"), new("App", "app")],
-      new ResourceActions(CanDelete: false, CanApply: false),
-      ["Overview"]);
-
-    var rows = (listed.Value ?? []).Select(r => {
-      var doc = new JsonObject {
-        ["metadata"] = new JsonObject { ["name"] = r.Name, ["namespace"] = r.Namespace },
-        ["status"] = r.Status,
-        ["chart"] = r.Chart,
-        ["appVersion"] = r.AppVersion
-      };
-      return new ResourceRow {
-        Uid = $"{r.Namespace}/{r.Name}",
-        Name = r.Name,
-        Namespace = r.Namespace,
-        Document = doc,
-        Cells = new Dictionary<string, string> {
-          ["Name"] = r.Name,
-          ["Namespace"] = r.Namespace,
-          ["Status"] = r.Status,
-          ["Chart"] = r.Chart,
-          ["App"] = r.AppVersion
-        }
-      };
-    }).Where(r => Matches(r, filter)).ToList();
+    var rows = ReadHelmRevisions(listed.Value)
+      .GroupBy(revision => (revision.Name, revision.Namespace))
+      .Select(group => group.OrderByDescending(revision => revision.Revision).ThenByDescending(revision => revision.Updated).First())
+      .OrderBy(revision => revision.Namespace, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(revision => revision.Name, StringComparer.OrdinalIgnoreCase)
+      .Select(revision => {
+        var doc = new JsonObject {
+          ["metadata"] = new JsonObject { ["name"] = revision.Name, ["namespace"] = revision.Namespace },
+          ["status"] = revision.Status,
+          ["chart"] = revision.Chart,
+          ["appVersion"] = revision.AppVersion
+        };
+        return new ResourceRow {
+          Uid = $"{revision.Namespace}/{revision.Name}",
+          Name = revision.Name,
+          Namespace = revision.Namespace,
+          Document = doc,
+          Cells = new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["Name"] = revision.Name,
+            ["Namespace"] = revision.Namespace,
+            ["Revision"] = revision.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["Status"] = revision.Status,
+            ["Chart"] = revision.Chart,
+            ["App"] = revision.AppVersion,
+            ["Updated"] = revision.UpdatedText
+          }
+        };
+      })
+      .Where(row => Matches(row, filter))
+      .ToList();
 
     return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
   }
+
+  private async Task<Result<IReadOnlyList<ResourceRow>>> ListHelmChartsAsync(
+    string? @namespace,
+    string? filter,
+    CancellationToken cancellationToken) {
+    var listed = await _session!.ListHelmReleaseDocumentsAsync(@namespace, null, cancellationToken)
+      .ConfigureAwait(false);
+    if (!listed.IsSuccess)
+      return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
+
+    var rows = HelmRelease.Charts(ReadHelmRevisions(listed.Value))
+      .Select(chart => {
+        var doc = new JsonObject {
+          ["metadata"] = new JsonObject { ["name"] = chart.Name },
+          ["releases"] = chart.ReleaseLines
+        };
+        return new ResourceRow {
+          Uid = $"{chart.Name}/{chart.Version}/{chart.AppVersion}",
+          Name = chart.Name,
+          Document = doc,
+          Cells = new Dictionary<string, string>(StringComparer.Ordinal) {
+            ["Chart"] = chart.Name,
+            ["Version"] = chart.Version,
+            ["App"] = chart.AppVersion,
+            ["Status"] = chart.Status,
+            ["Releases"] = chart.Releases.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["Namespaces"] = chart.Namespaces
+          }
+        };
+      })
+      .Where(row => Matches(row, filter))
+      .ToList();
+    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
+  }
+
+  private static List<HelmRevision> ReadHelmRevisions(IReadOnlyList<JsonObject>? documents) =>
+    (documents ?? [])
+      .Select(HelmRelease.Read)
+      .OfType<HelmRevision>()
+      .ToList();
 
   private async Task<Result<IReadOnlyList<ResourceRow>>> ListDaprSidecarsAsync(
     string? @namespace,
@@ -429,8 +511,16 @@ public sealed partial class ClusterWorkspace {
         "Port Forwarding",
         ResourceCatalog.Network,
         ResourceCatalog.PortForwardingDescriptor),
-      Special(ResourceCatalog.HelmChartsId, "Charts", ResourceCatalog.Helm),
-      Special(ResourceCatalog.HelmReleasesId, "Releases", ResourceCatalog.Helm),
+      Special(
+        ResourceCatalog.HelmChartsId,
+        "Charts",
+        ResourceCatalog.Helm,
+        ResourceCatalog.HelmChartsDescriptor),
+      Special(
+        ResourceCatalog.HelmReleasesId,
+        "Releases",
+        ResourceCatalog.Helm,
+        ResourceCatalog.HelmReleasesDescriptor),
       Special(ResourceCatalog.DaprSidecarsId, "Sidecars", ResourceCatalog.Dapr),
       Special(ResourceCatalog.DaprControlPlaneId, "Control plane", ResourceCatalog.Dapr)
     };

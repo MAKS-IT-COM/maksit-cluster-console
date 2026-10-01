@@ -199,6 +199,15 @@
   <Style Selector="GridSplitter.shell-split:pointerover">
     <Setter Property="Background" Value="#006199" />
   </Style>
+  <Style Selector="GridSplitter.shell-split-row">
+    <Setter Property="Height" Value="4" />
+    <Setter Property="MinHeight" Value="4" />
+    <Setter Property="Background" Value="#2a2e33" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="GridSplitter.shell-split-row:pointerover">
+    <Setter Property="Background" Value="#006199" />
+  </Style>
   <Style Selector="Border.details-toolbar">
     <Setter Property="Background" Value="#1a1d20" />
     <Setter Property="BorderBrush" Value="#2a2e33" />

@@ -105,14 +105,6 @@ public sealed class ResourceListOptions {
 
 public sealed record ClusterWatchEvent(string Type, JsonObject? Object);
 
-public sealed record HelmReleaseInfo(
-  string Name,
-  string Namespace,
-  string Status,
-  string Chart,
-  string AppVersion,
-  DateTimeOffset? Updated);
-
 public sealed record PortForwardEndpoint(string PodName, string Namespace, int ContainerPort);
 
 public sealed class PortForwardHandle : IDisposable {

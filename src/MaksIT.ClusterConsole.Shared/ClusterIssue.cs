@@ -40,7 +40,9 @@ public static class ClusterIssues {
     IEnumerable<JsonObject> nodes,
     IEnumerable<JsonObject> events,
     IEnumerable<JsonObject> pods,
-    DateTimeOffset? utcNow = null) {
+    DateTimeOffset? utcNow = null,
+    IEnumerable<JsonObject>? services = null,
+    IEnumerable<JsonObject>? claims = null) {
     var now = utcNow ?? DateTimeOffset.UtcNow;
     var podByUid = pods
       .Select(p => (Uid: JsonPath.Uid(p), Pod: p))
@@ -52,6 +54,12 @@ public static class ClusterIssues {
 
     foreach (var node in nodes)
       warnings.AddRange(NodeWarnings(node, now));
+
+    foreach (var service in services ?? [])
+      warnings.AddRange(ServiceWarnings(service, now));
+
+    foreach (var claim in claims ?? [])
+      warnings.AddRange(ClaimWarnings(claim, now));
 
     foreach (var issue in EventIssues(events, podByUid, now)) {
       if (issue.Severity == "Error")
@@ -114,6 +122,55 @@ public static class ClusterIssues {
         "Warning",
         Active);
     }
+  }
+
+  private static IEnumerable<ClusterIssue> ServiceWarnings(JsonObject service, DateTimeOffset now) {
+    var status = JsonPath.ServiceStatus(service);
+    if (status is not ("Unreachable" or "Pending"))
+      yield break;
+
+    JsonPath.TryTimestamp(service["metadata"]?["creationTimestamp"], out var created);
+    var createdAt = created == default ? now : created;
+    var message = status == "Unreachable"
+      ? "LoadBalancer address does not match the requested address"
+      : "LoadBalancer has no address";
+    yield return new ClusterIssue(
+      $"service/{JsonPath.Uid(service)}/{status}",
+      message,
+      NamespacedName(service),
+      "Service",
+      JsonPath.Age(createdAt, now),
+      createdAt,
+      "Warning",
+      Active);
+  }
+
+  private static IEnumerable<ClusterIssue> ClaimWarnings(JsonObject claim, DateTimeOffset now) {
+    var phase = Text(claim["status"]?["phase"]);
+    if (!phase.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+      yield break;
+
+    JsonPath.TryTimestamp(claim["metadata"]?["creationTimestamp"], out var created);
+    var createdAt = created == default ? now : created;
+    var detail = (claim["status"]?["conditions"] as JsonArray)?
+      .OfType<JsonObject>()
+      .Select(condition => Text(condition["message"]))
+      .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
+    yield return new ClusterIssue(
+      $"pvc/{JsonPath.Uid(claim)}/Pending",
+      string.IsNullOrWhiteSpace(detail) ? "PersistentVolumeClaim is Pending" : detail,
+      NamespacedName(claim),
+      "PersistentVolumeClaim",
+      JsonPath.Age(createdAt, now),
+      createdAt,
+      "Warning",
+      Active);
+  }
+
+  private static string NamespacedName(JsonObject item) {
+    var name = JsonPath.Name(item);
+    var ns = JsonPath.Namespace(item);
+    return string.IsNullOrWhiteSpace(ns) ? name : $"{ns}/{name}";
   }
 
   private static IEnumerable<ClusterIssue> EventIssues(

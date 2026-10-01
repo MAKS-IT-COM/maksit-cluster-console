@@ -12,6 +12,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\CHANGELOG.md">
+      <LogicalName>MaksIT.ClusterConsole.Shared.CHANGELOG.md</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="KubernetesClient" Version="19.0.2" />
     <PackageReference Include="MaksIT.Core" Version="1.6.8" />
     <PackageReference Include="MaksIT.Results" Version="2.0.4" />

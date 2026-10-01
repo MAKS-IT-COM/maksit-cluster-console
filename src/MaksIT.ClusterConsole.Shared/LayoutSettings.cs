@@ -30,6 +30,7 @@ public sealed class LayoutSettings {
   public const string OverviewErrorsTable = "overview-errors";
   public const string OverviewLimitsTable = "overview-limits";
   public const string DataEditorTable = "data-editor";
+  public const string HelmHistoryTable = "helm-history";
 
   public double WindowWidth { get; set; } = 1400;
 
@@ -46,6 +47,8 @@ public sealed class LayoutSettings {
   public double NavigatorWidth { get; set; } = 228;
 
   public double DetailsWidth { get; set; } = 380;
+
+  public double HelmHistoryHeight { get; set; } = 220;
 
   public string? SelectedNavId { get; set; }
 

@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.DrainPreviewWindow"
+        x:DataType="vm:DrainConfirmViewModel"
+        Title="Drain"
+        Icon="/Assets/icon.ico"
+        Width="880"
+        Height="640"
+        MinWidth="640"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="Drain"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="16" Margin="0,0,0,8">
+      <TextBlock Text="{Binding MoveSummary}" Foreground="#00a7a0" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding RemainSummary}" Foreground="#ff9f0a" FontWeight="SemiBold" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Notice}"
+               Classes="hint"
+               TextWrapping="Wrap"
+               Margin="0,0,0,12" />
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" Spacing="8">
+      <Button Content="Cancel" Click="OnCancel" />
+      <Button Content="Drain" Click="OnDrain" />
+    </StackPanel>
+    <DataGrid ItemsSource="{Binding Rows}"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True"
+              RowHeight="NaN"
+              x:CompileBindings="False">
+      <DataGrid.Styles>
+        <Style Selector="TextBlock#CellTextBlock">
+          <Setter Property="TextWrapping" Value="Wrap" />
+          <Setter Property="Margin" Value="12,4" />
+        </Style>
+      </DataGrid.Styles>
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Node" Binding="{Binding Node}" Width="140" />
+        <DataGridTemplateColumn Header="Outcome" Width="120" SortMemberPath="Outcome">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Outcome}"
+                         Foreground="{Binding OutcomeBrush}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         Margin="12,4" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Namespace" Binding="{Binding Namespace}" Width="160" />
+        <DataGridTextColumn Header="Pod" Binding="{Binding Name}" Width="*" />
+        <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>

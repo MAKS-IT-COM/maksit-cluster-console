@@ -104,8 +104,9 @@ public interface IClusterSession : IDisposable {
   Task<Result<IReadOnlyDictionary<string, ResourceMetrics>>> GetNodeMetricsAsync(
     CancellationToken cancellationToken = default);
 
-  Task<Result<IReadOnlyList<HelmReleaseInfo>>> ListHelmReleasesAsync(
+  Task<Result<IReadOnlyList<JsonObject>>> ListHelmReleaseDocumentsAsync(
     string? @namespace,
+    string? releaseName,
     CancellationToken cancellationToken = default);
 
   Task<Result<string>> ExecAsync(

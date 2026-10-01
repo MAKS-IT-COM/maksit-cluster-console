@@ -64,6 +64,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.5" date="2026-10-01">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.5/CHANGELOG.md</url>
+      <description>
+        <p>Helm release history, a drain preview table, and What's New. The catalog radio sets kubectl current-context only.</p>
+      </description>
+    </release>
     <release version="0.8.4" date="2026-09-30">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.4/CHANGELOG.md</url>
       <description>

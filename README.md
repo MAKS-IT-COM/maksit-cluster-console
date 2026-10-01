@@ -1,15 +1,15 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-54.9%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-46.8%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-65%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.3%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-47.9%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-66.7%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
 
-**MaksIT Cluster Console** (also **ClusterConsole**, `MaksIT.ClusterConsole`) is an **open-source Kubernetes GUI** — a native desktop client for Windows, Linux, and macOS. It is an operator console: browse the Kubernetes API, apply YAML, follow a live table, read pod logs, open an interactive shell, port-forward to localhost, and inspect Helm releases and Dapr components already in the cluster.
+**MaksIT Cluster Console** (also **ClusterConsole**, `MaksIT.ClusterConsole`) is an **open-source Kubernetes GUI** — a native desktop client for Windows, Linux, and macOS. It is an operator console: browse the Kubernetes API, apply YAML, follow a live table, read pod logs, open an interactive shell, port-forward to localhost, and inspect Helm releases and Dapr components already in the cluster. Several kubeconfig contexts can stay connected at once.
 
-It is a **Kubernetes desktop app**, not a web dashboard and not a command-line client. Cluster access uses the official **Kubernetes .NET client**, your **kubeconfig**, and the same **RBAC** as any other API client. The kubeconfig file on disk is the source of truth. A catalog radio sets kubectl `current-context`.
+It is a **Kubernetes desktop app**, not a web dashboard and not a command-line client. Cluster access uses the official **Kubernetes .NET client**, your **kubeconfig**, and the same **RBAC** as any other API client. The kubeconfig file on disk is the source of truth. Clicking a catalog row connects that context in this app. The radio beside it only writes kubectl `current-context`, so the command line can follow. This app does not read that field.
 
 | | |
 |--|--|
@@ -35,7 +35,7 @@ If you find this project useful, please consider supporting its development:
 
 ### Cluster overview
 
-Catalog radio sets kubectl `current-context` (green dot is a live session). Overview shows CPU, memory, and pod counts from metrics-server; **Resource limits** can patch container CPU/MEM against node capacity.
+Click a catalog row to open that context. A green dot is a live session in this app. The radio only writes kubectl `current-context` for the command line; this app does not follow it. Overview shows CPU, memory, and pod counts from metrics-server; **Resource limits** can patch container CPU/MEM against node capacity. **Cluster** and **Nodes** switch those charts. Errors and Warnings list node, pod, and event problems, a LoadBalancer Service that is Pending or Unreachable, and a PersistentVolumeClaim that is Pending.
 
 ![Cluster overview](assets/images/MaksIT.ClusterConsole.UI_jIJTQXS3pB.png)
 
@@ -47,19 +47,21 @@ One row per `app.kubernetes.io/instance` (or `name`) and namespace. CPU is perce
 
 ### Pods
 
-Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs (Follow), Terminal (interactive shell). Footer **Debug** adds an ephemeral container.
+Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs (Follow), Terminal (interactive shell). **Container** picks which container logs, the shell, Attach, and Debug use. **Attach** follows that container's output. **Debug** adds an ephemeral container beside it; the image box defaults to `busybox:1.36`. Kubernetes leaves that container on the running pod. It is gone when the pod is recreated. **Force delete** uses grace period 0 and strips finalizers.
 
 ![Pods table](assets/images/MaksIT.ClusterConsole.UI_FNf58xBr0a.png)
 
 ### Chat
 
-Local Ollama on the selection (default `qwen3:8b`). Read-only tools: issues, YAML, logs, events. Cannot apply, restart, or delete. No cloud AI API.
+Settings → AI turns Chat on. The endpoint and model are any local [Ollama](https://ollama.com) model you already pulled. The default is `qwen3:8b`. Reading the cluster is enough with that model. Repairs work better with a larger one: `qwen3:14b`, `qwen3:32b`, or `qwen3-coder:30b`. Put that name in the model box after `ollama pull`.
+
+Read-only tools are cluster issues, object YAML, logs, and events. **Allow the assistant to change the cluster** adds restart, pod delete (not force-delete), scale, and YAML apply. Each of those waits for **Approve** or **Reject** in the chat. Reject leaves the cluster unchanged. No cloud AI API.
 
 ![Chat on a selected pod](assets/images/MaksIT.ClusterConsole.UI_k9oNwnqYrU.png)
 
 ### Volume files
 
-Browse, edit, download, and upload files on a PersistentVolume or claim. Double-click a PV/PVC row to open the explorer.
+Browse, edit, download, and upload files on a PersistentVolume or claim. Double-click a PV/PVC row, or use **Browse files** on the selected row.
 
 ![Volume files](assets/images/MaksIT.ClusterConsole.UI_VEkXUIQZ6N.png)
 
@@ -75,33 +77,45 @@ First-class navigator: Components, Configurations, Subscriptions, Resiliency, HT
 
 ![Port forwarding](assets/images/MaksIT.ClusterConsole.UI_ktu7J3X0DP.png)
 
-### Contexts
+### Connections
 
-Kubeconfig catalog. A radio selects kubectl `current-context`.
+**Connections…** adds a context to the kubeconfig (bearer token, client certificate, pasted k3s certificate data, or username and password), connects one, or deletes one. Delete can also drop a cluster or user entry that nothing else references. A radio on the catalog, or in that window, writes kubectl `current-context` for the command line. This app ignores that field and uses the row you click. A green dot is a live session here. Several contexts stay connected until you disconnect them, while kubectl still has one current context. **Reload kubeconfig** rereads the file.
 
 ### Navigator
 
-Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources. Built-in kinds include admission policies, CSR, CSI objects, API services, flow control, and dynamic resource allocation, plus any CRD installed in the cluster.
+Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources. Longhorn (volumes and nodes) and CloudNativePG (phase, ready instances, current primary) appear when those APIs are installed. Built-in kinds include admission policies, CSR, CSI objects, API services, flow control, and dynamic resource allocation, plus any CRD installed in the cluster.
 
 ### Tables
 
-List and refresh. The open table watches the API. A label selector is sent with the list. Column filters and sort stay on this machine, per cluster.
+**Search** filters rows already loaded. **Label selector** is sent with the list (`app=api`). The open table watches the API. Column filters and sort stay on this machine, per cluster. Copy includes the column header. **Hint** explains the kind on screen. Extended selection (Shift or Ctrl) plus a footer action that can run on its own applies to every selected row: Restart, Scale, Delete, Force delete, Force delete namespace, Cordon, Uncordon, Drain, Trigger, and Stop.
 
 ### YAML
 
-View, server-side apply, create, and delete. Force-delete uses grace period 0 and strips finalizers. Apply falls back to create or replace when the API server rejects an apply patch.
+View, server-side apply, create, and delete. **New** starts an empty document for a kind you can create. Apply falls back to create or replace when the API server rejects an apply patch. JSON and YAML highlighting follows the document. ConfigMap and Secret values use the key name (`.json`, `.yaml`, `.yml`) or stay plain.
 
 ### Workloads
 
-Scale, restart, rollout pause, resume, history, and undo. CronJob trigger. Node cordon and drain.
+The Workloads section opens on counts for Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and ReplicationControllers. A tile opens that table. **Scale** applies to a Deployment, StatefulSet, ReplicaSet, or ReplicationController. **Restart** applies to a Deployment, StatefulSet, or DaemonSet. Pause, resume, history, and undo are on a Deployment. A workload's **Pod** picker chooses which pod Logs and Terminal follow. **Trigger** starts a Job from a CronJob. **Force delete namespace** removes the selected namespace, except `default`, `kube-system`, `kube-public`, and `kube-node-lease`.
+
+### Nodes
+
+**Cordon** refuses new pods. **Uncordon** accepts them again. **Drain** asks first. The dialog is a table: **Node**, **Outcome** (teal **Will move**, amber **Will remain**), **Namespace**, **Pod**, and **Reason**. Will remain covers a DaemonSet, a mirror pod, a completed pod, a pod with no controller, and any pod a PodDisruptionBudget would refuse. Long text wraps and the row grows. **Cancel** or Escape leaves the node as it is. **Drain** cordons the node and evicts only Will move. A refused eviction is not deleted. The Images tab marks cached images Used or Unused from the pods on that node.
+
+### Config
+
+ConfigMaps and Secrets have a **Data** tab: keys, a decoded preview, a binary flag, **Add key**, and **Apply data**. Secret values are saved back as `stringData`. The same tables cover resource quotas, limit ranges, HorizontalPodAutoscalers, PodDisruptionBudgets, leases, runtime classes, webhooks, and admission policies.
+
+### Network
+
+A Service **Status** is Active when a load-balancer address is assigned, Pending when none is set, and Unreachable when a requested or BGP address is not the one the cluster reports. The navigator also lists Endpoints, EndpointSlices, Ingresses, NetworkPolicies, and IP addresses.
 
 ### Storage
 
-Resize a PersistentVolumeClaim. Change reclaim policy on a storage class and its volumes.
+Resize a PersistentVolumeClaim. **Reclaim** changes Delete or Retain on a storage class and its volumes. Changing the class itself is delete-and-recreate; the dialog explains the gap for new claims. CSI drivers, nodes, storage capacities, and volume attachments are in the navigator when the API has them.
 
 ### Access
 
-Approve or deny a certificate signing request. Create a ServiceAccount token and show it once.
+Approve or deny a certificate signing request. **Token** creates a ServiceAccount token and shows it once. Roles, RoleBindings, ClusterRoles, ClusterRoleBindings, and ClusterTrustBundles are editable YAML like any other kind.
 
 ### Custom resources
 
@@ -109,17 +123,21 @@ Extra columns from the CRD `additionalPrinterColumns`.
 
 ### Helm
 
-Releases from cluster secrets.
+Charts lists each chart version installed in the cluster, taken from Helm release secrets, with the releases that use it. A release shows every stored revision, the user-supplied values, the rendered manifest, and a diff between two revisions. Chart install and upgrade stay on the Helm CLI.
 
 ### Metrics
 
-CPU and memory when the metrics API is available.
+CPU and memory when the metrics API is available. Charts use the same metrics-server data as `kubectl top`.
+
+### Help
+
+**Hint** on a table explains that kind. Help → Logs shows the app log and crash reports. An unhandled error opens a window you can copy instead of closing the app. Help → About shows the product, license, and contact. After an upgrade, What's New lists additions since the version you last opened.
 
 ## Requirements
 
 - A kubeconfig (`KUBECONFIG` or `~/.kube/config`) with permission to the target cluster
 - Windows, Linux, or macOS
-- Optional: local [Ollama](https://ollama.com) for Chat (`ollama pull qwen3:8b`)
+- Optional: local [Ollama](https://ollama.com) for Chat (`ollama pull qwen3:8b`, or a larger model such as `qwen3:14b` when the assistant may change the cluster)
 - From source: [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
 ## Getting started
@@ -167,12 +185,13 @@ Operator layout, open clusters, port-forwards, and Chat settings are stored in `
 | Key | Role |
 |-----|------|
 | `AiEnabled` | Chat tab. Off until enabled under Settings → AI |
+| `AiAgentEnabled` | With chat on, restart, pod delete, scale, and apply run only after you approve each one |
 | `OllamaEndpoint` | Local Ollama API, default `http://127.0.0.1:11434` |
-| `OllamaModel` | Local Ollama model, default `qwen3:8b` |
+| `OllamaModel` | Local Ollama model, default `qwen3:8b`. A larger model (`qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`) is a better fit once changes are allowed |
 | `PortForwards` | Enabled localhost forwards; restored on reconnect |
 | `Layout` | Window, panes, last navigator item, per-cluster tables |
 
-Chat cannot apply, restart, or delete.
+Chat stays read-only until **Allow the assistant to change the cluster** is on. Those changes still wait for Approve. The model box accepts any local Ollama model; larger models handle restart, scale, delete, and apply more reliably than `qwen3:8b`.
 
 ## FAQ
 
@@ -180,10 +199,10 @@ Chat cannot apply, restart, or delete.
 Yes. It is a native desktop Kubernetes GUI (operator console) for Windows, Linux, and macOS.
 
 **Does it use kubeconfig?**  
-Yes. `KUBECONFIG` or `~/.kube/config`. RBAC is whatever that identity already has. A catalog radio writes kubectl `current-context` only.
+Yes. `KUBECONFIG` or `~/.kube/config`. RBAC is whatever that identity already has. Clicking a catalog row connects that context in this app. The radio only writes kubectl `current-context` so your command line can use the same cluster. This app does not read that field.
 
 **Does Chat send cluster data to a cloud AI?**  
-No. Chat is optional [Ollama](https://ollama.com) on the same machine. Tools only read issues, YAML, logs, and events.
+No. Chat is optional [Ollama](https://ollama.com) on the same machine. The model is whatever you set under Settings → AI. By default the tools only read issues, YAML, logs, and events. Turn on **Allow the assistant to change the cluster** and the same chat can restart, delete a pod, scale, or apply YAML, each after you approve it. A larger local model is the better choice for that.
 
 **Can it install a cluster, Helm charts, or Dapr?**  
 No. It talks to an existing Kubernetes API. Helm and Dapr screens list objects that are already there.

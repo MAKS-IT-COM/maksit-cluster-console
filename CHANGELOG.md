@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-01
+
+### Added
+
+- Helm Charts lists each chart version installed in the cluster, from the release secrets, instead of an empty page.
+- Helm releases show revision history, user-supplied values, the rendered manifest, and a diff between two revisions.
+- Drain asks before it changes the node. The dialog is a table: teal Will move, amber Will remain, including anything a PodDisruptionBudget would refuse. Long text wraps and the row grows. Drain continues only after you accept. Cancel leaves the node as it is. A denied eviction is not deleted.
+- Longhorn volumes and nodes, and CloudNativePG clusters, appear in the navigator when those APIs are installed.
+- Cluster issues include LoadBalancer services that are pending or unreachable, and PersistentVolumeClaims that are Pending.
+- Hint explains the kind on screen. After an upgrade, What's New lists additions since the version you last opened.
+
+### Changed
+
+- The README and the Microsoft Store listing describe the console's actions, larger local Ollama models for repairs, and cluster changes that wait for approval.
+- The catalog radio writes kubectl `current-context` for the command line. This app connects the row you click and does not read that field.
+
 ## [0.8.4] - 2026-09-30
 
 ### Added

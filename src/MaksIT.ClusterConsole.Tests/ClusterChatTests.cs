@@ -373,10 +373,11 @@ public class ClusterChatTests {
       CancellationToken cancellationToken = default) =>
       Unused<Result<IReadOnlyDictionary<string, ResourceMetrics>>>();
 
-    public Task<Result<IReadOnlyList<HelmReleaseInfo>>> ListHelmReleasesAsync(
+    public Task<Result<IReadOnlyList<JsonObject>>> ListHelmReleaseDocumentsAsync(
       string? @namespace,
+      string? releaseName,
       CancellationToken cancellationToken = default) =>
-      Unused<Result<IReadOnlyList<HelmReleaseInfo>>>();
+      Unused<Result<IReadOnlyList<JsonObject>>>();
 
     public Task<Result<string>> ExecAsync(
       string podName,

@@ -181,6 +181,50 @@ public class ClusterIssuesTests {
   }
 
   [Fact]
+  public void Collect_includes_unreachable_services_and_pending_claims() {
+    var now = DateTimeOffset.Parse("2026-08-19T15:00:00Z");
+    var services = new[] {
+      new JsonObject {
+        ["metadata"] = new JsonObject {
+          ["name"] = "api",
+          ["namespace"] = "apps",
+          ["uid"] = "svc",
+          ["creationTimestamp"] = now.AddMinutes(-5).UtcDateTime.ToString("o"),
+          ["annotations"] = new JsonObject { ["lbipam.cilium.io/ips"] = "172.16.0.11" }
+        },
+        ["spec"] = new JsonObject { ["type"] = "LoadBalancer" },
+        ["status"] = new JsonObject()
+      }
+    };
+    var claims = new[] {
+      new JsonObject {
+        ["metadata"] = new JsonObject {
+          ["name"] = "data",
+          ["namespace"] = "apps",
+          ["uid"] = "pvc",
+          ["creationTimestamp"] = now.AddMinutes(-8).UtcDateTime.ToString("o")
+        },
+        ["status"] = new JsonObject {
+          ["phase"] = "Pending",
+          ["conditions"] = new JsonArray {
+            new JsonObject { ["message"] = "waiting for a volume" }
+          }
+        }
+      }
+    };
+
+    var set = ClusterIssues.Collect([], [], [], now, services, claims);
+
+    var service = Assert.Single(set.Warnings, issue => issue.Kind == "Service");
+    Assert.Equal("apps/api", service.ObjectName);
+    Assert.Equal(ClusterIssues.Active, service.State);
+    Assert.Contains("does not match", service.Message);
+    var claim = Assert.Single(set.Warnings, issue => issue.Kind == "PersistentVolumeClaim");
+    Assert.Equal("apps/data", claim.ObjectName);
+    Assert.Equal("waiting for a volume", claim.Message);
+  }
+
+  [Fact]
   public void Caption_mentions_resolved_counts() {
     var now = DateTimeOffset.Parse("2026-08-19T15:00:00Z");
     Assert.Equal("Warnings: 0", ClusterIssues.Caption("Warnings", []));

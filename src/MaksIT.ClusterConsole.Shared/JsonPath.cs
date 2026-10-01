@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using MaksIT.ClusterConsole.Client.Cluster;
 
 
 namespace MaksIT.ClusterConsole.Shared;
@@ -23,6 +24,18 @@ public static class JsonPath {
 
     if (path == "pv.claim")
       return VolumeClaim(root as JsonObject);
+
+    if (path == "longhorn.size")
+      return LonghornSize(root as JsonObject);
+
+    if (path == "longhorn.scheduling")
+      return LonghornScheduling(root as JsonObject);
+
+    if (path == "longhorn.disks")
+      return LonghornDisks(root as JsonObject);
+
+    if (path == "cnpg.instances")
+      return CnpgInstances(root as JsonObject);
 
     if (path == "metadata.creationTimestamp")
       return Age(Walk(root, path)?.ToString());
@@ -371,5 +384,76 @@ public static class JsonPath {
       .Select(p => p.Key["node-role.kubernetes.io/".Length..])
       .ToList();
     return roles.Count == 0 ? "worker" : string.Join(",", roles);
+  }
+
+  private static string LonghornSize(JsonObject? item) {
+    var bytes = ReadBytes(item?["spec"]?["size"]);
+    return bytes <= 0 ? "" : KubeQuantity.FormatBytesCompact(bytes);
+  }
+
+  private static string LonghornScheduling(JsonObject? item) {
+    var node = item?["spec"]?["allowScheduling"];
+    if (node is JsonValue value && value.TryGetValue<bool>(out var allowed))
+      return allowed ? "Yes" : "No";
+    return "";
+  }
+
+  private static string LonghornDisks(JsonObject? item) {
+    var disks = item?["status"]?["diskStatus"] as JsonObject;
+    if (disks is null || disks.Count == 0)
+      return "No disks";
+
+    long available = 0;
+    var notReady = 0;
+    foreach (var disk in disks) {
+      if (disk.Value is not JsonObject status)
+        continue;
+      available += ReadBytes(status["storageAvailable"]);
+      var conditions = status["conditions"] as JsonArray;
+      var ready = conditions?.OfType<JsonObject>().FirstOrDefault(c => Text(c["type"]) == "Ready");
+      if (ready is not null && !string.Equals(Text(ready["status"]), "True", StringComparison.OrdinalIgnoreCase))
+        notReady++;
+    }
+
+    var text = $"{disks.Count} disks · {KubeQuantity.FormatBytesCompact(available)} available";
+    if (notReady > 0)
+      text += $" · {notReady} not ready";
+    return text;
+  }
+
+  private static string CnpgInstances(JsonObject? item) {
+    var ready = ReadInt(item?["status"]?["readyInstances"]);
+    var instances = ReadInt(item?["status"]?["instances"]);
+    if (ready is null && instances is null)
+      return "";
+    if (ready is null)
+      return instances!.Value.ToString(CultureInfo.InvariantCulture);
+    if (instances is null)
+      return ready.Value.ToString(CultureInfo.InvariantCulture);
+    return $"{ready.Value.ToString(CultureInfo.InvariantCulture)}/{instances.Value.ToString(CultureInfo.InvariantCulture)}";
+  }
+
+  private static long ReadBytes(JsonNode? node) {
+    if (node is not JsonValue value)
+      return 0;
+    if (value.TryGetValue<long>(out var number))
+      return number;
+    if (value.TryGetValue<int>(out var small))
+      return small;
+    if (value.TryGetValue<string>(out var text))
+      return KubeQuantity.ToBytes(text);
+    return 0;
+  }
+
+  private static int? ReadInt(JsonNode? node) {
+    if (node is not JsonValue value)
+      return null;
+    if (value.TryGetValue<int>(out var number))
+      return number;
+    if (value.TryGetValue<long>(out var wide))
+      return (int)wide;
+    if (value.TryGetValue<string>(out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+      return parsed;
+    return null;
   }
 }

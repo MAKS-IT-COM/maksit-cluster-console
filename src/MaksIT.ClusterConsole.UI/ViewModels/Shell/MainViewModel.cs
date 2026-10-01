@@ -317,6 +317,8 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
 
+  public Func<DrainPreview, Task<bool>>? ShowDrainPreview { get; set; }
+
   public ConnectionsViewModel CreateConnectionsViewModel() =>
     new(_kubeConfig);
 
@@ -465,6 +467,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     var page = new ClusterPageViewModel(context, new ClusterWorkspace(), _configuration, _ollama, text => Status = text);
     page.VolumeFilesRequested += vm => VolumeFilesRequested?.Invoke(vm);
     page.ShowRetainReclaim = viewModel => ShowRetainReclaim?.Invoke(viewModel) ?? Task.CompletedTask;
+    page.ConfirmDrain = preview => ShowDrainPreview?.Invoke(preview) ?? Task.FromResult(false);
     return page;
   }
 

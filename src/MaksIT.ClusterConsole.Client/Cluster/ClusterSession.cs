@@ -590,35 +590,33 @@ public sealed partial class ClusterSession : IClusterSession {
     }
   }
 
-  public async Task<Result<IReadOnlyList<HelmReleaseInfo>>> ListHelmReleasesAsync(
+  public async Task<Result<IReadOnlyList<JsonObject>>> ListHelmReleaseDocumentsAsync(
     string? @namespace,
+    string? releaseName,
     CancellationToken cancellationToken = default) {
     try {
+      var selector = string.IsNullOrWhiteSpace(releaseName)
+        ? "owner=helm"
+        : "owner=helm,name=" + releaseName.Trim();
       V1SecretList secrets;
       if (string.IsNullOrWhiteSpace(@namespace) || @namespace == "all")
         secrets = await _client.CoreV1.ListSecretForAllNamespacesAsync(
-          labelSelector: "owner=helm",
+          labelSelector: selector,
           cancellationToken: cancellationToken).ConfigureAwait(false);
       else
         secrets = await _client.CoreV1.ListNamespacedSecretAsync(
           @namespace,
-          labelSelector: "owner=helm",
+          labelSelector: selector,
           cancellationToken: cancellationToken).ConfigureAwait(false);
 
       var releases = secrets.Items
-        .Select(TryDecodeHelm)
-        .Where(r => r is not null)
-        .Cast<HelmReleaseInfo>()
-        .GroupBy(r => (r.Name, r.Namespace))
-        .Select(g => g.MaxBy(r => r.Updated)!)
-        .OrderBy(r => r.Namespace)
-        .ThenBy(r => r.Name)
+        .Select(DecodeHelmDocument)
+        .OfType<JsonObject>()
         .ToList();
-
-      return Result<IReadOnlyList<HelmReleaseInfo>>.Ok(releases);
+      return Result<IReadOnlyList<JsonObject>>.Ok(releases);
     }
     catch (Exception ex) {
-      return KubernetesResult.Map<IReadOnlyList<HelmReleaseInfo>>(ex);
+      return KubernetesResult.Map<IReadOnlyList<JsonObject>>(ex);
     }
   }
 
@@ -711,37 +709,54 @@ public sealed partial class ClusterSession : IClusterSession {
   }
 
   public async Task<Result> DrainAsync(string nodeName, CancellationToken cancellationToken = default) {
-    var cordon = await CordonAsync(nodeName, true, cancellationToken).ConfigureAwait(false);
-    if (!cordon.IsSuccess)
-      return cordon;
-
+    Result<IReadOnlyList<JsonObject>> pods;
+    Result<IReadOnlyList<JsonObject>> budgets;
     try {
-      var pods = await _client.CoreV1.ListPodForAllNamespacesAsync(
-        fieldSelector: $"spec.nodeName={nodeName}",
-        cancellationToken: cancellationToken).ConfigureAwait(false);
+      pods = await ListAsync(new ResourceRef("", "v1", "pods", "Pod", true), "all", cancellationToken)
+        .ConfigureAwait(false);
+      if (!pods.IsSuccess)
+        return pods.ToResult();
 
-      foreach (var pod in pods.Items.Where(p => p.Metadata.OwnerReferences?.Any(o => o.Kind == "DaemonSet") != true)) {
-        var eviction = new V1Eviction {
-          Metadata = new V1ObjectMeta {
-            Name = pod.Metadata.Name,
-            NamespaceProperty = pod.Metadata.NamespaceProperty
-          }
-        };
-        try {
-          await _client.CoreV1.CreateNamespacedPodEvictionAsync(eviction, pod.Metadata.Name, pod.Metadata.NamespaceProperty, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        }
-        catch {
-          await _client.CoreV1.DeleteNamespacedPodAsync(pod.Metadata.Name, pod.Metadata.NamespaceProperty, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        }
-      }
-
-      return Result.Ok();
+      budgets = await ListAsync(
+        new ResourceRef("policy", "v1", "poddisruptionbudgets", "PodDisruptionBudget", true),
+        "all",
+        cancellationToken).ConfigureAwait(false);
+      if (!budgets.IsSuccess)
+        return budgets.ToResult();
     }
     catch (Exception ex) {
       return KubernetesResult.Map(ex);
     }
+
+    var plan = DrainPlan.ForNode(nodeName, pods.Value ?? [], budgets.Value ?? []);
+    var cordon = await CordonAsync(nodeName, true, cancellationToken).ConfigureAwait(false);
+    if (!cordon.IsSuccess)
+      return cordon;
+
+    var failures = new List<string>();
+    foreach (var pod in plan.Pods.Where(item => item.Action == DrainPlan.Evict)) {
+      var eviction = new V1Eviction {
+        Metadata = new V1ObjectMeta {
+          Name = pod.Name,
+          NamespaceProperty = pod.Namespace
+        }
+      };
+      try {
+        await _client.CoreV1.CreateNamespacedPodEvictionAsync(
+          eviction,
+          pod.Name,
+          pod.Namespace,
+          cancellationToken: cancellationToken).ConfigureAwait(false);
+      }
+      catch (Exception ex) {
+        failures.Add($"{pod.Namespace}/{pod.Name}: {ex.Message}");
+      }
+    }
+
+    if (failures.Count > 0)
+      return Result.Conflict("Cordoned " + nodeName + ". Not evicted: " + string.Join("; ", failures));
+
+    return Result.Ok();
   }
 
   public async Task<Result> TriggerCronJobAsync(string name, string @namespace, CancellationToken cancellationToken = default) {
@@ -1064,44 +1079,43 @@ public sealed partial class ClusterSession : IClusterSession {
       hasMem ? KubeQuantity.FormatMemoryQuantity(mem) : "-");
   }
 
-  private static HelmReleaseInfo? TryDecodeHelm(V1Secret secret) {
+  private static JsonObject? DecodeHelmDocument(V1Secret secret) {
     try {
       if (secret.Data is null || !secret.Data.TryGetValue("release", out var bytes))
-        return null;
+        return HelmDocumentFromLabels(secret);
 
       var decoded = Convert.FromBase64String(Encoding.UTF8.GetString(bytes));
       using var gzip = new GZipStream(new MemoryStream(decoded), CompressionMode.Decompress);
       using var reader = new StreamReader(gzip);
       var json = reader.ReadToEnd();
-      var node = JsonNode.Parse(json) as JsonObject;
-      if (node is null)
-        return null;
-
-      var info = node["info"] as JsonObject;
-      var chart = node["chart"] as JsonObject;
-      var metadata = chart?["metadata"] as JsonObject;
-      DateTimeOffset? updated = null;
-      if (DateTimeOffset.TryParse(info?["last_deployed"]?.ToString(), out var parsed))
-        updated = parsed;
-
-      return new HelmReleaseInfo(
-        node["name"]?.GetValue<string>() ?? secret.Metadata.Name,
-        node["namespace"]?.GetValue<string>() ?? secret.Metadata.NamespaceProperty,
-        info?["status"]?.ToString() ?? "unknown",
-        metadata?["name"]?.ToString() ?? "",
-        metadata?["appVersion"]?.ToString() ?? "",
-        updated);
+      return JsonNode.Parse(json) as JsonObject ?? HelmDocumentFromLabels(secret);
     }
     catch {
-      var labels = secret.Metadata.Labels;
-      return new HelmReleaseInfo(
-        Label(labels, "name") ?? secret.Metadata.Name,
-        secret.Metadata.NamespaceProperty,
-        Label(labels, "status") ?? "unknown",
-        Label(labels, "chart") ?? "",
-        "",
-        secret.Metadata.CreationTimestamp is DateTime ts ? new DateTimeOffset(ts) : null);
+      return HelmDocumentFromLabels(secret);
     }
+  }
+
+  private static JsonObject HelmDocumentFromLabels(V1Secret secret) {
+    var labels = secret.Metadata.Labels;
+    var info = new JsonObject {
+      ["status"] = Label(labels, "status") ?? "unknown"
+    };
+    if (secret.Metadata.CreationTimestamp is DateTime created)
+      info["last_deployed"] = new DateTimeOffset(DateTime.SpecifyKind(created, DateTimeKind.Utc)).ToString("o");
+
+    var version = 0;
+    _ = int.TryParse(Label(labels, "version"), out version);
+    return new JsonObject {
+      ["name"] = Label(labels, "name") ?? secret.Metadata.Name,
+      ["namespace"] = secret.Metadata.NamespaceProperty ?? "",
+      ["version"] = version,
+      ["info"] = info,
+      ["chart"] = new JsonObject {
+        ["metadata"] = new JsonObject {
+          ["name"] = Label(labels, "chart") ?? ""
+        }
+      }
+    };
   }
 
   private static string? Label(IDictionary<string, string>? labels, string key) =>

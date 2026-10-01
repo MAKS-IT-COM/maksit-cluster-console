@@ -30,6 +30,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private int _watchGeneration;
   private int _logsGeneration;
   private bool _hasDaprCrd;
+  private bool _hasLonghornCrd;
+  private bool _hasCnpgCrd;
   private bool _syncingNamespace;
   private bool _syncingLayout;
   private readonly List<ResourceRow> _listedRows = [];
@@ -284,6 +286,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
 
+  public Func<DrainPreview, Task<bool>>? ConfirmDrain { get; set; }
+
   public bool CanRollout =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanRollout == true;
 
@@ -346,6 +350,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool ShowTerminalTab => HasDetailTab("Terminal");
 
+  public bool ShowHelmHistoryTab => HasDetailTab("History");
+
+  public bool ShowHelmValuesTab => HasDetailTab("Values");
+
+  public bool ShowHelmManifestTab => HasDetailTab("Manifest");
+
   public bool ShowPodPicker => ShowPodsTab;
 
   public bool ShowContainerPicker => ShowLogsTab || ShowTerminalTab || IsPodSelection;
@@ -382,6 +392,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool IsResourceTable =>
     SelectedNavItem is not null && !IsClusterDashboard && !IsWorkloadsDashboard;
+
+  public string ShoulderTitle => SelectedNavItem?.Title ?? "";
+
+  public string ShoulderHint =>
+    ShoulderHints.Text(SelectedNavItem?.Id, SelectedDescriptor);
 
   public string OverviewWarningsCaption =>
     ClusterIssues.Caption("Warnings", OverviewWarnings);
@@ -436,8 +451,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (!connected.IsSuccess)
       return connected;
 
-    var dapr = await session.HasApiGroupAsync("dapr.io");
-    _hasDaprCrd = dapr.IsSuccess && dapr.Value;
+    var dapr = session.HasApiGroupAsync("dapr.io");
+    var longhorn = session.HasApiGroupAsync("longhorn.io");
+    var cnpg = session.HasApiGroupAsync("postgresql.cnpg.io");
+    await Task.WhenAll(dapr, longhorn, cnpg);
+    _hasDaprCrd = dapr.Result.IsSuccess && dapr.Result.Value;
+    _hasLonghornCrd = longhorn.Result.IsSuccess && longhorn.Result.Value;
+    _hasCnpgCrd = cnpg.Result.IsSuccess && cnpg.Result.Value;
     RebuildNavigator();
     _syncingLayout = true;
     try {
@@ -578,6 +598,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(IsClusterDashboard));
     OnPropertyChanged(nameof(IsWorkloadsDashboard));
     OnPropertyChanged(nameof(IsResourceTable));
+    OnPropertyChanged(nameof(ShoulderTitle));
+    OnPropertyChanged(nameof(ShoulderHint));
     NotifyDetailsUi();
     _listedRows.Clear();
     Rows.Clear();
@@ -690,14 +712,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
       if (SelectedNavItem.Id == ResourceCatalog.WorkloadsOverviewId) {
         await LoadWorkloadsOverviewAsync();
-        return;
-      }
-
-      if (SelectedNavItem.Id == ResourceCatalog.HelmChartsId) {
-        _listedRows.Clear();
-        Rows.Clear();
-        OverviewText = "Add chart repositories with the helm CLI. Releases are listed under Helm → Releases.";
-        _setStatus("Helm charts are managed via helm repos on this machine.");
         return;
       }
 
@@ -1115,6 +1129,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private async Task DrainAsync() {
+    if (_workspace.Session is null || ActionTargets.Count == 0)
+      return;
+
+    var names = ActionTargets.Select(row => row.Name).Distinct(StringComparer.Ordinal).ToList();
+    var preview = await _workspace.PreviewDrainAsync(names);
+    if (!preview.IsSuccess || preview.Value is null) {
+      _setStatus(string.Join("; ", preview.Messages));
+      return;
+    }
+
+    if (ConfirmDrain is null || !await ConfirmDrain(preview.Value)) {
+      _setStatus("Drain cancelled.");
+      return;
+    }
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.DrainAsync(row.Name)) is not { } outcome)
       return;
@@ -1370,6 +1399,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     Navigator.Clear();
     foreach (var section in ResourceCatalog.Sections) {
       if (section == ResourceCatalog.Dapr && !_hasDaprCrd)
+        continue;
+      if (section == ResourceCatalog.Longhorn && !_hasLonghornCrd)
+        continue;
+      if (section == ResourceCatalog.CloudNativePG && !_hasCnpgCrd)
         continue;
 
       var sectionItems = _workspace.Navigator.Where(i => i.Section == section).ToList();
@@ -1675,6 +1708,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       ReplaceRelatedPods([]);
       ApplyNodeImages(null);
       ApplyContainers(null);
+      ClearHelmDetails();
       NotifyDetailsUi();
       return;
     }
@@ -1682,6 +1716,35 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _detailsUid = row.Uid;
     var document = row.Document;
     var resource = SelectedResourceRef();
+    if (SelectedNavItem?.Id == ResourceCatalog.HelmChartsId) {
+      ClearHelmDetails();
+      ReplaceDataEntries(null);
+      ReplaceRelatedPods([]);
+      ApplyNodeImages(null);
+      ApplyContainers(null);
+      var releases = JsonPath.Text(row.Document["releases"]);
+      OverviewText = string.IsNullOrWhiteSpace(releases)
+        ? row.FormatOverview()
+        : row.FormatOverview() + "\n\nReleases:\n" + releases;
+      EventsText = "";
+      SetYaml("");
+      NotifyDetailsUi();
+      return;
+    }
+
+    if (SelectedNavItem?.Id == ResourceCatalog.HelmReleasesId) {
+      ReplaceDataEntries(null);
+      ReplaceRelatedPods([]);
+      ApplyNodeImages(null);
+      ApplyContainers(null);
+      await LoadHelmDetailsAsync(row);
+      if (!DetailsStillCurrent(row))
+        return;
+      NotifyDetailsUi();
+      return;
+    }
+
+    ClearHelmDetails();
     if (resource is not null && _workspace.Session is not null) {
       var got = await _workspace.Session.GetAsync(resource.ToRef(), row.Name, row.Namespace);
       if (!DetailsStillCurrent(row))
@@ -2319,6 +2382,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(ShowPodsTab));
     OnPropertyChanged(nameof(ShowLogsTab));
     OnPropertyChanged(nameof(ShowTerminalTab));
+    OnPropertyChanged(nameof(ShowHelmHistoryTab));
+    OnPropertyChanged(nameof(ShowHelmValuesTab));
+    OnPropertyChanged(nameof(ShowHelmManifestTab));
     OnPropertyChanged(nameof(ShowPodPicker));
     OnPropertyChanged(nameof(ShowContainerPicker));
     OnPropertyChanged(nameof(HasContainers));
