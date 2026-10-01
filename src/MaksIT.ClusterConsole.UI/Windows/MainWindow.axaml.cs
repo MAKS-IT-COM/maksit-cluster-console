@@ -14,6 +14,7 @@ using SvcSystems.UI.Terminal;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Services;
 using MaksIT.ClusterConsole.UI.Converters;
+using MaksIT.ClusterConsole.Client.Cluster;
 using MaksIT.ClusterConsole.UI.Controls.Grid;
 using MaksIT.ClusterConsole.UI.ViewModels.Shell;
 using MaksIT.ClusterConsole.UI.ViewModels.Cluster;
@@ -38,9 +39,10 @@ public partial class MainWindow : Window {
       configuration,
       () => viewModel.ActivePage?.Name,
       () => viewModel.SelectedDescriptor?.Id);
-    Opened += (_, _) => {
+    Opened += async (_, _) => {
       _layout.Attach();
       RebuildColumns(viewModel);
+      await WhatsNewWindow.ShowIfNeededAsync(this, configuration);
     };
     viewModel.PropertyChanged += (_, e) => {
       if (e.PropertyName is nameof(MainViewModel.SelectedNavItem) or nameof(MainViewModel.ActivePage))
@@ -54,6 +56,7 @@ public partial class MainWindow : Window {
     viewModel.AiSettingsRequested += async (_, _) => await OpenAiSettingsAsync(viewModel);
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
     viewModel.ShowRetainReclaim = ShowRetainReclaimAsync;
+    viewModel.ShowDrainPreview = ShowDrainPreviewAsync;
   }
 
   private void OnLogsClick(object? sender, RoutedEventArgs e) =>
@@ -66,6 +69,9 @@ public partial class MainWindow : Window {
     var window = new VolumeFilesWindow(files);
     window.Show(this);
   }
+
+  private Task<bool> ShowDrainPreviewAsync(DrainPreview preview) =>
+    DrainPreviewWindow.ShowAsync(this, preview);
 
   private async Task ShowRetainReclaimAsync(RetainReclaimViewModel reclaim) {
     var window = new RetainReclaimWindow(reclaim);

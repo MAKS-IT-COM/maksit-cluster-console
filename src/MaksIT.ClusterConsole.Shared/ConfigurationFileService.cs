@@ -18,6 +18,8 @@ public sealed class ConfigurationFileService {
 
   public string FilePath { get; }
 
+  public bool FileExisted { get; }
+
   public Configuration Current => _current;
 
   public ConfigurationFileService(string? configurationPath = null, string? seedPath = null) {
@@ -33,6 +35,7 @@ public sealed class ConfigurationFileService {
     else
       _seedPath = null;
 
+    FileExisted = File.Exists(FilePath);
     _current = LoadFromDisk();
     CopySeedIfNeeded();
   }

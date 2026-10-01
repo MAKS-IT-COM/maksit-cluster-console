@@ -28,6 +28,8 @@ public sealed class Configuration {
 
   public LayoutSettings Layout { get; set; } = new();
 
+  public string? WhatsNewSeenVersion { get; set; }
+
   public List<PersistedPortForward> PortForwards { get; set; } = [];
 
   public void EnsureDefaults() {

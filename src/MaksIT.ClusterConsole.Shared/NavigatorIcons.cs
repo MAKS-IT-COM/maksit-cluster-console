@@ -13,6 +13,8 @@ public static class NavigatorIcons {
     ResourceCatalog.Events => "M12,2 C8.5,2 6,6 6,10 V15 L3,19 H21 L18,15 V10 C18,6 15.5,2 12,2 Z M10,20 H14 C14,21.6 13.1,22.5 12,22.5 C10.9,22.5 10,21.6 10,20 Z",
     ResourceCatalog.Helm => "M11,3 H13 V11 H21 V13 H13 V21 H11 V13 H3 V11 H11 Z",
     ResourceCatalog.Dapr => "M8,3 H16 L21,12 L16,21 H8 L3,12 Z",
+    ResourceCatalog.Longhorn => "M3,15 H21 V20 H3 Z M3,9 H21 V13 H3 Z M3,3 H21 V7 H3 Z",
+    ResourceCatalog.CloudNativePG => "M7,4 H17 V20 H7 Z M7,4 C7,2 17,2 17,4 C17,6 7,6 7,4 Z",
     ResourceCatalog.AccessControl => "M12,2 L21,6 V12 C21,17 12,22 12,22 C12,22 3,17 3,12 V6 Z",
     ResourceCatalog.CustomResources => "M9,3 H13 V6 H17 V10 H20 V14 H17 V18 H13 V21 H9 V18 H5 V14 H8 V10 H5 V6 H9 Z",
     _ => "M5,5 H19 V19 H5 Z"

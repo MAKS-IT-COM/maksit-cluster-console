@@ -15,6 +15,8 @@ public static class ResourceCatalog {
   public const string Events = "Events";
   public const string Helm = "Helm";
   public const string Dapr = "Dapr";
+  public const string Longhorn = "Longhorn";
+  public const string CloudNativePG = "CloudNativePG";
   public const string AccessControl = "Access Control";
   public const string CustomResources = "Custom Resources";
 
@@ -24,6 +26,9 @@ public static class ResourceCatalog {
   public const string PortForwardingId = "port-forwarding";
   public const string HelmChartsId = "helm-charts";
   public const string HelmReleasesId = "helm-releases";
+  public const string LonghornVolumesId = "longhorn-volumes";
+  public const string LonghornNodesId = "longhorn-nodes";
+  public const string CnpgClustersId = "cnpg-clusters";
   public const string DaprSidecarsId = "dapr-sidecars";
   public const string DaprControlPlaneId = "dapr-control-plane";
 
@@ -35,10 +40,12 @@ public static class ResourceCatalog {
     Config,
     Network,
     Storage,
+    Longhorn,
     Namespaces,
     Events,
     Helm,
     Dapr,
+    CloudNativePG,
     AccessControl,
     CustomResources
   ];
@@ -88,10 +95,53 @@ public static class ResourceCatalog {
     new ResourceActions(CanDelete: false, CanApply: false),
     ["Overview"]);
 
+  public static ResourceDescriptor HelmChartsDescriptor { get; } = new(
+    HelmChartsId,
+    "Charts",
+    Helm,
+    "",
+    "v1",
+    "secrets",
+    "Secret",
+    false,
+    [
+      new("Chart", "chart"),
+      new("Version", "version"),
+      new("App", "appVersion"),
+      new("Status", "status"),
+      new("Releases", "releases"),
+      new("Namespaces", "namespaces")
+    ],
+    new ResourceActions(CanDelete: false, CanApply: false),
+    ["Overview"]);
+
+  public static ResourceDescriptor HelmReleasesDescriptor { get; } = new(
+    HelmReleasesId,
+    "Releases",
+    Helm,
+    "",
+    "v1",
+    "secrets",
+    "Secret",
+    true,
+    [
+      new("Name", "metadata.name"),
+      new("Namespace", "metadata.namespace"),
+      new("Revision", "revision"),
+      new("Status", "status"),
+      new("Chart", "chart"),
+      new("App", "appVersion"),
+      new("Updated", "updated")
+    ],
+    new ResourceActions(CanDelete: false, CanApply: false),
+    ["Overview", "History", "Values", "Manifest"]);
+
   public static ResourceDescriptor? Find(string id) =>
     id switch {
       ApplicationsId => ApplicationsDescriptor,
       PortForwardingId => PortForwardingDescriptor,
+      HelmReleasesId => HelmReleasesDescriptor,
+      HelmChartsId => HelmChartsDescriptor,
       _ => BuiltIns.FirstOrDefault(d => d.Id == id)
     };
 
@@ -210,11 +260,11 @@ public static class ResourceCatalog {
     ColumnSpec[] named = [new("Name", "metadata.name"), new("Age", "metadata.creationTimestamp")];
 
     return [
-      D("apiservices", "API Services (new)", Cluster, "apiregistration.k8s.io", "v1", "apiservices", "APIService", false, named, crud, yamlTabs),
-      D("flowschemas", "Flow Schemas (new)", Cluster, "flowcontrol.apiserver.k8s.io", "v1", "flowschemas", "FlowSchema", false, named, crud, yamlTabs),
-      D("prioritylevelconfigurations", "Priority Levels (new)", Cluster, "flowcontrol.apiserver.k8s.io", "v1", "prioritylevelconfigurations", "PriorityLevelConfiguration", false, named, crud, yamlTabs),
-      D("deviceclasses", "Device Classes (new)", Cluster, "resource.k8s.io", "v1", "deviceclasses", "DeviceClass", false, named, crud, yamlTabs),
-      D("resourceslices", "Resource Slices (new)", Cluster, "resource.k8s.io", "v1", "resourceslices", "ResourceSlice", false, named, crud, yamlTabs),
+      D("apiservices", "API Services", Cluster, "apiregistration.k8s.io", "v1", "apiservices", "APIService", false, named, crud, yamlTabs),
+      D("flowschemas", "Flow Schemas", Cluster, "flowcontrol.apiserver.k8s.io", "v1", "flowschemas", "FlowSchema", false, named, crud, yamlTabs),
+      D("prioritylevelconfigurations", "Priority Levels", Cluster, "flowcontrol.apiserver.k8s.io", "v1", "prioritylevelconfigurations", "PriorityLevelConfiguration", false, named, crud, yamlTabs),
+      D("deviceclasses", "Device Classes", Cluster, "resource.k8s.io", "v1", "deviceclasses", "DeviceClass", false, named, crud, yamlTabs),
+      D("resourceslices", "Resource Slices", Cluster, "resource.k8s.io", "v1", "resourceslices", "ResourceSlice", false, named, crud, yamlTabs),
       D("nodes", "Nodes", Nodes, "", "v1", "nodes", "Node", false,
         [new("Name", "metadata.name"), new("Status", "status.conditions"), new("Roles", "metadata.labels"), new("Version", "status.nodeInfo.kubeletVersion"), new("Age", "metadata.creationTimestamp")],
         node, nodeTabs),
@@ -224,7 +274,7 @@ public static class ResourceCatalog {
       D("deployments", "Deployments", Workloads, "apps", "v1", "deployments", "Deployment", true,
         [..std, new("Ready", "status.readyReplicas"), new("Up-to-date", "status.updatedReplicas"), new("Available", "status.availableReplicas"), new("CPU", "metrics.cpu"), new("Memory", "metrics.memory")],
         new ResourceActions(CanScale: true, CanRestart: true, CanRollout: true), workloadTabs),
-      D("controllerrevisions", "Controller Revisions (new)", Workloads, "apps", "v1", "controllerrevisions", "ControllerRevision", true,
+      D("controllerrevisions", "Controller Revisions", Workloads, "apps", "v1", "controllerrevisions", "ControllerRevision", true,
         [..std, new("Revision", "revision")],
         crud, yamlTabs),
       D("statefulsets", "StatefulSets", Workloads, "apps", "v1", "statefulsets", "StatefulSet", true,
@@ -245,10 +295,10 @@ public static class ResourceCatalog {
       D("replicationcontrollers", "Replication Controllers", Workloads, "", "v1", "replicationcontrollers", "ReplicationController", true,
         [..std, new("Desired", "spec.replicas"), new("Current", "status.replicas")],
         new ResourceActions(CanScale: true), workloadTabs),
-      D("resourceclaims", "Resource Claims (new)", Workloads, "resource.k8s.io", "v1", "resourceclaims", "ResourceClaim", true, std, crud, yamlTabs),
-      D("resourceclaimtemplates", "Resource Claim Templates (new)", Workloads, "resource.k8s.io", "v1", "resourceclaimtemplates", "ResourceClaimTemplate", true, std, crud, yamlTabs),
+      D("resourceclaims", "Resource Claims", Workloads, "resource.k8s.io", "v1", "resourceclaims", "ResourceClaim", true, std, crud, yamlTabs),
+      D("resourceclaimtemplates", "Resource Claim Templates", Workloads, "resource.k8s.io", "v1", "resourceclaimtemplates", "ResourceClaimTemplate", true, std, crud, yamlTabs),
       D("configmaps", "ConfigMaps", Config, "", "v1", "configmaps", "ConfigMap", true, std, crud, yamlTabs),
-      D("podtemplates", "Pod Templates (new)", Config, "", "v1", "podtemplates", "PodTemplate", true, std, crud, yamlTabs),
+      D("podtemplates", "Pod Templates", Config, "", "v1", "podtemplates", "PodTemplate", true, std, crud, yamlTabs),
       D("secrets", "Secrets", Config, "", "v1", "secrets", "Secret", true,
         [..std, new("Type", "type")],
         crud, yamlTabs),
@@ -265,11 +315,11 @@ public static class ResourceCatalog {
       D("runtimeclasses", "Runtime Classes", Config, "node.k8s.io", "v1", "runtimeclasses", "RuntimeClass", false, named, crud, yamlTabs),
       D("mutatingwebhookconfigurations", "Mutating Webhooks", Config, "admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations", "MutatingWebhookConfiguration", false, named, crud, yamlTabs),
       D("validatingwebhookconfigurations", "Validating Webhooks", Config, "admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations", "ValidatingWebhookConfiguration", false, named, crud, yamlTabs),
-      D("validatingadmissionpolicies", "Validating Admission Policies (new)", Config, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "ValidatingAdmissionPolicy", false, named, crud, yamlTabs),
-      D("validatingadmissionpolicybindings", "Validating Admission Policy Bindings (new)", Config, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicybindings", "ValidatingAdmissionPolicyBinding", false, named, crud, yamlTabs),
-      D("mutatingadmissionpolicies", "Mutating Admission Policies (new)", Config, "admissionregistration.k8s.io", "v1beta1", "mutatingadmissionpolicies", "MutatingAdmissionPolicy", false, named, crud, yamlTabs),
-      D("mutatingadmissionpolicybindings", "Mutating Admission Policy Bindings (new)", Config, "admissionregistration.k8s.io", "v1beta1", "mutatingadmissionpolicybindings", "MutatingAdmissionPolicyBinding", false, named, crud, yamlTabs),
-      D("storageversionmigrations", "Storage Version Migrations (new)", Config, "storagemigration.k8s.io", "v1beta1", "storageversionmigrations", "StorageVersionMigration", false, named, crud, yamlTabs),
+      D("validatingadmissionpolicies", "Validating Admission Policies", Config, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "ValidatingAdmissionPolicy", false, named, crud, yamlTabs),
+      D("validatingadmissionpolicybindings", "Validating Admission Policy Bindings", Config, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicybindings", "ValidatingAdmissionPolicyBinding", false, named, crud, yamlTabs),
+      D("mutatingadmissionpolicies", "Mutating Admission Policies", Config, "admissionregistration.k8s.io", "v1beta1", "mutatingadmissionpolicies", "MutatingAdmissionPolicy", false, named, crud, yamlTabs),
+      D("mutatingadmissionpolicybindings", "Mutating Admission Policy Bindings", Config, "admissionregistration.k8s.io", "v1beta1", "mutatingadmissionpolicybindings", "MutatingAdmissionPolicyBinding", false, named, crud, yamlTabs),
+      D("storageversionmigrations", "Storage Version Migrations", Config, "storagemigration.k8s.io", "v1beta1", "storageversionmigrations", "StorageVersionMigration", false, named, crud, yamlTabs),
       D("services", "Services", Network, "", "v1", "services", "Service", true,
         [..std, new("Type", "spec.type"), new("Status", "service.status"), new("Cluster IP", "spec.clusterIP"), new("External IP", "service.externalIP"), new("Ports", "spec.ports")],
         new ResourceActions(CanPortForward: true), serviceTabs),
@@ -280,7 +330,7 @@ public static class ResourceCatalog {
         crud, yamlTabs),
       D("ingressclasses", "Ingress Classes", Network, "networking.k8s.io", "v1", "ingressclasses", "IngressClass", false, named, crud, yamlTabs),
       D("networkpolicies", "Network Policies", Network, "networking.k8s.io", "v1", "networkpolicies", "NetworkPolicy", true, std, crud, yamlTabs),
-      D("ipaddresses", "IP Addresses (new)", Network, "networking.k8s.io", "v1", "ipaddresses", "IPAddress", false,
+      D("ipaddresses", "IP Addresses", Network, "networking.k8s.io", "v1", "ipaddresses", "IPAddress", false,
         [
           new("Name", "metadata.name"),
           new("Parent namespace", "spec.parentRef.namespace"),
@@ -290,18 +340,50 @@ public static class ResourceCatalog {
           new("Age", "metadata.creationTimestamp")
         ],
         crud, yamlTabs),
-      D("servicecidrs", "Service CIDRs (new)", Network, "networking.k8s.io", "v1", "servicecidrs", "ServiceCIDR", false, named, crud, yamlTabs),
+      D("servicecidrs", "Service CIDRs", Network, "networking.k8s.io", "v1", "servicecidrs", "ServiceCIDR", false, named, crud, yamlTabs),
       D("persistentvolumeclaims", "Persistent Volume Claims", Storage, "", "v1", "persistentvolumeclaims", "PersistentVolumeClaim", true,
         [..std, new("Status", "status.phase"), new("Volume", "spec.volumeName"), new("Capacity", "status.capacity.storage"), new("Storage Class", "spec.storageClassName")],
         new ResourceActions(CanResize: true), yamlTabs),
       D("persistentvolumes", "Persistent Volumes", Storage, "", "v1", "persistentvolumes", "PersistentVolume", false,
         [new("Name", "metadata.name"), new("Capacity", "spec.capacity.storage"), new("Access", "spec.accessModes"), new("Reclaim", "spec.persistentVolumeReclaimPolicy"), new("Status", "status.phase"), new("Claim", "pv.claim"), new("Age", "metadata.creationTimestamp")],
         new ResourceActions(CanRetain: true), yamlTabs),
-      D("csidrivers", "CSI Drivers (new)", Storage, "storage.k8s.io", "v1", "csidrivers", "CSIDriver", false, named, crud, yamlTabs),
-      D("csinodes", "CSI Nodes (new)", Storage, "storage.k8s.io", "v1", "csinodes", "CSINode", false, named, crud, yamlTabs),
-      D("csistoragecapacities", "CSI Storage Capacities (new)", Storage, "storage.k8s.io", "v1", "csistoragecapacities", "CSIStorageCapacity", true, std, crud, yamlTabs),
-      D("volumeattachments", "Volume Attachments (new)", Storage, "storage.k8s.io", "v1", "volumeattachments", "VolumeAttachment", false, named, crud, yamlTabs),
-      D("volumeattributesclasses", "Volume Attributes Classes (new)", Storage, "storage.k8s.io", "v1", "volumeattributesclasses", "VolumeAttributesClass", false, named, crud, yamlTabs),
+      D("csidrivers", "CSI Drivers", Storage, "storage.k8s.io", "v1", "csidrivers", "CSIDriver", false, named, crud, yamlTabs),
+      D("csinodes", "CSI Nodes", Storage, "storage.k8s.io", "v1", "csinodes", "CSINode", false, named, crud, yamlTabs),
+      D("csistoragecapacities", "CSI Storage Capacities", Storage, "storage.k8s.io", "v1", "csistoragecapacities", "CSIStorageCapacity", true, std, crud, yamlTabs),
+      D("volumeattachments", "Volume Attachments", Storage, "storage.k8s.io", "v1", "volumeattachments", "VolumeAttachment", false, named, crud, yamlTabs),
+      D("volumeattributesclasses", "Volume Attributes Classes", Storage, "storage.k8s.io", "v1", "volumeattributesclasses", "VolumeAttributesClass", false, named, crud, yamlTabs),
+      D(LonghornVolumesId, "Volumes", Longhorn, "longhorn.io", "v1beta2", "volumes", "Volume", true,
+        [
+          new("Name", "metadata.name"),
+          new("Namespace", "metadata.namespace"),
+          new("State", "status.state"),
+          new("Robustness", "status.robustness"),
+          new("Replicas", "spec.numberOfReplicas"),
+          new("Node", "status.currentNodeID"),
+          new("Size", "longhorn.size"),
+          new("Age", "metadata.creationTimestamp")
+        ],
+        crud, yamlTabs),
+      D(LonghornNodesId, "Nodes", Longhorn, "longhorn.io", "v1beta2", "nodes", "Node", true,
+        [
+          new("Name", "metadata.name"),
+          new("Namespace", "metadata.namespace"),
+          new("Scheduling", "longhorn.scheduling"),
+          new("Disks", "longhorn.disks"),
+          new("Age", "metadata.creationTimestamp")
+        ],
+        crud, yamlTabs),
+      D(CnpgClustersId, "Clusters", CloudNativePG, "postgresql.cnpg.io", "v1", "clusters", "Cluster", true,
+        [
+          new("Name", "metadata.name"),
+          new("Namespace", "metadata.namespace"),
+          new("Phase", "status.phase"),
+          new("Instances", "cnpg.instances"),
+          new("Primary", "status.currentPrimary"),
+          new("Age", "metadata.creationTimestamp")
+        ],
+        new ResourceActions(CanDelete: false, CanApply: false),
+        yamlTabs),
       D("storageclasses", "Storage Classes", Storage, "storage.k8s.io", "v1", "storageclasses", "StorageClass", false,
         [new("Name", "metadata.name"), new("Provisioner", "provisioner"), new("Reclaim", "reclaimPolicy"), new("Age", "metadata.creationTimestamp")],
         new ResourceActions(CanRetain: true), yamlTabs),
@@ -312,10 +394,10 @@ public static class ResourceCatalog {
         [new("Type", "type"), new("Reason", "reason"), new("Object", "involvedObject.name"), new("Message", "message"), new("Namespace", "metadata.namespace"), new("Age", "metadata.creationTimestamp")],
         new ResourceActions(CanDelete: false, CanApply: false), ["Overview", "YAML"]),
       D("serviceaccounts", "Service Accounts", AccessControl, "", "v1", "serviceaccounts", "ServiceAccount", true, std, new ResourceActions(CanToken: true), yamlTabs),
-      D("certificatesigningrequests", "Certificate Signing Requests (new)", AccessControl, "certificates.k8s.io", "v1", "certificatesigningrequests", "CertificateSigningRequest", false,
+      D("certificatesigningrequests", "Certificate Signing Requests", AccessControl, "certificates.k8s.io", "v1", "certificatesigningrequests", "CertificateSigningRequest", false,
         [new("Name", "metadata.name"), new("Signer", "spec.signerName"), new("Age", "metadata.creationTimestamp")],
         new ResourceActions(CanApprove: true), yamlTabs),
-      D("clustertrustbundles", "Cluster Trust Bundles (new)", AccessControl, "certificates.k8s.io", "v1beta1", "clustertrustbundles", "ClusterTrustBundle", false, named, crud, yamlTabs),
+      D("clustertrustbundles", "Cluster Trust Bundles", AccessControl, "certificates.k8s.io", "v1beta1", "clustertrustbundles", "ClusterTrustBundle", false, named, crud, yamlTabs),
       D("roles", "Roles", AccessControl, "rbac.authorization.k8s.io", "v1", "roles", "Role", true, std, crud, yamlTabs),
       D("rolebindings", "Role Bindings", AccessControl, "rbac.authorization.k8s.io", "v1", "rolebindings", "RoleBinding", true, std, crud, yamlTabs),
       D("clusterroles", "Cluster Roles", AccessControl, "rbac.authorization.k8s.io", "v1", "clusterroles", "ClusterRole", false, named, crud, yamlTabs),

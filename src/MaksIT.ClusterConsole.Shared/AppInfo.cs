@@ -1,3 +1,6 @@
+using System.Reflection;
+
+
 namespace MaksIT.ClusterConsole.Shared;
 
 
@@ -16,8 +19,26 @@ public static class AppInfo {
   public const string Site = "maks-it.com";
   public const string SiteUri = "https://maks-it.com";
   public const string License = "Apache License 2.0";
-  public const string Summary = "Desktop console for an existing Kubernetes cluster.";
+  public const string Summary = "Kubernetes cluster desktop console.";
 
   public static string Copyright =>
     $"Copyright {DateTime.UtcNow.Year} Maksym Sadovnychyy (MAKS-IT)";
+
+  public static string Version {
+    get {
+      var assembly = Assembly.GetEntryAssembly() ?? typeof(AppInfo).Assembly;
+      var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+      if (!string.IsNullOrWhiteSpace(informational)) {
+        var plus = informational.IndexOf('+', StringComparison.Ordinal);
+        return plus >= 0 ? informational[..plus] : informational;
+      }
+
+      var version = assembly.GetName().Version;
+      if (version is null)
+        return "";
+      if (version.Build < 0)
+        return $"{version.Major}.{version.Minor}";
+      return $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+  }
 }

@@ -40,15 +40,7 @@ public class ResourceCatalogTests {
     Assert.False(ResourceCatalog.Find("persistentvolumeclaims")!.Actions.CanRetain);
     Assert.True(ResourceCatalog.Find("pods")!.Actions.CanAttach);
     Assert.True(ResourceCatalog.Find("pods")!.Actions.CanDebug);
-    foreach (var id in new[] {
-      "controllerrevisions", "resourceclaims", "resourceclaimtemplates", "podtemplates",
-      "validatingadmissionpolicies", "mutatingadmissionpolicies", "storageversionmigrations",
-      "ipaddresses", "servicecidrs", "csidrivers", "csinodes", "csistoragecapacities",
-      "volumeattachments", "volumeattributesclasses", "certificatesigningrequests",
-      "clustertrustbundles", "apiservices", "flowschemas", "prioritylevelconfigurations",
-      "deviceclasses", "resourceslices"
-    })
-      Assert.EndsWith("(new)", ResourceCatalog.Find(id)!.Title);
+    Assert.DoesNotContain(ResourceCatalog.BuiltIns, descriptor => descriptor.Title.Contains("(new)", StringComparison.Ordinal));
     Assert.NotNull(ResourceCatalog.Find("components"));
     Assert.NotNull(ResourceCatalog.Find("customresourcedefinitions"));
   }
