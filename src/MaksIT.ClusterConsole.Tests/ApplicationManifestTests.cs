@@ -210,12 +210,16 @@ public class ApplicationManifestTests {
     int ready = 0,
     int replicas = 1) {
     var labels = new JsonObject();
+
     if (instance is not null)
       labels[ApplicationManifest.InstanceKey] = instance;
+
     if (nameLabel is not null)
       labels[ApplicationManifest.NameKey] = nameLabel;
+
     if (managedBy is not null)
       labels[ApplicationManifest.ManagedByKey] = managedBy;
+
     if (version is not null)
       labels[ApplicationManifest.VersionKey] = version;
 

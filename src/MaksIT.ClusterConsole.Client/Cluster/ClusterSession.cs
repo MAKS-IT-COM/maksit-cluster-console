@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using System.Net.Sockets;
 using System.IO.Compression;
 using System.Text.Json.Nodes;
 using System.Runtime.CompilerServices;
@@ -35,6 +34,7 @@ public sealed partial class ClusterSession : IClusterSession {
       var fieldSelector = string.IsNullOrWhiteSpace(options?.FieldSelector) ? null : options.FieldSelector.Trim();
       object raw;
       string? resourceVersion;
+
       if (IsCoreNamespaces(resource)) {
         raw = await ListNamespacesPagedAsync(cancellationToken).ConfigureAwait(false);
         resourceVersion = KubernetesResult.ResourceVersion(KubernetesResult.ToObject(raw));
@@ -82,6 +82,7 @@ public sealed partial class ClusterSession : IClusterSession {
     CancellationToken cancellationToken = default) {
     try {
       object raw;
+
       if (resource.Namespaced)
         raw = await _client.CustomObjects.GetNamespacedCustomObjectAsync(
           resource.Group,
@@ -99,6 +100,7 @@ public sealed partial class ClusterSession : IClusterSession {
           cancellationToken: cancellationToken).ConfigureAwait(false);
 
       var obj = KubernetesResult.ToObject(raw);
+
       return obj is null
         ? Result<JsonObject>.NotFound(null, "resource not found")
         : Result<JsonObject>.Ok(obj);
@@ -118,6 +120,7 @@ public sealed partial class ClusterSession : IClusterSession {
       var ns = meta?["namespace"]?.GetValue<string>();
       var apiVersion = document["apiVersion"]?.GetValue<string>() ?? resource?.Version ?? "v1";
       var kind = document["kind"]?.GetValue<string>() ?? resource?.Kind;
+
       if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(kind))
         return Result<JsonObject>.BadRequest(null, "document requires metadata.name and kind");
 
@@ -126,11 +129,13 @@ public sealed partial class ClusterSession : IClusterSession {
         : (resource.Group, resource.Version);
       var plural = resource?.Plural ?? GuessPlural(kind);
       var namespaced = resource?.Namespaced ?? !string.IsNullOrWhiteSpace(ns);
+
       if (namespaced && string.IsNullOrWhiteSpace(ns))
         ns = "default";
 
       var body = ResourceDocumentPrepare(document);
       object raw;
+
       try {
         var patch = new V1Patch(body.ToJsonString(), V1Patch.PatchType.ApplyPatch);
         raw = namespaced
@@ -151,6 +156,7 @@ public sealed partial class ClusterSession : IClusterSession {
       }
 
       var obj = KubernetesResult.ToObject(raw);
+
       return obj is null
         ? Result<JsonObject>.InternalServerError(null, "apply returned empty body")
         : Result<JsonObject>.Ok(obj);
@@ -163,6 +169,7 @@ public sealed partial class ClusterSession : IClusterSession {
   private static JsonObject ResourceDocumentPrepare(JsonObject document) {
     var clone = JsonNode.Parse(document.ToJsonString()) as JsonObject ?? document;
     clone.Remove("status");
+
     if (clone["metadata"] is JsonObject meta) {
       meta.Remove("managedFields");
       meta.Remove("generation");
@@ -182,6 +189,7 @@ public sealed partial class ClusterSession : IClusterSession {
     CancellationToken cancellationToken = default) {
     try {
       await DeleteOnceAsync(resource, name, @namespace, force, cancellationToken).ConfigureAwait(false);
+
       if (!force)
         return Result.Ok();
 
@@ -192,12 +200,14 @@ public sealed partial class ClusterSession : IClusterSession {
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       return mapped.StatusCode == HttpStatusCode.NotFound ? Result.Ok() : mapped;
     }
   }
 
   public async Task<Result> ForceDeleteNamespaceAsync(string name, CancellationToken cancellationToken = default) {
     var swept = await SweepNamespaceAsync(name, cancellationToken).ConfigureAwait(false);
+
     if (!swept.IsSuccess)
       return swept;
 
@@ -214,6 +224,7 @@ public sealed partial class ClusterSession : IClusterSession {
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       if (mapped.StatusCode != HttpStatusCode.NotFound
           && mapped.StatusCode != HttpStatusCode.Conflict)
         return mapped;
@@ -222,6 +233,7 @@ public sealed partial class ClusterSession : IClusterSession {
     try {
       var ns = await _client.CoreV1.ReadNamespaceAsync(name, cancellationToken: cancellationToken)
         .ConfigureAwait(false);
+
       if (ns.Metadata.Finalizers is { Count: > 0 }) {
         ns.Metadata.Finalizers.Clear();
         await _client.CoreV1.ReplaceNamespaceFinalizeAsync(ns, name, cancellationToken: cancellationToken)
@@ -230,6 +242,7 @@ public sealed partial class ClusterSession : IClusterSession {
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       if (mapped.StatusCode != HttpStatusCode.NotFound)
         return mapped;
     }
@@ -254,6 +267,7 @@ public sealed partial class ClusterSession : IClusterSession {
         resource.Plural,
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -269,8 +283,10 @@ public sealed partial class ClusterSession : IClusterSession {
     try {
       var (group, version, plural, namespacedTemplate) = WorkloadGvr(row.WorkloadKind);
       var limits = new JsonObject();
+
       if (!string.IsNullOrWhiteSpace(cpuLimit))
         limits["cpu"] = cpuLimit.Trim();
+
       if (!string.IsNullOrWhiteSpace(memoryLimit))
         limits["memory"] = memoryLimit.Trim();
 
@@ -294,6 +310,7 @@ public sealed partial class ClusterSession : IClusterSession {
         plural,
         row.WorkloadName,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -329,6 +346,7 @@ public sealed partial class ClusterSession : IClusterSession {
         resource.Plural,
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -354,6 +372,7 @@ public sealed partial class ClusterSession : IClusterSession {
 
       using var reader = new StreamReader(stream);
       var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
       return Result<string>.Ok(text);
     }
     catch (Exception ex) {
@@ -376,6 +395,7 @@ public sealed partial class ClusterSession : IClusterSession {
 
     try {
       var stream = response.Body;
+
       if (stream is null)
         yield break;
 
@@ -393,8 +413,10 @@ public sealed partial class ClusterSession : IClusterSession {
     ArgumentNullException.ThrowIfNull(stream);
     using var reader = new StreamReader(stream);
     using var registration = cancellationToken.Register(stream.Dispose);
+
     while (!cancellationToken.IsCancellationRequested) {
       string? line;
+
       try {
         line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
       }
@@ -409,38 +431,23 @@ public sealed partial class ClusterSession : IClusterSession {
     }
   }
 
-  public async Task<Result<PortForwardHandle>> PortForwardAsync(
+  public Task<Result<PortForwardHandle>> PortForwardAsync(
     string podName,
     string @namespace,
     int containerPort,
     int localPort,
     int requestedPort = 0,
     Func<CancellationToken, Task<Result<PortForwardEndpoint>>>? resolveTarget = null,
-    CancellationToken cancellationToken = default) {
-    try {
-      var listeners = BindLoopback(localPort);
-      var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-      var handle = new PortForwardHandle(
-        podName,
-        @namespace,
-        containerPort,
-        localPort,
-        cts,
-        () => {
-          cts.Cancel();
-          foreach (var listener in listeners)
-            listener.Stop();
-        },
-        requestedPort);
-      foreach (var listener in listeners)
-        _ = AcceptAsync(listener, handle, resolveTarget, cts.Token);
-
-      return Result<PortForwardHandle>.Ok(handle);
-    }
-    catch (Exception ex) {
-      return KubernetesResult.Map<PortForwardHandle>(ex);
-    }
-  }
+    CancellationToken cancellationToken = default) =>
+    PodPortForward.StartAsync(
+      _client,
+      podName,
+      @namespace,
+      containerPort,
+      localPort,
+      requestedPort,
+      resolveTarget,
+      cancellationToken);
 
   public async Task<Result<IReadOnlyList<JsonObject>>> ListCustomResourceDefinitionsAsync(
     CancellationToken cancellationToken = default) {
@@ -448,6 +455,7 @@ public sealed partial class ClusterSession : IClusterSession {
       var list = await _client.ApiextensionsV1.ListCustomResourceDefinitionAsync(cancellationToken: cancellationToken)
         .ConfigureAwait(false);
       var items = list.Items.Select(crd => KubernetesResult.ToObject(crd)!).Where(o => o is not null).Cast<JsonObject>().ToList();
+
       return Result<IReadOnlyList<JsonObject>>.Ok(items);
     }
     catch (Exception ex) {
@@ -462,12 +470,14 @@ public sealed partial class ClusterSession : IClusterSession {
     try {
       var versions = await _client.Apis.GetAPIVersionsAsync(cancellationToken).ConfigureAwait(false);
       var found = versions.Groups?.Any(item => string.Equals(item.Name, group, StringComparison.OrdinalIgnoreCase)) == true;
+
       return Result<bool>.Ok(found);
     }
     catch (Exception ex) {
       try {
         var list = await _client.ApiextensionsV1.ListCustomResourceDefinitionAsync(cancellationToken: cancellationToken)
           .ConfigureAwait(false);
+
         return Result<bool>.Ok(list.Items.Any(c => string.Equals(c.Spec.Group, group, StringComparison.OrdinalIgnoreCase)));
       }
       catch {
@@ -481,6 +491,7 @@ public sealed partial class ClusterSession : IClusterSession {
       var version = await _client.Version.GetCodeAsync(cancellationToken).ConfigureAwait(false);
       var nodes = await _client.CoreV1.ListNodeAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
       var pods = await _client.CoreV1.ListPodForAllNamespacesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result<ClusterSummary>.Ok(new ClusterSummary(
         version.GitVersion,
         version.Platform,
@@ -530,6 +541,7 @@ public sealed partial class ClusterSession : IClusterSession {
     try {
       var nodes = await _client.CoreV1.ListNodeAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
       var cpu = 0d;
+
       foreach (var node in nodes.Items) {
         if (node.Status?.Allocatable?.TryGetValue("cpu", out var cpuQty) == true)
           cpu += KubeQuantity.ToCores(cpuQty.ToString());
@@ -551,6 +563,7 @@ public sealed partial class ClusterSession : IClusterSession {
         : await _client.CustomObjects.ListNamespacedCustomObjectAsync("metrics.k8s.io", "v1beta1", @namespace, "pods", cancellationToken: cancellationToken);
 
       var map = new Dictionary<string, ResourceMetrics>(StringComparer.Ordinal);
+
       foreach (var item in KubernetesResult.Items(raw)) {
         var name = item["metadata"]?["name"]?.GetValue<string>() ?? string.Empty;
         var ns = item["metadata"]?["namespace"]?.GetValue<string>();
@@ -575,6 +588,7 @@ public sealed partial class ClusterSession : IClusterSession {
         cancellationToken: cancellationToken).ConfigureAwait(false);
 
       var map = new Dictionary<string, ResourceMetrics>(StringComparer.Ordinal);
+
       foreach (var item in KubernetesResult.Items(raw)) {
         var name = item["metadata"]?["name"]?.GetValue<string>() ?? string.Empty;
         var usage = item["usage"] as JsonObject;
@@ -599,6 +613,7 @@ public sealed partial class ClusterSession : IClusterSession {
         ? "owner=helm"
         : "owner=helm,name=" + releaseName.Trim();
       V1SecretList secrets;
+
       if (string.IsNullOrWhiteSpace(@namespace) || @namespace == "all")
         secrets = await _client.CoreV1.ListSecretForAllNamespacesAsync(
           labelSelector: selector,
@@ -613,6 +628,7 @@ public sealed partial class ClusterSession : IClusterSession {
         .Select(DecodeHelmDocument)
         .OfType<JsonObject>()
         .ToList();
+
       return Result<IReadOnlyList<JsonObject>>.Ok(releases);
     }
     catch (Exception ex) {
@@ -628,72 +644,26 @@ public sealed partial class ClusterSession : IClusterSession {
     CancellationToken cancellationToken = default) {
     var result = await ExecBytesAsync(podName, @namespace, container, command, null, cancellationToken)
       .ConfigureAwait(false);
+
     if (!result.IsSuccess || result.Value is null)
       return new Result<string>(null, false, result.Messages, result.StatusCode);
 
     var text = Encoding.UTF8.GetString(result.Value.Stdout);
+
     if (!string.IsNullOrEmpty(result.Value.Stderr))
       text = string.IsNullOrEmpty(text) ? result.Value.Stderr : text + "\n" + result.Value.Stderr;
 
     return Result<string>.Ok(text.TrimEnd());
   }
 
-  public async Task<Result<ExecBytesResult>> ExecBytesAsync(
+  public Task<Result<ExecBytesResult>> ExecBytesAsync(
     string podName,
     string @namespace,
     string? container,
     IReadOnlyList<string> command,
     byte[]? stdin = null,
-    CancellationToken cancellationToken = default) {
-    try {
-      var cmd = command.Count == 0 ? new[] { "sh", "-c", "echo ok" } : command.ToArray();
-      var webSocket = await _client.WebSocketNamespacedPodExecAsync(
-        podName,
-        @namespace,
-        command: cmd,
-        container: container,
-        stderr: true,
-        stdin: stdin is not null,
-        stdout: true,
-        tty: false,
-        cancellationToken: cancellationToken).ConfigureAwait(false);
-
-      using var demux = new StreamDemuxer(webSocket);
-      demux.Start();
-      using var stdout = demux.GetStream(ChannelIndex.StdOut, null);
-      using var stderr = demux.GetStream(ChannelIndex.StdErr, null);
-      using var error = demux.GetStream(ChannelIndex.Error, null);
-      var stdoutTask = ReadAllAsync(stdout, cancellationToken);
-      var stderrTask = ReadAllAsync(stderr, cancellationToken);
-      var errorTask = ReadAllAsync(error, cancellationToken);
-
-      if (stdin is not null) {
-        using (var stdinStream = demux.GetStream(null, ChannelIndex.StdIn)) {
-          if (stdin.Length > 0)
-            await stdinStream.WriteAsync(stdin, cancellationToken).ConfigureAwait(false);
-
-          await stdinStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
-      }
-
-      await Task.WhenAll(stdoutTask, stderrTask, errorTask).ConfigureAwait(false);
-      var err = Encoding.UTF8.GetString(stderrTask.Result).TrimEnd();
-      var status = Encoding.UTF8.GetString(errorTask.Result).TrimEnd();
-      if (string.IsNullOrEmpty(err))
-        err = status;
-
-      return Result<ExecBytesResult>.Ok(new ExecBytesResult(stdoutTask.Result, err));
-    }
-    catch (Exception ex) {
-      return KubernetesResult.Map<ExecBytesResult>(ex);
-    }
-  }
-
-  private static async Task<byte[]> ReadAllAsync(Stream stream, CancellationToken cancellationToken) {
-    using var buffer = new MemoryStream();
-    await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-    return buffer.ToArray();
-  }
+    CancellationToken cancellationToken = default) =>
+    PodExec.RunAsync(_client, podName, @namespace, container, command, stdin, cancellationToken);
 
   public async Task<Result> CordonAsync(string nodeName, bool unschedulable, CancellationToken cancellationToken = default) {
     try {
@@ -701,6 +671,7 @@ public sealed partial class ClusterSession : IClusterSession {
         "{\"spec\":{\"unschedulable\":" + unschedulable.ToString().ToLowerInvariant() + "}}",
         V1Patch.PatchType.MergePatch);
       await _client.CoreV1.PatchNodeAsync(patch, nodeName, cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -711,9 +682,11 @@ public sealed partial class ClusterSession : IClusterSession {
   public async Task<Result> DrainAsync(string nodeName, CancellationToken cancellationToken = default) {
     Result<IReadOnlyList<JsonObject>> pods;
     Result<IReadOnlyList<JsonObject>> budgets;
+
     try {
       pods = await ListAsync(new ResourceRef("", "v1", "pods", "Pod", true), "all", cancellationToken)
         .ConfigureAwait(false);
+
       if (!pods.IsSuccess)
         return pods.ToResult();
 
@@ -721,6 +694,7 @@ public sealed partial class ClusterSession : IClusterSession {
         new ResourceRef("policy", "v1", "poddisruptionbudgets", "PodDisruptionBudget", true),
         "all",
         cancellationToken).ConfigureAwait(false);
+
       if (!budgets.IsSuccess)
         return budgets.ToResult();
     }
@@ -730,10 +704,12 @@ public sealed partial class ClusterSession : IClusterSession {
 
     var plan = DrainPlan.ForNode(nodeName, pods.Value ?? [], budgets.Value ?? []);
     var cordon = await CordonAsync(nodeName, true, cancellationToken).ConfigureAwait(false);
+
     if (!cordon.IsSuccess)
       return cordon;
 
     var failures = new List<string>();
+
     foreach (var pod in plan.Pods.Where(item => item.Action == DrainPlan.Evict)) {
       var eviction = new V1Eviction {
         Metadata = new V1ObjectMeta {
@@ -741,6 +717,7 @@ public sealed partial class ClusterSession : IClusterSession {
           NamespaceProperty = pod.Namespace
         }
       };
+
       try {
         await _client.CoreV1.CreateNamespacedPodEvictionAsync(
           eviction,
@@ -778,6 +755,7 @@ public sealed partial class ClusterSession : IClusterSession {
         Spec = cron.Spec.JobTemplate.Spec
       };
       await _client.BatchV1.CreateNamespacedJobAsync(job, @namespace, cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -828,6 +806,7 @@ public sealed partial class ClusterSession : IClusterSession {
     string? @namespace,
     CancellationToken cancellationToken) {
     var got = await GetAsync(resource, name, @namespace, cancellationToken).ConfigureAwait(false);
+
     return got.IsSuccess && got.Value is not null;
   }
 
@@ -837,6 +816,7 @@ public sealed partial class ClusterSession : IClusterSession {
     string? @namespace,
     CancellationToken cancellationToken) {
     var patch = new V1Patch("""{"metadata":{"finalizers":[]}}""", V1Patch.PatchType.MergePatch);
+
     if (resource.Namespaced)
       await _client.CustomObjects.PatchNamespacedCustomObjectAsync(
         patch,
@@ -859,16 +839,20 @@ public sealed partial class ClusterSession : IClusterSession {
   private async Task<object> ListNamespacesPagedAsync(CancellationToken cancellationToken) {
     var listed = new List<JsonObject>();
     string? continueToken = null;
+
     do {
       var list = await KubernetesApiRetry.ExecuteAsync(
         ct => _client.CoreV1.ListNamespaceAsync(
           continueParameter: continueToken,
           cancellationToken: ct),
         cancellationToken).ConfigureAwait(false);
+
       foreach (var ns in list.Items ?? []) {
         var name = ns.Metadata?.Name;
+
         if (string.IsNullOrEmpty(name))
           continue;
+
         listed.Add(NamespaceListMerge.Document(
           name,
           ns.Status?.Phase ?? "Active",
@@ -881,8 +865,10 @@ public sealed partial class ClusterSession : IClusterSession {
     var pods = await ListPodNamespacesAsync(cancellationToken).ConfigureAwait(false);
     var merged = NamespaceListMerge.WithOrphansFromPods(listed, pods);
     var items = new JsonArray();
+
     foreach (var item in merged)
       items.Add(item);
+
     return new JsonObject { ["items"] = items };
   }
 
@@ -890,16 +876,20 @@ public sealed partial class ClusterSession : IClusterSession {
     CancellationToken cancellationToken) {
     var pods = new List<(string Namespace, DateTimeOffset? Created)>();
     string? continueToken = null;
+
     do {
       var list = await KubernetesApiRetry.ExecuteAsync(
         ct => _client.CoreV1.ListPodForAllNamespacesAsync(
           continueParameter: continueToken,
           cancellationToken: ct),
         cancellationToken).ConfigureAwait(false);
+
       foreach (var pod in list.Items ?? []) {
         var ns = pod.Metadata?.NamespaceProperty;
+
         if (string.IsNullOrEmpty(ns))
           continue;
+
         pods.Add((ns, ToOffset(pod.Metadata?.CreationTimestamp)));
       }
 
@@ -937,6 +927,7 @@ public sealed partial class ClusterSession : IClusterSession {
           item.Metadata.Name, name, gracePeriodSeconds: 0, propagationPolicy: "Background",
           cancellationToken: cancellationToken)).ConfigureAwait(false);
       await DeletePodsInNamespaceAsync(name, cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -946,20 +937,24 @@ public sealed partial class ClusterSession : IClusterSession {
 
   private async Task DeletePodsInNamespaceAsync(string name, CancellationToken cancellationToken) {
     V1PodList list;
+
     try {
       list = await _client.CoreV1.ListNamespacedPodAsync(name, cancellationToken: cancellationToken)
         .ConfigureAwait(false);
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       if (mapped.StatusCode == HttpStatusCode.NotFound)
         return;
+
       throw;
     }
 
     foreach (var pod in list.Items ?? []) {
       if (string.IsNullOrEmpty(pod.Metadata?.Name))
         continue;
+
       await IgnoreMissing(() => _client.CoreV1.DeleteNamespacedPodAsync(
         pod.Metadata.Name,
         name,
@@ -974,19 +969,23 @@ public sealed partial class ClusterSession : IClusterSession {
     Func<TItem, Task> delete)
     where TItem : IKubernetesObject<V1ObjectMeta> {
     IList<TItem> items;
+
     try {
       items = await list().ConfigureAwait(false);
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       if (mapped.StatusCode == HttpStatusCode.NotFound)
         return;
+
       throw;
     }
 
     foreach (var item in items ?? []) {
       if (string.IsNullOrEmpty(item.Metadata?.Name))
         continue;
+
       await IgnoreMissing(() => delete(item)).ConfigureAwait(false);
     }
   }
@@ -997,6 +996,7 @@ public sealed partial class ClusterSession : IClusterSession {
     }
     catch (Exception ex) {
       var mapped = KubernetesResult.Map(ex);
+
       if (mapped.StatusCode != HttpStatusCode.NotFound
           && mapped.StatusCode != HttpStatusCode.Conflict)
         throw;
@@ -1016,14 +1016,17 @@ public sealed partial class ClusterSession : IClusterSession {
     var items = new JsonArray();
     string? continueToken = null;
     string? resourceVersion = null;
+
     do {
       var raw = await KubernetesApiRetry.ExecuteAsync(
         ct => page(continueToken),
         cancellationToken).ConfigureAwait(false);
       var root = KubernetesResult.ToObject(raw);
       resourceVersion ??= KubernetesResult.ResourceVersion(root);
+
       foreach (var item in KubernetesResult.Items(raw))
         items.Add(item.DeepClone());
+
       continueToken = KubernetesResult.ContinueToken(root);
     } while (!string.IsNullOrEmpty(continueToken) && !cancellationToken.IsCancellationRequested);
 
@@ -1041,19 +1044,23 @@ public sealed partial class ClusterSession : IClusterSession {
 
   private static (string Group, string Version) SplitApiVersion(string apiVersion) {
     var parts = apiVersion.Split('/', 2);
+
     return parts.Length == 1 ? ("", parts[0]) : (parts[0], parts[1]);
   }
 
   private static string GuessPlural(string kind) {
     if (kind.EndsWith("s", StringComparison.OrdinalIgnoreCase))
       return kind.ToLowerInvariant();
+
     if (kind.EndsWith("y", StringComparison.OrdinalIgnoreCase) && kind.Length > 1)
       return kind[..^1].ToLowerInvariant() + "ies";
+
     return kind.ToLowerInvariant() + "s";
   }
 
   private static (string Cpu, string Memory) SumPodMetrics(JsonObject item) {
     var containers = item["containers"] as JsonArray;
+
     if (containers is null || containers.Count == 0)
       return ("-", "-");
 
@@ -1061,8 +1068,10 @@ public sealed partial class ClusterSession : IClusterSession {
     long mem = 0;
     var hasCpu = false;
     var hasMem = false;
+
     foreach (var c in containers.OfType<JsonObject>()) {
       var usage = c["usage"] as JsonObject;
+
       if (usage?["cpu"] is not null) {
         cpu += KubeQuantity.ToCores(usage["cpu"]?.ToString());
         hasCpu = true;
@@ -1088,6 +1097,7 @@ public sealed partial class ClusterSession : IClusterSession {
       using var gzip = new GZipStream(new MemoryStream(decoded), CompressionMode.Decompress);
       using var reader = new StreamReader(gzip);
       var json = reader.ReadToEnd();
+
       return JsonNode.Parse(json) as JsonObject ?? HelmDocumentFromLabels(secret);
     }
     catch {
@@ -1100,11 +1110,13 @@ public sealed partial class ClusterSession : IClusterSession {
     var info = new JsonObject {
       ["status"] = Label(labels, "status") ?? "unknown"
     };
+
     if (secret.Metadata.CreationTimestamp is DateTime created)
       info["last_deployed"] = new DateTimeOffset(DateTime.SpecifyKind(created, DateTimeKind.Utc)).ToString("o");
 
     var version = 0;
     _ = int.TryParse(Label(labels, "version"), out version);
+
     return new JsonObject {
       ["name"] = Label(labels, "name") ?? secret.Metadata.Name,
       ["namespace"] = secret.Metadata.NamespaceProperty ?? "",
@@ -1121,151 +1133,6 @@ public sealed partial class ClusterSession : IClusterSession {
   private static string? Label(IDictionary<string, string>? labels, string key) =>
     labels is not null && labels.TryGetValue(key, out var value) ? value : null;
 
-  private static List<TcpListener> BindLoopback(int port) {
-    SocketException? last = null;
-    var listeners = new List<TcpListener>(2);
-    foreach (var address in new[] { IPAddress.Loopback, IPAddress.IPv6Loopback }) {
-      try {
-        var listener = new TcpListener(address, port);
-        if (address.AddressFamily == AddressFamily.InterNetworkV6)
-          listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
-
-        listener.Start();
-        listeners.Add(listener);
-      }
-      catch (SocketException ex) {
-        last = ex;
-      }
-    }
-
-    if (listeners.Count == 0)
-      throw last ?? new SocketException((int)SocketError.AddressNotAvailable);
-
-    return listeners;
-  }
-
-  private async Task AcceptAsync(
-    TcpListener listener,
-    PortForwardHandle handle,
-    Func<CancellationToken, Task<Result<PortForwardEndpoint>>>? resolveTarget,
-    CancellationToken cancellationToken) {
-    try {
-      while (!cancellationToken.IsCancellationRequested) {
-        var client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
-        client.NoDelay = true;
-        _ = PumpConnectionAsync(client, handle, resolveTarget, cancellationToken);
-      }
-    }
-    catch (OperationCanceledException) {
-    }
-    catch (ObjectDisposedException) {
-    }
-    catch (SocketException) {
-    }
-  }
-
-  private async Task PumpConnectionAsync(
-    TcpClient tcp,
-    PortForwardHandle handle,
-    Func<CancellationToken, Task<Result<PortForwardEndpoint>>>? resolveTarget,
-    CancellationToken cancellationToken) {
-    StreamDemuxer? demux = null;
-    try {
-      var podName = handle.PodName;
-      var @namespace = handle.Namespace;
-      var containerPort = handle.ContainerPort;
-      if (resolveTarget is not null) {
-        var resolved = await resolveTarget(cancellationToken).ConfigureAwait(false);
-        if (!resolved.IsSuccess || resolved.Value is null) {
-          tcp.Dispose();
-          return;
-        }
-
-        podName = resolved.Value.PodName;
-        @namespace = resolved.Value.Namespace;
-        containerPort = resolved.Value.ContainerPort;
-        handle.Retarget(podName, @namespace, containerPort);
-      }
-
-      var webSocket = await _client.WebSocketNamespacedPodPortForwardAsync(
-        podName,
-        @namespace,
-        [containerPort],
-        WebSocketProtocol.V4BinaryWebsocketProtocol,
-        cancellationToken: cancellationToken).ConfigureAwait(false);
-      demux = new StreamDemuxer(webSocket, StreamType.PortForward, ownsSocket: true);
-      var stream = demux.GetStream((byte?)0, (byte?)0);
-      var errors = demux.GetStream((byte?)1, null);
-      demux.Start();
-      _ = Task.Run(() => Drain(errors), cancellationToken);
-      var socket = tcp.Client;
-      using var copyCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-      await Task.WhenAny(
-        Task.Run(() => CopySocketToStream(socket, stream, copyCts.Token), copyCts.Token),
-        Task.Run(() => CopyStreamToSocket(stream, socket, copyCts.Token), copyCts.Token)).ConfigureAwait(false);
-      copyCts.Cancel();
-    }
-    catch (OperationCanceledException) {
-    }
-    catch {
-    }
-    finally {
-      tcp.Dispose();
-      demux?.Dispose();
-    }
-  }
-
-  private static void CopySocketToStream(Socket socket, Stream stream, CancellationToken cancellationToken) {
-    var buffer = new byte[16 * 1024];
-    try {
-      while (!cancellationToken.IsCancellationRequested && socket.Connected) {
-        var read = socket.Receive(buffer);
-        if (read == 0)
-          break;
-
-        stream.Write(buffer, 0, read);
-      }
-    }
-    catch (SocketException) {
-    }
-    catch (ObjectDisposedException) {
-    }
-    catch (IOException) {
-    }
-  }
-
-  private static void CopyStreamToSocket(Stream stream, Socket socket, CancellationToken cancellationToken) {
-    var buffer = new byte[16 * 1024];
-    try {
-      while (!cancellationToken.IsCancellationRequested && socket.Connected) {
-        var read = stream.Read(buffer, 0, buffer.Length);
-        if (read == 0)
-          break;
-
-        var sent = 0;
-        while (sent < read)
-          sent += socket.Send(buffer, sent, read - sent, SocketFlags.None);
-      }
-    }
-    catch (SocketException) {
-    }
-    catch (ObjectDisposedException) {
-    }
-    catch (IOException) {
-    }
-  }
-
-  private static void Drain(Stream stream) {
-    var buffer = new byte[256];
-    try {
-      while (stream.Read(buffer, 0, buffer.Length) > 0) {
-      }
-    }
-    catch (ObjectDisposedException) {
-    }
-    catch (IOException) {
-    }
-  }
 }
 
 public interface IClusterSessionFactory {
@@ -1275,6 +1142,7 @@ public interface IClusterSessionFactory {
 public sealed class ClusterSessionFactory(IKubeConfigService kubeConfig) : IClusterSessionFactory {
   public Result<IClusterSession> Create(string contextName, string? kubeConfigPath = null) {
     var cfg = kubeConfig.Build(contextName, kubeConfigPath);
+
     if (!cfg.IsSuccess || cfg.Value is null)
       return new Result<IClusterSession>(null, false, cfg.Messages, cfg.StatusCode);
 

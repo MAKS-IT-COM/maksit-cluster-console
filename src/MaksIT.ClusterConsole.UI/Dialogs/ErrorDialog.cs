@@ -22,11 +22,14 @@ internal static class ErrorDialog {
   private static void Present(Exception? exception, bool wait) {
     if (exception is null)
       return;
+
     var report = ErrorReport.Capture(exception);
     var dispatcher = TryDispatcher();
+
     if (dispatcher is null) {
       if (wait)
         ShowStandalone(report);
+
       return;
     }
 
@@ -35,6 +38,7 @@ internal static class ErrorDialog {
         ShowUntilClosed(report);
       else
         _ = ShowAsync(report);
+
       return;
     }
 
@@ -56,12 +60,15 @@ internal static class ErrorDialog {
   private static async Task ShowAsync(string report) {
     if (Interlocked.Exchange(ref _open, 1) != 0)
       return;
+
     try {
       var window = Create(report);
       var owner = ActiveWindow();
+
       if (owner is { IsVisible: true }) {
         window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         await window.ShowDialog(owner);
+
         return;
       }
 
@@ -81,11 +88,13 @@ internal static class ErrorDialog {
   private static void ShowUntilClosed(string report) {
     if (Interlocked.Exchange(ref _open, 1) != 0)
       return;
+
     try {
       var window = Create(report);
       var owner = ActiveWindow();
       var closed = false;
       window.Closed += (_, _) => closed = true;
+
       if (owner is { IsVisible: true }) {
         window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         window.Show(owner);
@@ -96,6 +105,7 @@ internal static class ErrorDialog {
       }
 
       var dispatcher = Dispatcher.UIThread;
+
       while (!closed)
         dispatcher.RunJobs();
     }
@@ -109,12 +119,14 @@ internal static class ErrorDialog {
   private static void ShowStandalone(string report) {
     if (Interlocked.Exchange(ref _open, 1) != 0)
       return;
+
     try {
       AppBuilder.Configure<Application>()
         .UsePlatformDetect()
         .AfterSetup(builder => {
           if (builder.Instance?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime life)
             return;
+
           life.ShutdownMode = ShutdownMode.OnMainWindowClose;
           life.MainWindow = Create(report);
         })
@@ -136,6 +148,7 @@ internal static class ErrorDialog {
   private static Window? ActiveWindow() {
     if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime life)
       return null;
+
     foreach (var window in life.Windows) {
       if (window.IsActive && window is not ErrorWindow)
         return window;

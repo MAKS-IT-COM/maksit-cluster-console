@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.3%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-47.9%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-66.7%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.7%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-48.1%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-67.5%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
@@ -25,7 +25,7 @@ It is a **Kubernetes desktop app**, not a web dashboard and not a command-line c
 
 Downloads: [GitHub Releases](https://github.com/MAKS-IT-COM/maksit-cluster-console/releases) — Windows portable zip and setup, Linux Flatpak (user or system install below), macOS DMG (Apple Silicon and Intel). macOS builds are unsigned: first launch is **Open** from the context menu.
 
-Changes: [CHANGELOG.md](CHANGELOG.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+Changes: [CHANGELOG.md](CHANGELOG.md). In-app notes: [WHATSNEW.md](WHATSNEW.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 If you find this project useful, please consider supporting its development:
 
@@ -35,55 +35,90 @@ If you find this project useful, please consider supporting its development:
 
 ### Cluster overview
 
-Click a catalog row to open that context. A green dot is a live session in this app. The radio only writes kubectl `current-context` for the command line; this app does not follow it. Overview shows CPU, memory, and pod counts from metrics-server; **Resource limits** can patch container CPU/MEM against node capacity. **Cluster** and **Nodes** switch those charts. Errors and Warnings list node, pod, and event problems, a LoadBalancer Service that is Pending or Unreachable, and a PersistentVolumeClaim that is Pending.
+Click a catalog row to open that context. A green dot is a live session in this app. The radio only writes kubectl `current-context` for the command line; this app does not follow it. Until a row is open, the window stays on that catalog.
 
-![Cluster overview](assets/images/MaksIT.ClusterConsole.UI_jIJTQXS3pB.png)
+![Cluster catalog](assets/screenshots/welcome.png)
+
+Overview shows CPU, memory, and pod counts from metrics-server. **Resource limits** can patch container CPU/MEM against node capacity. **Cluster** and **Nodes** switch those charts. Errors and Warnings list node, pod, and event problems, a LoadBalancer Service that is Pending or Unreachable, and a PersistentVolumeClaim that is Pending.
+
+<!-- microsoft-store 1 -->
+![Cluster overview](assets/screenshots/overview.png)
 
 ### Applications
 
 One row per `app.kubernetes.io/instance` (or `name`) and namespace. CPU is percent of cluster allocatable; memory is summed from owned pods when metrics-server is available.
 
-![Applications table](assets/images/MaksIT.ClusterConsole.UI_CmfgCLXO7x.png)
+<!-- microsoft-store 2 -->
+![Applications table](assets/screenshots/applications.png)
 
 ### Pods
 
-Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs (Follow), Terminal (interactive shell). **Container** picks which container logs, the shell, Attach, and Debug use. **Attach** follows that container's output. **Debug** adds an ephemeral container beside it; the image box defaults to `busybox:1.36`. Kubernetes leaves that container on the running pod. It is gone when the pod is recreated. **Force delete** uses grace period 0 and strips finalizers.
+Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs, Terminal (interactive shell). **Container** picks which container logs, the shell, Attach, and Debug use. **Attach** follows that container's output. **Debug** adds an ephemeral container beside it; the image box defaults to `busybox:1.36`. Kubernetes leaves that container on the running pod. It is gone when the pod is recreated. **Force delete** uses grace period 0 and strips finalizers.
 
-![Pods table](assets/images/MaksIT.ClusterConsole.UI_FNf58xBr0a.png)
+<!-- microsoft-store 4 -->
+![Pods table](assets/screenshots/pods.png)
+
+**Logs** shows that container's output. **Follow** tails new lines instead of a one-time snapshot.
+
+<!-- microsoft-store 5 -->
+![Pod logs](assets/screenshots/pods-logs.png)
 
 ### Chat
 
 Settings → AI turns Chat on. The endpoint and model are any local [Ollama](https://ollama.com) model you already pulled. The default is `qwen3:8b`. Reading the cluster is enough with that model. Repairs work better with a larger one: `qwen3:14b`, `qwen3:32b`, or `qwen3-coder:30b`. Put that name in the model box after `ollama pull`.
 
+![AI settings](assets/screenshots/ai-settings.png)
+
 Read-only tools are cluster issues, object YAML, logs, and events. **Allow the assistant to change the cluster** adds restart, pod delete (not force-delete), scale, and YAML apply. Each of those waits for **Approve** or **Reject** in the chat. Reject leaves the cluster unchanged. No cloud AI API.
 
-![Chat on a selected pod](assets/images/MaksIT.ClusterConsole.UI_k9oNwnqYrU.png)
+<!-- microsoft-store 7 -->
+![Chat on a selected pod](assets/screenshots/pods-chat.png)
 
 ### Volume files
 
 Browse, edit, download, and upload files on a PersistentVolume or claim. Double-click a PV/PVC row, or use **Browse files** on the selected row.
 
-![Volume files](assets/images/MaksIT.ClusterConsole.UI_VEkXUIQZ6N.png)
-
 ### Dapr
 
-First-class navigator: Components, Configurations, Subscriptions, Resiliency, HTTP Endpoints, Sidecars, Control plane.
+The navigator lists Components, Configurations, Subscriptions, Resiliency, HTTP Endpoints, Sidecars, and the control plane.
 
-![Dapr Components](assets/images/MaksIT.ClusterConsole.UI_zQePBIqSNT.png)
+The control plane is the system processes in the `dapr` namespace: injector, operator, placement, and sentry. These are not application sidecars. Status and restarts show whether that system is up.
+
+![Dapr control plane](assets/screenshots/dapr-control-plane.png)
+
+A Configuration is sidecar settings for apps that reference it: tracing, metrics, and which features are on. It is not a ConfigMap, and it is not a Component.
+
+<!-- microsoft-store 10 -->
+![Dapr configurations](assets/screenshots/configurations.png)
+
+A Subscription says an app wants messages from a topic. Topic is the name. The sidecar receives them and posts them to the app.
+
+![Dapr subscriptions](assets/screenshots/subscriptions.png)
+
+A sidecar is the `daprd` container in an application pod. This list is those pods. Logs and a terminal are for that pod.
+
+![Dapr sidecars](assets/screenshots/dapr-sidecars.png)
 
 ### Port forwarding
 
 **Network → Port Forwarding**: tunnels persist, restore on reconnect, and retarget a running pod. Double-click **Active** opens `http://127.0.0.1:{port}/`. **Rebind** changes the local port.
 
-![Port forwarding](assets/images/MaksIT.ClusterConsole.UI_ktu7J3X0DP.png)
+<!-- microsoft-store 8 -->
+![Port forwarding](assets/screenshots/port-forwarding.png)
 
 ### Connections
 
 **Connections…** adds a context to the kubeconfig (bearer token, client certificate, pasted k3s certificate data, or username and password), connects one, or deletes one. Delete can also drop a cluster or user entry that nothing else references. A radio on the catalog, or in that window, writes kubectl `current-context` for the command line. This app ignores that field and uses the row you click. A green dot is a live session here. Several contexts stay connected until you disconnect them, while kubectl still has one current context. **Reload kubeconfig** rereads the file.
 
+![Connections](assets/screenshots/connections.png)
+
 ### Navigator
 
-Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources. Longhorn (volumes and nodes) and CloudNativePG (phase, ready instances, current primary) appear when those APIs are installed. Built-in kinds include admission policies, CSR, CSI objects, API services, flow control, and dynamic resource allocation, plus any CRD installed in the cluster.
+Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, Events, Helm, Dapr, Access Control, Custom Resources. CloudNativePG (phase, ready instances, current primary) appears when that API is installed. Built-in kinds include admission policies, CSR, CSI objects, API services, flow control, and dynamic resource allocation, plus any CRD installed in the cluster.
+
+Longhorn volumes and nodes appear when that API is installed. **State** is attached or detached. **Robustness** is healthy, degraded, or faulted.
+
+![Longhorn volumes](assets/screenshots/longhorn-volumes.png)
 
 ### Tables
 
@@ -93,37 +128,70 @@ Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, E
 
 View, server-side apply, create, and delete. **New** starts an empty document for a kind you can create. Apply falls back to create or replace when the API server rejects an apply patch. JSON and YAML highlighting follows the document. ConfigMap and Secret values use the key name (`.json`, `.yaml`, `.yml`) or stay plain.
 
+<!-- microsoft-store 6 -->
+![YAML](assets/screenshots/pods-yaml.png)
+
 ### Workloads
 
-The Workloads section opens on counts for Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and ReplicationControllers. A tile opens that table. **Scale** applies to a Deployment, StatefulSet, ReplicaSet, or ReplicationController. **Restart** applies to a Deployment, StatefulSet, or DaemonSet. Pause, resume, history, and undo are on a Deployment. A workload's **Pod** picker chooses which pod Logs and Terminal follow. **Trigger** starts a Job from a CronJob. **Force delete namespace** removes the selected namespace, except `default`, `kube-system`, `kube-public`, and `kube-node-lease`.
+The Workloads section opens on counts for Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and ReplicationControllers.
+
+<!-- microsoft-store 3 -->
+![Workloads overview](assets/screenshots/workloads-overview.png)
+
+A tile opens that table. **Scale** applies to a Deployment, StatefulSet, ReplicaSet, or ReplicationController. **Restart** applies to a Deployment, StatefulSet, or DaemonSet. Pause, resume, history, and undo are on a Deployment. A workload's **Pod** picker chooses which pod Logs and Terminal follow. **Trigger** starts a Job from a CronJob. **Force delete namespace** removes the selected namespace, except `default`, `kube-system`, `kube-public`, and `kube-node-lease`.
+
+![Deployments](assets/screenshots/deployments.png)
 
 ### Nodes
 
-**Cordon** refuses new pods. **Uncordon** accepts them again. **Drain** asks first. The dialog is a table: **Node**, **Outcome** (teal **Will move**, amber **Will remain**), **Namespace**, **Pod**, and **Reason**. Will remain covers a DaemonSet, a mirror pod, a completed pod, a pod with no controller, and any pod a PodDisruptionBudget would refuse. Long text wraps and the row grows. **Cancel** or Escape leaves the node as it is. **Drain** cordons the node and evicts only Will move. A refused eviction is not deleted. The Images tab marks cached images Used or Unused from the pods on that node.
+**Cordon** refuses new pods. **Uncordon** accepts them again. **Cordon** and **Drain** stay hidden unless another Ready node can still take pods, so a single-node cluster has neither. **Uncordon** still restores a node that is already cordoned. **Drain** asks first. The dialog is a table: **Node**, **Outcome** (teal **Will move**, amber **Will remain**), **Namespace**, **Pod**, and **Reason**. Will remain covers a DaemonSet, a mirror pod, a completed pod, a pod with no controller, and any pod a PodDisruptionBudget would refuse. Long text wraps and the row grows. When AI is on, the dialog also includes a short note on whether it is safe to continue and which pods stay. The note does not drain the node. **Cancel** or Escape leaves the node as it is. **Drain** cordons the node and evicts only Will move. A refused eviction is not deleted.
+
+![Nodes](assets/screenshots/nodes.png)
+
+The Images tab marks cached images Used or Unused from the pods on that node.
+
+![Node images](assets/screenshots/nodes-images.png)
 
 ### Config
 
 ConfigMaps and Secrets have a **Data** tab: keys, a decoded preview, a binary flag, **Add key**, and **Apply data**. Secret values are saved back as `stringData`. The same tables cover resource quotas, limit ranges, HorizontalPodAutoscalers, PodDisruptionBudgets, leases, runtime classes, webhooks, and admission policies.
 
+![ConfigMap data](assets/screenshots/configmaps-data.png)
+
 ### Network
 
 A Service **Status** is Active when a load-balancer address is assigned, Pending when none is set, and Unreachable when a requested or BGP address is not the one the cluster reports. The navigator also lists Endpoints, EndpointSlices, Ingresses, NetworkPolicies, and IP addresses.
+
+![Services](assets/screenshots/services.png)
 
 ### Storage
 
 Resize a PersistentVolumeClaim. **Reclaim** changes Delete or Retain on a storage class and its volumes. Changing the class itself is delete-and-recreate; the dialog explains the gap for new claims. CSI drivers, nodes, storage capacities, and volume attachments are in the navigator when the API has them.
 
+![Persistent volume claims](assets/screenshots/persistentvolumeclaims.png)
+
 ### Access
 
-Approve or deny a certificate signing request. **Token** creates a ServiceAccount token and shows it once. Roles, RoleBindings, ClusterRoles, ClusterRoleBindings, and ClusterTrustBundles are editable YAML like any other kind.
+Approve or deny a certificate signing request. Signer is who should sign it. The decision is stored on the request. **Token** creates a ServiceAccount token and shows it once.
+
+![Certificate signing requests](assets/screenshots/certificatesigningrequests.png)
+
+Roles, RoleBindings, ClusterRoles, ClusterRoleBindings, and ClusterTrustBundles are editable YAML like any other kind. A Role lists permissions in one namespace and grants nothing until a RoleBinding attaches it.
+
+![Roles](assets/screenshots/roles.png)
 
 ### Custom resources
 
 Extra columns from the CRD `additionalPrinterColumns`.
 
+![Custom resource definitions](assets/screenshots/customresourcedefinitions.png)
+
 ### Helm
 
 Charts lists each chart version installed in the cluster, taken from Helm release secrets, with the releases that use it. A release shows every stored revision, the user-supplied values, the rendered manifest, and a diff between two revisions. Chart install and upgrade stay on the Helm CLI.
+
+<!-- microsoft-store 9 -->
+![Helm charts](assets/screenshots/helm-charts.png)
 
 ### Metrics
 

@@ -61,6 +61,7 @@ public sealed record ClusterChatContext(
       return "";
 
     var value = text.Trim();
+
     if (value.Length > max)
       value = value[^max..];
 

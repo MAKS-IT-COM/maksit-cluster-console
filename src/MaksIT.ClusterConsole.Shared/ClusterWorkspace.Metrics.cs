@@ -25,11 +25,13 @@ public sealed partial class ClusterWorkspace {
       return _cachedClusterCpuAllocatable.Value;
 
     var result = await _session.GetClusterCpuAllocatableAsync(cancellationToken).ConfigureAwait(false);
+
     if (!result.IsSuccess)
       return _cachedClusterCpuAllocatable ?? 0;
 
     _cachedClusterCpuAllocatable = result.Value;
     _clusterCpuAllocatableCachedAt = DateTimeOffset.UtcNow;
+
     return result.Value;
   }
 
@@ -55,6 +57,7 @@ public sealed partial class ClusterWorkspace {
     var rows = items
       .Select(item => {
         var usage = PodMetricsAggregate.SumForOwner(item, allPods, podMetrics);
+
         return ResourceRow.From(item, descriptor, PodMetricsAggregate.ToDisplayMetrics(usage, metricsAvailable));
       })
       .Where(row => Matches(row, filter))

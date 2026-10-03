@@ -14,6 +14,7 @@ public partial class ColumnFilterHeader : UserControl {
     if (sender is Button { Flyout: Flyout flyout } button) {
       if (flyout.Content is Control content)
         content.DataContext = DataContext;
+
       flyout.ShowAt(button);
     }
 
@@ -23,8 +24,10 @@ public partial class ColumnFilterHeader : UserControl {
   private void OnValuePointerPressed(object? sender, PointerPressedEventArgs e) {
     if (sender is not Control { DataContext: ColumnFilterValueViewModel item })
       return;
+
     if (DataContext is not ColumnFilterViewModel filter)
       return;
+
     if (!e.GetCurrentPoint((Control)sender).Properties.IsLeftButtonPressed)
       return;
 

@@ -187,7 +187,7 @@ public class ConfigurationFileServiceTests {
     try {
       var service = new ConfigurationFileService(path);
       var cfg = service.Current;
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "homelab",
         Kind = "Service",
         Name = "postgres",
@@ -196,7 +196,7 @@ public class ConfigurationFileServiceTests {
         LocalPort = 5432,
         RemotePort = 5432
       });
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "homelab",
         Kind = "Service",
         Name = "postgres",
@@ -205,7 +205,7 @@ public class ConfigurationFileServiceTests {
         LocalPort = 5432,
         RemotePort = 5432
       });
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "dev",
         Kind = "Pod",
         Name = "web",
@@ -218,16 +218,16 @@ public class ConfigurationFileServiceTests {
       service.Save(cfg);
 
       var reloaded = new ConfigurationFileService(path);
-      var homelab = reloaded.Current.PortForwardsFor("homelab");
+      var homelab = reloaded.Current.Forwards.For("homelab");
       Assert.Single(homelab);
       Assert.Equal("postgres-1", homelab[0].PodName);
       Assert.Equal(5432, homelab[0].LocalPort);
       Assert.Equal("Service", homelab[0].Kind);
 
-      reloaded.Current.RemovePortForward("homelab", 5432);
+      reloaded.Current.Forwards.Remove("homelab", 5432);
       reloaded.Save(reloaded.Current);
-      Assert.Empty(new ConfigurationFileService(path).Current.PortForwardsFor("homelab"));
-      var dev = new ConfigurationFileService(path).Current.PortForwardsFor("dev");
+      Assert.Empty(new ConfigurationFileService(path).Current.Forwards.For("homelab"));
+      var dev = new ConfigurationFileService(path).Current.Forwards.For("dev");
       Assert.Single(dev);
       Assert.Equal("web", dev[0].MatchLabels!["app"]);
     }
@@ -257,6 +257,7 @@ public class ConfigurationFileServiceTests {
   [Fact]
   public void Save_to_new_file_writes_only_configuration() {
     var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+
     try {
       var service = new ConfigurationFileService(path);
       service.Save(new Configuration { SelectedNamespace = "kube-system" });
@@ -467,5 +468,35 @@ public class ConfigurationFileServiceTests {
     finally {
       File.Delete(path);
     }
+  }
+
+  [Fact]
+  public void ClearFiltersAndSort_keeps_column_widths() {
+    var layout = new LayoutSettings();
+    layout.SetColumns("homelab", "resources/pods", new Dictionary<string, double> { ["Name"] = 240 });
+    layout.SetFilters("homelab", "resources/pods", new Dictionary<string, SavedColumnFilter> {
+      ["Namespace"] = new() { Excluded = ["kube-system"] }
+    });
+    layout.SetSort("homelab", "resources/pods", new SavedColumnSort { Header = "Age", Direction = "Descending" });
+    layout.SetSearch("homelab", "pods", "coredns");
+
+    layout.ClearFiltersAndSort();
+
+    Assert.Equal(240, layout.ColumnsFor("homelab", "resources/pods")!["Name"]);
+    Assert.Null(layout.FilterFor("homelab", "resources/pods", "Namespace"));
+    Assert.Null(layout.SortFor("homelab", "resources/pods"));
+    Assert.Equal("", layout.SearchFor("homelab", "pods"));
+  }
+
+  [Fact]
+  public void UseAllNamespaces_clears_saved_scopes() {
+    var cfg = new Configuration();
+    cfg.SetNamespace("prod", "kube-system");
+
+    cfg.UseAllNamespaces();
+
+    Assert.Equal("prod", cfg.ActiveContext);
+    Assert.Equal(Configuration.AllNamespaces, cfg.NamespaceFor("prod"));
+    Assert.Equal(Configuration.AllNamespaces, cfg.SelectedNamespace);
   }
 }

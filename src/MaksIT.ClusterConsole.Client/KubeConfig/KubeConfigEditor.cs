@@ -30,13 +30,16 @@ internal static class KubeConfigEditor {
 
   public static void Save(string path, K8SConfiguration config) {
     var directory = Path.GetDirectoryName(path);
+
     if (!string.IsNullOrWhiteSpace(directory))
       Directory.CreateDirectory(directory);
 
     if (string.IsNullOrWhiteSpace(config.ApiVersion))
       config.ApiVersion = "v1";
+
     if (string.IsNullOrWhiteSpace(config.Kind))
       config.Kind = "Config";
+
     Sanitize(config);
 
     var serializer = new SerializerBuilder()
@@ -66,16 +69,20 @@ internal static class KubeConfigEditor {
     var line = "current-context: " + contextName.Trim();
     string updated;
     var match = CurrentContextLine.Match(text);
+
     if (match.Success) {
       var replacement = match.Value.EndsWith('\r') ? line + "\r" : line;
       updated = CurrentContextLine.Replace(text, replacement, 1);
     }
     else {
       var insertAt = text.IndexOf("contexts:", StringComparison.Ordinal);
+
       if (insertAt < 0)
         insertAt = text.IndexOf("clusters:", StringComparison.Ordinal);
+
       if (insertAt < 0)
         return false;
+
       updated = text.Insert(insertAt, line + newline);
     }
 
@@ -85,6 +92,7 @@ internal static class KubeConfigEditor {
     var temp = path + ".tmp." + Guid.NewGuid().ToString("N")[..8];
     File.WriteAllText(temp, updated);
     File.Move(temp, path, overwrite: true);
+
     return true;
   }
 
@@ -93,6 +101,7 @@ internal static class KubeConfigEditor {
       return request.ClusterName.Trim();
 
     var existing = config?.Contexts?.FirstOrDefault(c => c.Name == request.ContextName);
+
     if (existing?.ContextDetails?.Cluster is { Length: > 0 } cluster)
       return cluster;
 
@@ -104,6 +113,7 @@ internal static class KubeConfigEditor {
       return request.UserName.Trim();
 
     var existing = config?.Contexts?.FirstOrDefault(c => c.Name == request.ContextName);
+
     if (existing?.ContextDetails?.User is { Length: > 0 } user)
       return user;
 
@@ -114,6 +124,7 @@ internal static class KubeConfigEditor {
     var name = EffectiveClusterName(request, config);
     var clusters = config.Clusters?.ToList() ?? [];
     var cluster = clusters.FirstOrDefault(c => c.Name == name);
+
     if (cluster is null) {
       cluster = new KubeCluster { Name = name, ClusterEndpoint = new ClusterEndpoint() };
       clusters.Add(cluster);
@@ -124,6 +135,7 @@ internal static class KubeConfigEditor {
     cluster.ClusterEndpoint.SkipTlsVerify = request.InsecureSkipTlsVerify;
     ApplyCertificateAuthority(cluster.ClusterEndpoint, request);
     config.Clusters = clusters;
+
     return cluster;
   }
 
@@ -131,6 +143,7 @@ internal static class KubeConfigEditor {
     var name = EffectiveUserName(request, config);
     var users = config.Users?.ToList() ?? [];
     var user = users.FirstOrDefault(u => u.Name == name);
+
     if (user is null) {
       user = new User { Name = name, UserCredentials = new UserCredentials() };
       users.Add(user);
@@ -139,6 +152,7 @@ internal static class KubeConfigEditor {
     user.UserCredentials ??= new UserCredentials();
     ApplyCredentials(user.UserCredentials, request);
     config.Users = users;
+
     return user;
   }
 
@@ -155,6 +169,7 @@ internal static class KubeConfigEditor {
 
     if (config.Clusters is not null)
       config.Clusters = config.Clusters.Where(c => usedClusters.Contains(c.Name)).ToList();
+
     if (config.Users is not null)
       config.Users = config.Users.Where(u => usedUsers.Contains(u.Name)).ToList();
   }
@@ -166,6 +181,7 @@ internal static class KubeConfigEditor {
     string userName) {
     var contexts = config.Contexts?.ToList() ?? [];
     var context = contexts.FirstOrDefault(c => c.Name == request.ContextName);
+
     if (context is null) {
       context = new Context { Name = request.ContextName, ContextDetails = new ContextDetails() };
       contexts.Add(context);
@@ -178,14 +194,17 @@ internal static class KubeConfigEditor {
       ? null
       : request.Namespace.Trim();
     config.Contexts = contexts;
+
     if (request.UseAfterAdd)
       config.CurrentContext = request.ContextName;
+
     return context;
   }
 
   public static string? DeleteContext(K8SConfiguration config, string name, bool cleanupUnused) {
     var contexts = config.Contexts?.ToList() ?? [];
     var context = contexts.FirstOrDefault(c => c.Name == name);
+
     if (context is null)
       return "context not found";
 
@@ -193,6 +212,7 @@ internal static class KubeConfigEditor {
     var userName = context.ContextDetails?.User;
     contexts.Remove(context);
     config.Contexts = contexts;
+
     if (string.Equals(config.CurrentContext, name, StringComparison.Ordinal))
       config.CurrentContext = contexts.FirstOrDefault()?.Name;
 
@@ -221,6 +241,7 @@ internal static class KubeConfigEditor {
     var user = config.Users?.FirstOrDefault(u => u.Name == context.ContextDetails?.User);
     var endpoint = cluster?.ClusterEndpoint;
     var creds = user?.UserCredentials;
+
     return new KubeContextDetails(
       context.Name,
       context.ContextDetails?.Cluster ?? "",
@@ -237,6 +258,7 @@ internal static class KubeConfigEditor {
     if (!string.IsNullOrWhiteSpace(request.CaData)) {
       endpoint.CertificateAuthorityData = NormalizeData(request.CaData);
       endpoint.CertificateAuthority = null;
+
       return;
     }
 
@@ -246,6 +268,7 @@ internal static class KubeConfigEditor {
     if (request.EmbedClusterCa) {
       endpoint.CertificateAuthorityData = Convert.ToBase64String(File.ReadAllBytes(request.CaFile));
       endpoint.CertificateAuthority = null;
+
       return;
     }
 
@@ -256,6 +279,7 @@ internal static class KubeConfigEditor {
   private static void ApplyCredentials(UserCredentials creds, KubeConnectionRequest request) {
     if (request.AuthKind == KubeAuthKind.Cert) {
       ApplyClientCert(creds, request);
+
       return;
     }
 
@@ -265,6 +289,7 @@ internal static class KubeConfigEditor {
       creds.ClientCertificate = null;
       creds.ClientKey = null;
       creds.Token = null;
+
       return;
     }
 
@@ -272,6 +297,7 @@ internal static class KubeConfigEditor {
       creds.UserName = request.BasicUser;
       creds.Password = request.BasicPassword;
       creds.Token = null;
+
       return;
     }
 
@@ -282,10 +308,13 @@ internal static class KubeConfigEditor {
     if (request.EmbedClientCerts) {
       if (!string.IsNullOrWhiteSpace(request.ClientCertFile))
         creds.ClientCertificateData = Convert.ToBase64String(File.ReadAllBytes(request.ClientCertFile));
+
       if (!string.IsNullOrWhiteSpace(request.ClientKeyFile))
         creds.ClientKeyData = Convert.ToBase64String(File.ReadAllBytes(request.ClientKeyFile));
+
       creds.ClientCertificate = null;
       creds.ClientKey = null;
+
       return;
     }
 
@@ -297,8 +326,10 @@ internal static class KubeConfigEditor {
 
   private static string NormalizeData(string raw) {
     var text = raw.Trim().Replace("\r", "");
+
     if (text.Contains("BEGIN", StringComparison.Ordinal))
       return Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
+
     return text.Replace("\n", "");
   }
 
@@ -306,8 +337,10 @@ internal static class KubeConfigEditor {
     foreach (var user in config.Users ?? []) {
       if (user.UserCredentials is not { } creds)
         continue;
+
       if (creds.ImpersonateGroups is not null && !creds.ImpersonateGroups.Any())
         creds.ImpersonateGroups = null!;
+
       if (creds.ImpersonateUserExtra is { Count: 0 })
         creds.ImpersonateUserExtra = null!;
     }
@@ -316,33 +349,44 @@ internal static class KubeConfigEditor {
   private static string CaSummary(ClusterEndpoint? endpoint) {
     if (endpoint is null)
       return "CA none";
+
     if (!string.IsNullOrWhiteSpace(endpoint.CertificateAuthorityData))
       return "CA data: present";
+
     if (!string.IsNullOrWhiteSpace(endpoint.CertificateAuthority))
       return "CA file: " + endpoint.CertificateAuthority;
+
     if (endpoint.SkipTlsVerify)
       return "CA none (insecure)";
+
     return "CA none";
   }
 
   private static string AuthSummary(UserCredentials? creds) {
     if (creds is null)
       return "Auth: unknown";
+
     if (!string.IsNullOrWhiteSpace(creds.Token))
       return "Auth: token present";
+
     if (!string.IsNullOrWhiteSpace(creds.ClientCertificateData)
         || !string.IsNullOrWhiteSpace(creds.ClientCertificate)) {
       if (string.IsNullOrWhiteSpace(creds.ClientKeyData)
           && string.IsNullOrWhiteSpace(creds.ClientKey))
         return "Auth: client certificate (missing key)";
+
       return "Auth: client certificate + key";
     }
+
     if (!string.IsNullOrWhiteSpace(creds.UserName))
       return "Auth: basic (username: " + creds.UserName + ")";
+
     if (creds.ExternalExecution is not null)
       return "Auth: exec plugin";
+
     if (creds.AuthProvider is not null)
       return "Auth: provider";
+
     return "Auth: unknown";
   }
 }

@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:grid="using:MaksIT.ClusterConsole.UI.Controls.Grid"
+             xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
+             xmlns:views="using:MaksIT.ClusterConsole.UI.Views.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ResourceBrowserView"
+             x:DataType="vm:MainViewModel">
+  <Grid Name="ResourceTableGrid" ColumnDefinitions="*,4,420">
+    <DataGrid Name="ResourceGrid"
+              layout:LayoutMemento.ResourceTable="True"
+              grid:ResourceTable.Page="{Binding ActivePage}"
+              grid:ResourceTable.Descriptor="{Binding SelectedDescriptor}"
+              ItemsSource="{Binding ActivePage.Rows}"
+              SelectedItem="{Binding ActivePage.SelectedRow}"
+              SelectionMode="Extended"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True"
+              ClipboardCopyMode="IncludeHeader" />
+    <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
+    <views:ResourceDetailsView Grid.Column="2" />
+  </Grid>
+</UserControl>

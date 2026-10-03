@@ -20,14 +20,18 @@ public sealed partial class ClusterSession {
       return Result<StorageReclaimPreview>.BadRequest(null, "Storage class name is required.");
 
     var got = await GetAsync(StorageClassRef, name.Trim(), null, cancellationToken).ConfigureAwait(false);
+
     if (!got.IsSuccess)
       return CopyFailure<StorageReclaimPreview, JsonObject>(got);
+
     if (got.Value is null)
       return Result<StorageReclaimPreview>.NotFound(null, "Storage class not found.");
 
     var volumes = await ListPersistentVolumesAsync(cancellationToken).ConfigureAwait(false);
+
     if (!volumes.IsSuccess)
       return CopyFailure<StorageReclaimPreview, IReadOnlyList<JsonObject>>(volumes);
+
     if (volumes.Value is null)
       return Result<StorageReclaimPreview>.NotFound(null, "Persistent volume list was missing.");
 
@@ -41,8 +45,10 @@ public sealed partial class ClusterSession {
       return Result<StorageReclaimPreview>.BadRequest(null, "Select a persistent volume.");
 
     var volumes = await ListPersistentVolumesAsync(cancellationToken).ConfigureAwait(false);
+
     if (!volumes.IsSuccess)
       return CopyFailure<StorageReclaimPreview, IReadOnlyList<JsonObject>>(volumes);
+
     if (volumes.Value is null)
       return Result<StorageReclaimPreview>.NotFound(null, "Persistent volume list was missing.");
 
@@ -57,8 +63,10 @@ public sealed partial class ClusterSession {
     CancellationToken cancellationToken = default) {
     if (string.IsNullOrWhiteSpace(name))
       return Result<StorageReclaimOutcome>.BadRequest(null, "Storage class name is required.");
+
     if (ReclaimPolicy.Normalize(policy) is not { } canonical)
       return Result<StorageReclaimOutcome>.BadRequest(null, "Reclaim policy must be Delete or Retain.");
+
     if (!updateVolumes && !updateClass)
       return Result<StorageReclaimOutcome>.BadRequest(null, "Choose volumes, the storage class, or both.");
 
@@ -71,6 +79,7 @@ public sealed partial class ClusterSession {
 
     if (updateVolumes) {
       var listed = await ListPersistentVolumesAsync(cancellationToken).ConfigureAwait(false);
+
       if (!listed.IsSuccess || listed.Value is null) {
         errors.Add("Could not list volumes, so the storage class was left unchanged. " + Describe(listed));
         updateClass = false;
@@ -86,6 +95,7 @@ public sealed partial class ClusterSession {
 
     if (updateClass) {
       var got = await GetAsync(StorageClassRef, className, null, cancellationToken).ConfigureAwait(false);
+
       if (!got.IsSuccess || got.Value is null) {
         errors.Add(Describe(got));
       }
@@ -96,11 +106,13 @@ public sealed partial class ClusterSession {
         var replacement = ReclaimPolicy.Replacement(got.Value, canonical);
         var deleted = await DeleteAsync(StorageClassRef, className, null, cancellationToken: cancellationToken)
           .ConfigureAwait(false);
+
         if (!deleted.IsSuccess) {
           errors.Add(Describe(deleted));
         }
         else {
           var gone = await WaitUntilDeletedAsync(StorageClassRef, className, cancellationToken).ConfigureAwait(false);
+
           if (!gone.IsSuccess) {
             recovery = replacement;
             errors.Add(gone.StatusCode == HttpStatusCode.Conflict
@@ -109,6 +121,7 @@ public sealed partial class ClusterSession {
           }
           else {
             var created = await CreateClusterAsync(replacement, StorageClassRef, cancellationToken).ConfigureAwait(false);
+
             if (created.IsSuccess)
               recreated = true;
             else {
@@ -121,6 +134,7 @@ public sealed partial class ClusterSession {
     }
 
     var outcome = new StorageReclaimOutcome(patched, canonical, recreated, unchanged, recovery, errors);
+
     return errors.Count == 0
       ? Result<StorageReclaimOutcome>.Ok(outcome)
       : new Result<StorageReclaimOutcome>(outcome, false, errors, HttpStatusCode.Conflict);
@@ -132,12 +146,15 @@ public sealed partial class ClusterSession {
     CancellationToken cancellationToken = default) {
     if (names.Count == 0 || names.All(string.IsNullOrWhiteSpace))
       return Result<StorageReclaimOutcome>.BadRequest(null, "Select a persistent volume.");
+
     if (ReclaimPolicy.Normalize(policy) is not { } canonical)
       return Result<StorageReclaimOutcome>.BadRequest(null, "Reclaim policy must be Delete or Retain.");
 
     var listed = await ListPersistentVolumesAsync(cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return CopyFailure<StorageReclaimOutcome, IReadOnlyList<JsonObject>>(listed);
+
     if (listed.Value is null)
       return Result<StorageReclaimOutcome>.NotFound(null, "Persistent volume list was missing.");
 
@@ -145,6 +162,7 @@ public sealed partial class ClusterSession {
     var patched = await PatchVolumesAsync(ReclaimPolicy.VolumesToUpdate(listed.Value, names, canonical), canonical, errors, cancellationToken)
       .ConfigureAwait(false);
     var outcome = new StorageReclaimOutcome(patched, canonical, false, false, null, errors);
+
     return errors.Count == 0
       ? Result<StorageReclaimOutcome>.Ok(outcome)
       : new Result<StorageReclaimOutcome>(outcome, false, errors, HttpStatusCode.Conflict);
@@ -159,9 +177,11 @@ public sealed partial class ClusterSession {
     List<string> errors,
     CancellationToken cancellationToken) {
     var patched = 0;
+
     foreach (var volume in volumes) {
       var name = ReclaimPolicy.Name(volume);
       var result = await PatchVolumeReclaimAsync(name, policy, cancellationToken).ConfigureAwait(false);
+
       if (result.IsSuccess)
         patched++;
       else
@@ -183,6 +203,7 @@ public sealed partial class ClusterSession {
         "persistentvolumes",
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -198,6 +219,7 @@ public sealed partial class ClusterSession {
         resource.Version,
         resource.Plural,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -207,15 +229,20 @@ public sealed partial class ClusterSession {
 
   private async Task<Result> WaitUntilDeletedAsync(ResourceRef resource, string name, CancellationToken cancellationToken) {
     var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+
     while (true) {
       cancellationToken.ThrowIfCancellationRequested();
       var got = await GetAsync(resource, name, null, cancellationToken).ConfigureAwait(false);
+
       if (!got.IsSuccess && got.StatusCode == HttpStatusCode.NotFound)
         return Result.Ok();
+
       if (!got.IsSuccess)
         return Fail(got);
+
       if (DateTime.UtcNow >= deadline)
         return Result.Conflict($"{resource.Kind} {name} is still deleting.");
+
       await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
     }
   }

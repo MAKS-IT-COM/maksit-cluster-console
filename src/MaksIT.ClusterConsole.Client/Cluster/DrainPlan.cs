@@ -24,10 +24,12 @@ public static class DrainPlan {
     var onNode = pods.Where(pod => NodeName(pod) == nodeName).ToList();
     var actions = new Dictionary<string, DrainPodAction>(StringComparer.Ordinal);
     var candidates = new List<JsonObject>();
+
     foreach (var pod in onNode) {
       var name = Name(pod);
       var ns = Namespace(pod);
       var key = $"{ns}/{name}";
+
       if (IsCompleted(pod))
         actions[key] = new DrainPodAction(ns, name, Skip, "completed");
       else if (IsMirror(pod))
@@ -43,6 +45,7 @@ public static class DrainPlan {
     }
 
     var blocked = BlockedByBudgets(candidates, disruptionBudgets);
+
     foreach (var pod in candidates) {
       var name = Name(pod);
       var ns = Namespace(pod);
@@ -57,14 +60,17 @@ public static class DrainPlan {
       .ThenBy(pod => pod.Namespace, StringComparer.Ordinal)
       .ThenBy(pod => pod.Name, StringComparer.Ordinal)
       .ToList();
+
     return new DrainNodePlan(nodeName, ordered);
   }
 
   public static string Format(IReadOnlyList<DrainNodePlan> nodes) {
     var sb = new StringBuilder();
+
     foreach (var node in nodes) {
       if (sb.Length > 0)
         sb.AppendLine();
+
       sb.AppendLine(node.Node);
       AppendGroup(sb, "Will move", node.Pods.Where(pod => pod.Action == Evict));
       AppendGroup(sb, "Will remain", node.Pods.Where(pod => pod.Action != Evict));
@@ -72,6 +78,7 @@ public static class DrainPlan {
 
     sb.AppendLine();
     sb.Append("Nothing changes until you press Drain. Cancel leaves the node as it is. Drain cordons the node, then moves only the pods under Will move. Pods under Will remain stay. A PodDisruptionBudget that would deny eviction is left in place; those pods are not deleted.");
+
     return sb.ToString();
   }
 
@@ -81,8 +88,10 @@ public static class DrainPlan {
     sb.Append(" (");
     sb.Append(list.Count);
     sb.AppendLine(")");
+
     if (list.Count == 0) {
       sb.AppendLine("  None");
+
       return;
     }
 
@@ -91,6 +100,7 @@ public static class DrainPlan {
       sb.Append(pod.Namespace);
       sb.Append('/');
       sb.Append(pod.Name);
+
       if (!string.IsNullOrEmpty(pod.Reason)) {
         sb.Append("  ");
         sb.Append(pod.Reason);
@@ -104,8 +114,10 @@ public static class DrainPlan {
     IReadOnlyList<JsonObject> candidates,
     IEnumerable<JsonObject> disruptionBudgets) {
     var blocked = new Dictionary<string, string>(StringComparer.Ordinal);
+
     foreach (var budget in disruptionBudgets) {
       var allowed = ReadInt(budget["status"]?["disruptionsAllowed"]);
+
       if (allowed is null)
         continue;
 
@@ -114,6 +126,7 @@ public static class DrainPlan {
         .OrderBy(pod => Namespace(pod), StringComparer.Ordinal)
         .ThenBy(pod => Name(pod), StringComparer.Ordinal)
         .ToList();
+
       for (var i = Math.Max(0, allowed.Value); i < matching.Count; i++) {
         var pod = matching[i];
         var key = $"{Namespace(pod)}/{Name(pod)}";
@@ -129,6 +142,7 @@ public static class DrainPlan {
       return false;
 
     var selector = budget["spec"]?["selector"] as JsonObject;
+
     if (selector is null)
       return false;
 
@@ -137,6 +151,7 @@ public static class DrainPlan {
     var expressions = selector["matchExpressions"] as JsonArray;
     var hasLabels = matchLabels is { Count: > 0 };
     var hasExpressions = expressions is { Count: > 0 };
+
     if (!hasLabels && !hasExpressions)
       return true;
 
@@ -164,6 +179,7 @@ public static class DrainPlan {
     var values = (expression["values"] as JsonArray)?.Select(JsonPathText).ToList() ?? [];
     var present = labels?[key] is not null;
     var value = JsonPathText(labels?[key]);
+
     return op switch {
       "In" => present && values.Contains(value, StringComparer.Ordinal),
       "NotIn" => !present || !values.Contains(value, StringComparer.Ordinal),
@@ -175,6 +191,7 @@ public static class DrainPlan {
 
   private static bool IsCompleted(JsonObject pod) {
     var phase = JsonPathText(pod["status"]?["phase"]);
+
     return phase is "Succeeded" or "Failed";
   }
 
@@ -191,7 +208,9 @@ public static class DrainPlan {
     foreach (var owner in Owners(pod)) {
       if (IsTrue(owner["controller"]))
         return true;
+
       var kind = JsonPathText(owner["kind"]);
+
       if (kind is "ReplicaSet" or "StatefulSet" or "Job" or "ReplicationController" or "Deployment")
         return true;
     }
@@ -218,12 +237,16 @@ public static class DrainPlan {
   private static int? ReadInt(JsonNode? node) {
     if (node is not JsonValue value)
       return null;
+
     if (value.TryGetValue<int>(out var number))
       return number;
+
     if (value.TryGetValue<long>(out var wide))
       return (int)wide;
+
     if (value.TryGetValue<string>(out var text) && int.TryParse(text, out var parsed))
       return parsed;
+
     return null;
   }
 
@@ -235,6 +258,7 @@ public static class DrainPlan {
   private static string JsonPathText(JsonNode? node) {
     if (node is JsonValue value)
       return value.TryGetValue<string>(out var text) ? text ?? "" : value.ToString() ?? "";
+
     return node?.ToString() ?? "";
   }
 }

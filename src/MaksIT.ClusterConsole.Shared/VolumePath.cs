@@ -9,24 +9,29 @@ public static class VolumePath {
       return Result<string>.BadRequest(null, "Invalid volume mount path.");
 
     relative ??= "";
+
     if (relative.Contains('\0') || relative.Contains('\\'))
       return Result<string>.BadRequest(null, "Invalid path.");
 
     var combined = string.IsNullOrEmpty(relative) || relative == "."
       ? root.TrimEnd('/')
       : $"{root.TrimEnd('/')}/{relative.TrimStart('/')}";
+
     if (string.IsNullOrEmpty(combined))
       combined = "/";
 
     var parts = new List<string>();
+
     foreach (var part in combined.Split('/', StringSplitOptions.RemoveEmptyEntries)) {
       if (part == ".")
         continue;
+
       if (part == "..") {
         if (parts.Count == 0)
           return Result<string>.BadRequest(null, "Path escapes the volume mount.");
 
         parts.RemoveAt(parts.Count - 1);
+
         continue;
       }
 
@@ -35,6 +40,7 @@ public static class VolumePath {
 
     var full = parts.Count == 0 ? "/" : "/" + string.Join('/', parts);
     var prefix = root.TrimEnd('/');
+
     if (prefix.Length == 0)
       prefix = "/";
 
@@ -57,6 +63,7 @@ public static class VolumePath {
 
     var trimmed = current.Replace('\\', '/').Trim('/');
     var i = trimmed.LastIndexOf('/');
+
     return i < 0 ? "" : trimmed[..i];
   }
 }

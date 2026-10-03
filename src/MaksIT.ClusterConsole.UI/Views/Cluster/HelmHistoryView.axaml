@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.HelmHistoryView"
+             x:DataType="vm:MainViewModel">
+  <Grid Name="HelmHistoryGrid">
+    <layout:LayoutMemento.Band>
+      <layout:LayoutBand Slot="HelmHistoryHeight" Axis="Row" Index="1" Min="80" Max="1600" Fallback="220" MinHostExtent="160" />
+    </layout:LayoutMemento.Band>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="220" MinHeight="80" />
+      <RowDefinition Height="4" MinHeight="4" MaxHeight="4" />
+      <RowDefinition Height="*" MinHeight="72" />
+    </Grid.RowDefinitions>
+    <TextBox Grid.Row="3"
+             Text="{Binding ActivePage.Helm.HelmDiffText}"
+             AcceptsReturn="True"
+             IsReadOnly="True"
+             TextWrapping="NoWrap"
+             FontFamily="Consolas, monospace"
+             VerticalAlignment="Stretch"
+             Margin="0,8,0,0"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+    <GridSplitter Grid.Row="2" Classes="shell-split-row" ResizeDirection="Rows" />
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <TextBlock Text="Compare" Classes="hint" VerticalAlignment="Center" />
+      <ComboBox ItemsSource="{Binding ActivePage.Helm.HelmRevisions}"
+                SelectedItem="{Binding ActivePage.Helm.HelmDiffFrom}"
+                MinWidth="180"
+                x:CompileBindings="False">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding Label}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="with" Classes="hint" VerticalAlignment="Center" />
+      <ComboBox ItemsSource="{Binding ActivePage.Helm.HelmRevisions}"
+                SelectedItem="{Binding ActivePage.Helm.SelectedHelmRevision}"
+                MinWidth="180"
+                x:CompileBindings="False">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding Label}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+    <DataGrid Name="HelmRevisionsGrid"
+              layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.HelmHistoryTable}"
+              Grid.Row="1"
+              ItemsSource="{Binding ActivePage.Helm.HelmRevisions}"
+              SelectedItem="{Binding ActivePage.Helm.SelectedHelmRevision}"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True"
+              x:CompileBindings="False">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Revision" Binding="{Binding Revision}" Width="90" />
+        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+        <DataGridTextColumn Header="Chart" Binding="{Binding Chart}" Width="*" />
+        <DataGridTextColumn Header="Updated" Binding="{Binding UpdatedText}" Width="140" />
+        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

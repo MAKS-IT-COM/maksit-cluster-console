@@ -1,9 +1,11 @@
 using System.IO;
 using System.Text;
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
+using Avalonia;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MaksIT.ClusterConsole.Shared;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Storage;
@@ -16,13 +18,30 @@ public partial class VolumeFilesViewModel : ObservableObject {
   private byte[]? _fileBytes;
   private bool _loadingEditor;
   private bool _listFailed;
+  private readonly FooterLabel _unsaved = new("Unsaved") {
+    IsVisible = false,
+    Margin = new Thickness(8, 0, 0, 0)
+  };
 
   public VolumeFilesViewModel(ClusterWorkspace workspace, ResourceRow row, string? kind = null) {
     _workspace = workspace;
     _row = row;
+
     if (!string.IsNullOrEmpty(kind) && row.Document["kind"] is null)
       row.Document["kind"] = kind;
+
+    FooterItems = [
+      new FooterButton("Refresh", RefreshCommand),
+      new FooterButton("Up", GoUpCommand),
+      new FooterButton("Open", OpenEntryCommand),
+      new FooterButton("Download", DownloadCommand),
+      new FooterButton("Upload", UploadCommand),
+      new FooterButton("Save", SaveCommand),
+      _unsaved
+    ];
   }
+
+  public IReadOnlyList<FooterItem> FooterItems { get; }
 
   public ObservableCollection<VolumeMountTarget> Mounts { get; } = [];
 
@@ -105,8 +124,10 @@ public partial class VolumeFilesViewModel : ObservableObject {
     OnPropertyChanged(nameof(EditorReadOnly));
   }
 
-  partial void OnIsDirtyChanged(bool value) =>
+  partial void OnIsDirtyChanged(bool value) {
+    _unsaved.IsVisible = value;
     OnPropertyChanged(nameof(CanSave));
+  }
 
   partial void OnEditorTextChanged(string value) {
     if (_loadingEditor)
@@ -119,8 +140,10 @@ public partial class VolumeFilesViewModel : ObservableObject {
   private async Task LoadAsync() {
     Mounts.Clear();
     var listed = await _workspace.ListVolumeMountsAsync(_row.Document);
+
     if (!listed.IsSuccess) {
       Status = string.Join("; ", listed.Messages);
+
       return;
     }
 
@@ -128,6 +151,7 @@ public partial class VolumeFilesViewModel : ObservableObject {
       Mounts.Add(mount);
 
     SelectedMount = Mounts.FirstOrDefault();
+
     if (SelectedMount is null)
       Status = "No running pod is mounting this PVC. Attach a workload first.";
   }
@@ -139,13 +163,16 @@ public partial class VolumeFilesViewModel : ObservableObject {
 
     var listed = await _workspace.ListVolumeEntriesAsync(SelectedMount, CurrentPath);
     Entries.Clear();
+
     if (!listed.IsSuccess) {
       _listFailed = true;
       Status = string.Join("; ", listed.Messages);
+
       return;
     }
 
     _listFailed = false;
+
     foreach (var entry in listed.Value ?? [])
       Entries.Add(entry);
 
@@ -168,6 +195,7 @@ public partial class VolumeFilesViewModel : ObservableObject {
   [RelayCommand]
   private async Task OpenEntryAsync(VolumeEntry? entry) {
     entry ??= SelectedEntry;
+
     if (entry is null || SelectedMount is null)
       return;
 
@@ -176,19 +204,23 @@ public partial class VolumeFilesViewModel : ObservableObject {
       ClearEditor();
       GoUpCommand.NotifyCanExecuteChanged();
       await LoadEntriesAsync();
+
       return;
     }
 
     var relative = VolumePath.CombineRelative(CurrentPath, entry.Name);
     var read = await _workspace.ReadVolumeFileAsync(SelectedMount, relative);
+
     if (!read.IsSuccess || read.Value is null) {
       Status = string.Join("; ", read.Messages);
+
       return;
     }
 
     _fileBytes = read.Value;
     OpenFilePath = relative;
     _loadingEditor = true;
+
     if (VolumeText.CanEdit(read.Value)) {
       CanEdit = true;
       EditorHint = relative;
@@ -214,8 +246,10 @@ public partial class VolumeFilesViewModel : ObservableObject {
 
     var bytes = Encoding.UTF8.GetBytes(EditorText);
     var written = await _workspace.WriteVolumeFileAsync(SelectedMount, OpenFilePath, bytes);
+
     if (!written.IsSuccess) {
       Status = string.Join("; ", written.Messages);
+
       return;
     }
 
@@ -231,21 +265,27 @@ public partial class VolumeFilesViewModel : ObservableObject {
       return;
 
     var relative = OpenFilePath;
+
     if (relative is null && SelectedEntry is { IsDirectory: false } file)
       relative = VolumePath.CombineRelative(CurrentPath, file.Name);
+
     if (relative is null)
       return;
 
     var suggested = relative[(relative.LastIndexOf('/') + 1)..];
     var path = await PickSavePath(suggested);
+
     if (string.IsNullOrWhiteSpace(path))
       return;
 
     var bytes = _fileBytes;
+
     if (bytes is null || !string.Equals(OpenFilePath, relative, StringComparison.Ordinal)) {
       var read = await _workspace.ReadVolumeFileAsync(SelectedMount, relative);
+
       if (!read.IsSuccess || read.Value is null) {
         Status = string.Join("; ", read.Messages);
+
         return;
       }
 
@@ -262,13 +302,16 @@ public partial class VolumeFilesViewModel : ObservableObject {
       return;
 
     var pick = await PickOpenFile();
+
     if (pick is null)
       return;
 
     var relative = VolumePath.CombineRelative(CurrentPath, pick.Name);
     var written = await _workspace.WriteVolumeFileAsync(SelectedMount, relative, pick.Bytes);
+
     if (!written.IsSuccess) {
       Status = string.Join("; ", written.Messages);
+
       return;
     }
 
@@ -282,6 +325,7 @@ public partial class VolumeFilesViewModel : ObservableObject {
 
     var result = await _workspace.GetVolumeIdentityAsync(SelectedMount);
     Identity = result.IsSuccess ? result.Value ?? "" : "";
+
     if (!_listFailed)
       Status = StatusLine(OpenFilePath);
   }
@@ -305,10 +349,12 @@ public partial class VolumeFilesViewModel : ObservableObject {
       SelectedMount.Namespace + "/" + SelectedMount.PodName,
       SelectedMount.Container
     };
+
     if (!string.IsNullOrEmpty(Identity))
       parts.Add(Identity);
 
     parts.Add(SelectedMount.Root + (string.IsNullOrEmpty(CurrentPath) ? "" : "/" + CurrentPath));
+
     if (!string.IsNullOrEmpty(file))
       parts.Add(file);
 

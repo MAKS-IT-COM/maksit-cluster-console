@@ -1,7 +1,7 @@
 using Avalonia.Input;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-using MaksIT.ClusterConsole.Client.Cluster;
+using CommunityToolkit.Mvvm.Input;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 using MaksIT.ClusterConsole.UI.ViewModels.Cluster;
 
 
@@ -12,28 +12,35 @@ public partial class DrainPreviewWindow : Window {
     InitializeComponent();
   }
 
-  public DrainPreviewWindow(DrainPreview preview) : this() {
-    DataContext = new DrainConfirmViewModel(preview);
+  public DrainPreviewWindow(DrainConfirmViewModel model) : this() {
+    DataContext = model;
+    Actions.Items = [
+      new FooterButton("Cancel", new RelayCommand(() => Close(false))) { Edge = FooterEdge.Trailing },
+      new FooterButton("Drain", new RelayCommand(() => Close(true))) { Edge = FooterEdge.Trailing }
+    ];
   }
 
-  public static Task<bool> ShowAsync(Window owner, DrainPreview preview) {
-    var window = new DrainPreviewWindow(preview);
+  public static Task<bool> ShowAsync(Window owner, DrainConfirmViewModel model) {
+    var window = new DrainPreviewWindow(model);
+
     return window.ShowDialog<bool>(owner);
   }
-
-  private void OnCancel(object? sender, RoutedEventArgs e) =>
-    Close(false);
-
-  private void OnDrain(object? sender, RoutedEventArgs e) =>
-    Close(true);
 
   protected override void OnKeyDown(KeyEventArgs e) {
     if (e.Key == Key.Escape) {
       Close(false);
       e.Handled = true;
+
       return;
     }
 
     base.OnKeyDown(e);
+  }
+
+  protected override void OnClosed(EventArgs e) {
+    if (DataContext is DrainConfirmViewModel dialog)
+      dialog.CancelAdvice();
+
+    base.OnClosed(e);
   }
 }

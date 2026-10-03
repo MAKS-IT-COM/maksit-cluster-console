@@ -12,6 +12,7 @@ internal static class Program {
   public static void Main(string[] args) {
     AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandled;
     TaskScheduler.UnobservedTaskException += OnUnobservedTask;
+
     try {
       BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
@@ -36,6 +37,7 @@ internal static class Program {
   private static void OnDomainUnhandled(object? sender, UnhandledExceptionEventArgs e) {
     if (e.ExceptionObject is not Exception ex)
       return;
+
     if (e.IsTerminating)
       ErrorDialog.ReportBlocking(ex);
     else
@@ -44,6 +46,7 @@ internal static class Program {
 
   private static void OnUnobservedTask(object? sender, UnobservedTaskExceptionEventArgs e) {
     e.SetObserved();
+
     if (ErrorReport.IsAbandonedTransportRead(e.Exception))
       return;
 

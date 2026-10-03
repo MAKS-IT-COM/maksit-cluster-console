@@ -272,8 +272,10 @@ public class ClusterIssuesTests {
 
   private static JsonObject Condition(string type, string status, string? message = null) {
     var obj = new JsonObject { ["type"] = type, ["status"] = status };
+
     if (message is not null)
       obj["message"] = message;
+
     return obj;
   }
 

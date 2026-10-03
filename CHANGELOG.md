@@ -1,10 +1,30 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this file. In-app What's New reads [WHATSNEW.md](WHATSNEW.md).
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.8.6] - 2026-10-03
+
+### Added
+
+- When AI is on, the drain dialog includes a short note: whether it is safe to continue, which pods will move, and which stay. The note does not drain the node. Cancel still leaves the node as it is.
+
+### Fixed
+
+- A resource list that the API answers with Too Many Requests, including while storage is still initializing, is retried. The wait uses `retryAfterSeconds` when the response includes it. If the list still fails, the message says the cluster is still preparing that list.
+
+### Changed
+
+- Cordon and Drain stay hidden unless another Ready node can still take pods. A single-node cluster has neither. Uncordon still restores a node that is already cordoned.
+- The README and the Microsoft Store listing describe that rule and the drain note.
+- README screenshots are the captures in `assets/screenshots`. AppStream uses those images. The earlier `assets/images` set is removed.
+- The window footer is a separate control. Each window supplies its own buttons and fields.
+- The main window only switches surface. Cluster overview, workloads, the resource table, and each detail tab are their own views.
+- Helm, Dapr, applications, drain preview, and cluster issues are loaded by their own readers. Port-forward and shell streams open on their own connection types. List, get, apply, and delete stay on the cluster session.
+- Saved settings keep the same JSON keys. Layout, local AI, and port-forwards are read as their own sections.
 
 ## [0.8.5] - 2026-10-01
 

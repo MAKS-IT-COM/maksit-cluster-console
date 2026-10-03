@@ -32,4 +32,15 @@ public class KubernetesResultTests {
     Assert.False(mapped.IsSuccess);
     Assert.Contains("connection dropped", mapped.Messages[0], StringComparison.OrdinalIgnoreCase);
   }
+
+  [Fact]
+  public void Map_storage_initializing_is_a_short_retry_message() {
+    var ex = new HttpRequestException(
+      "Operation returned an invalid status code 'TooManyRequests', response body {\"message\":\"storage is (re)initializing\",\"reason\":\"TooManyRequests\",\"details\":{\"retryAfterSeconds\":1},\"code\":429}");
+    var mapped = KubernetesResult.Map(ex);
+
+    Assert.False(mapped.IsSuccess);
+    Assert.Contains("still preparing", mapped.Messages[0], StringComparison.OrdinalIgnoreCase);
+    Assert.DoesNotContain("response body", mapped.Messages[0], StringComparison.OrdinalIgnoreCase);
+  }
 }

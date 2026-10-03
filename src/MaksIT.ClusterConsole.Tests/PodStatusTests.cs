@@ -159,6 +159,7 @@ public class PodStatusTests {
     pod["kind"] ??= "Pod";
     pod["apiVersion"] ??= "v1";
     pod["metadata"] ??= new JsonObject { ["name"] = "pod" };
+
     return pod;
   }
 }

@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\CHANGELOG.md">
-      <LogicalName>MaksIT.ClusterConsole.Shared.CHANGELOG.md</LogicalName>
+    <EmbeddedResource Include="..\..\WHATSNEW.md">
+      <LogicalName>MaksIT.ClusterConsole.Shared.WHATSNEW.md</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

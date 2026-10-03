@@ -266,6 +266,7 @@ public class ServicePortForwardTests {
       }
       """) as JsonObject;
     Assert.NotNull(parsed);
+
     return parsed;
   }
 
@@ -282,6 +283,7 @@ public class ServicePortForwardTests {
       }
       """) as JsonObject;
     Assert.NotNull(parsed);
+
     return parsed;
   }
 }

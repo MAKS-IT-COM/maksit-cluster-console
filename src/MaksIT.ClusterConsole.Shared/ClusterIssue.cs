@@ -73,12 +73,14 @@ public static class ClusterIssues {
 
   public static string Caption(string noun, IReadOnlyList<ClusterIssue> issues) {
     var resolved = 0;
+
     foreach (var issue in issues) {
       if (issue.State == Resolved)
         resolved++;
     }
 
     var active = issues.Count - resolved;
+
     if (resolved == 0)
       return $"{noun}: {active}";
 
@@ -100,15 +102,18 @@ public static class ClusterIssues {
     var createdAt = created == default ? now : created;
     var nodeAge = JsonPath.Age(createdAt, now);
     var conditions = node["status"]?["conditions"] as JsonArray;
+
     if (conditions is null)
       yield break;
 
     foreach (var condition in conditions.OfType<JsonObject>()) {
       var type = Text(condition["type"]);
+
       if (!IsUnhealthyNodeCondition(type, condition["status"]))
         continue;
 
       var message = Text(condition["message"]);
+
       if (string.IsNullOrWhiteSpace(message))
         message = type;
 
@@ -126,6 +131,7 @@ public static class ClusterIssues {
 
   private static IEnumerable<ClusterIssue> ServiceWarnings(JsonObject service, DateTimeOffset now) {
     var status = JsonPath.ServiceStatus(service);
+
     if (status is not ("Unreachable" or "Pending"))
       yield break;
 
@@ -134,6 +140,7 @@ public static class ClusterIssues {
     var message = status == "Unreachable"
       ? "LoadBalancer address does not match the requested address"
       : "LoadBalancer has no address";
+
     yield return new ClusterIssue(
       $"service/{JsonPath.Uid(service)}/{status}",
       message,
@@ -147,6 +154,7 @@ public static class ClusterIssues {
 
   private static IEnumerable<ClusterIssue> ClaimWarnings(JsonObject claim, DateTimeOffset now) {
     var phase = Text(claim["status"]?["phase"]);
+
     if (!phase.Equals("Pending", StringComparison.OrdinalIgnoreCase))
       yield break;
 
@@ -156,6 +164,7 @@ public static class ClusterIssues {
       .OfType<JsonObject>()
       .Select(condition => Text(condition["message"]))
       .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
+
     yield return new ClusterIssue(
       $"pvc/{JsonPath.Uid(claim)}/Pending",
       string.IsNullOrWhiteSpace(detail) ? "PersistentVolumeClaim is Pending" : detail,
@@ -170,6 +179,7 @@ public static class ClusterIssues {
   private static string NamespacedName(JsonObject item) {
     var name = JsonPath.Name(item);
     var ns = JsonPath.Namespace(item);
+
     return string.IsNullOrWhiteSpace(ns) ? name : $"{ns}/{name}";
   }
 
@@ -185,10 +195,13 @@ public static class ClusterIssues {
       var involved = ev["involvedObject"] as JsonObject;
       var key = InvolvedKey(involved);
       var at = EventTime(ev);
+
       if (type.Equals("Normal", StringComparison.OrdinalIgnoreCase)) {
         var normalKey = $"{key}\0{Text(ev["reason"])}";
+
         if (!latestNormal.TryGetValue(normalKey, out var existing) || at > existing)
           latestNormal[normalKey] = at;
+
         continue;
       }
 
@@ -198,6 +211,7 @@ public static class ClusterIssues {
 
       if (latestWarning.TryGetValue(key, out var previous) && previous.At >= at)
         continue;
+
       latestWarning[key] = (ev, at);
     }
 
@@ -206,10 +220,12 @@ public static class ClusterIssues {
       var kind = Text(involved?["kind"]);
       var podStillUnhealthy = kind.Equals("Pod", StringComparison.OrdinalIgnoreCase)
         && ShouldKeepPodEvent(involved, pods);
+
       if (kind.Equals("Pod", StringComparison.OrdinalIgnoreCase) && !podStillUnhealthy)
         continue;
 
       var message = Text(ev["message"]);
+
       if (string.IsNullOrWhiteSpace(message))
         message = Text(ev["reason"]);
 
@@ -237,6 +253,7 @@ public static class ClusterIssues {
 
   private static string InvolvedKey(JsonObject? involved) {
     var uid = Text(involved?["uid"]);
+
     if (!string.IsNullOrWhiteSpace(uid))
       return uid;
 
@@ -245,6 +262,7 @@ public static class ClusterIssues {
 
   private static bool ShouldKeepPodEvent(JsonObject? involved, IReadOnlyDictionary<string, JsonObject> pods) {
     var uid = Text(involved?["uid"]);
+
     if (string.IsNullOrWhiteSpace(uid) || !pods.TryGetValue(uid, out var pod))
       return false;
 
@@ -252,6 +270,7 @@ public static class ClusterIssues {
       return true;
 
     var priority = pod["spec"]?["priority"] as JsonValue;
+
     return priority is not null
       && priority.TryGetValue<int>(out var value)
       && value >= 500_000;
@@ -259,18 +278,22 @@ public static class ClusterIssues {
 
   private static bool PodHasIssues(JsonObject pod) {
     var phase = Text(pod["status"]?["phase"]);
+
     if (!phase.Equals("Running", StringComparison.OrdinalIgnoreCase))
       return true;
 
     var conditions = pod["status"]?["conditions"] as JsonArray;
     var ready = conditions?.OfType<JsonObject>()
       .FirstOrDefault(c => Text(c["type"]) == "Ready");
+
     if (ready is not null && !IsTrue(ready["status"]))
       return true;
 
     var statuses = pod["status"]?["containerStatuses"] as JsonArray;
+
     return statuses?.OfType<JsonObject>().Any(status => {
       var waiting = Text(status["state"]?["waiting"]?["reason"]);
+
       return waiting.Equals("CrashLoopBackOff", StringComparison.OrdinalIgnoreCase);
     }) == true;
   }
@@ -310,8 +333,10 @@ public static class ClusterIssues {
   private static bool IsConditionStatus(JsonNode? node, bool flagValue, string textValue) {
     if (node is not JsonValue value)
       return false;
+
     if (value.TryGetValue<bool>(out var flag))
       return flag == flagValue;
+
     return value.TryGetValue<string>(out var text)
       && text.Equals(textValue, StringComparison.OrdinalIgnoreCase);
   }

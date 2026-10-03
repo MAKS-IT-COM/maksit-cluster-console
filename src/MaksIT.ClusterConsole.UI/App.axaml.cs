@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Windows;
+using MaksIT.ClusterConsole.Client.Ollama;
 using MaksIT.ClusterConsole.Client.Cluster;
 using MaksIT.ClusterConsole.Client.Extensions;
 using MaksIT.ClusterConsole.Client.KubeConfig;
@@ -21,6 +22,12 @@ public partial class App : Application {
     AvaloniaXamlLoader.Load(this);
 
   public override void OnFrameworkInitializationCompleted() {
+    ScreenshotTourOptions? tour = null;
+
+    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime launch
+        && !ScreenshotTourOptions.TryParse(launch.Args, out tour, out var tourError))
+      FailScreenshotTour(tourError);
+
     _host = Host.CreateDefaultBuilder()
       .ConfigureAppConfiguration(builder => {
         builder.SetBasePath(AppContext.BaseDirectory);
@@ -35,8 +42,16 @@ public partial class App : Application {
         services.AddSingleton<IKubeConfigService, KubeConfigService>();
         services.AddSingleton<IClusterSessionFactory, ClusterSessionFactory>();
         services.AddOllamaChatClient();
-        services.AddSingleton<MainViewModel>();
-        services.AddSingleton<MainWindow>();
+        services.AddSingleton(sp => new MainViewModel(
+          sp.GetRequiredService<IKubeConfigService>(),
+          sp.GetRequiredService<IClusterSessionFactory>(),
+          sp.GetRequiredService<ConfigurationFileService>(),
+          sp.GetRequiredService<IOllamaChatClient>(),
+          tour));
+        services.AddSingleton(sp => new MainWindow(
+          sp.GetRequiredService<MainViewModel>(),
+          sp.GetRequiredService<ConfigurationFileService>(),
+          tour));
       })
       .Build();
 
@@ -55,4 +70,21 @@ public partial class App : Application {
 
     base.OnFrameworkInitializationCompleted();
   }
+
+  private static void FailScreenshotTour(string? error) {
+    try {
+      if (OperatingSystem.IsWindows())
+        AttachConsole(uint.MaxValue);
+
+      Console.Error.WriteLine(error ?? "Invalid screenshot arguments.");
+    }
+    catch (Exception) {
+      // A windowed process may have no console.
+    }
+
+    Environment.Exit(2);
+  }
+
+  [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+  private static extern bool AttachConsole(uint processId);
 }

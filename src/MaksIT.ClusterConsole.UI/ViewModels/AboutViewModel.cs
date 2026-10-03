@@ -31,6 +31,7 @@ public sealed partial class AboutViewModel {
   private void OpenContact(string? uri) {
     if (string.IsNullOrWhiteSpace(uri))
       return;
+
     OpenUrl(uri);
   }
 

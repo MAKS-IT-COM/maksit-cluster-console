@@ -13,6 +13,7 @@ public sealed partial class ClusterWorkspace {
       return Result<NodeImageReport>.ServiceUnavailable(null, "not connected");
 
     var name = (node["metadata"] as JsonObject)?["name"]?.GetValue<string>();
+
     if (string.IsNullOrWhiteSpace(name))
       return Result<NodeImageReport>.BadRequest(null, "node name is missing");
 
@@ -22,8 +23,10 @@ public sealed partial class ClusterWorkspace {
       Configuration.AllNamespaces,
       cancellationToken,
       new ResourceListOptions { FieldSelector = NodeImages.PodsOnNodeSelector(name) }).ConfigureAwait(false);
+
     if (!listed.IsSuccess) {
       var error = string.Join("; ", listed.Messages);
+
       return Result<NodeImageReport>.Ok(NodeImages.Classify(node, [], false, error));
     }
 

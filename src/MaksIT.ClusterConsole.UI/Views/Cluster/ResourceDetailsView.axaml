@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
+             xmlns:details="using:MaksIT.ClusterConsole.UI.Controls.Details"
+             xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+             xmlns:views="using:MaksIT.ClusterConsole.UI.Views.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ResourceDetailsView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel Name="DetailsPane" Margin="8,0,8,8">
+    <layout:LayoutMemento.Band>
+      <layout:LayoutBand Slot="DetailsWidth" Min="180" Max="1600" Fallback="380" />
+    </layout:LayoutMemento.Band>
+    <Border DockPanel.Dock="Top" Classes="details-toolbar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding ActivePage.ShoulderTitle}"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis"
+                   Margin="0,0,8,0" />
+        <Button Grid.Column="1"
+                Content="Hint"
+                ToolTip.Tip="How to read this screen">
+          <Button.Flyout>
+            <Flyout Placement="Left">
+              <TextBlock Text="{Binding ActivePage.ShoulderHint}"
+                         TextWrapping="Wrap"
+                         MaxWidth="320" />
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+      </Grid>
+    </Border>
+    <Border DockPanel.Dock="Top" Classes="details-toolbar" IsVisible="{Binding ActivePage.HasSelectedRow}">
+      <StackPanel Spacing="8">
+        <TextBlock Text="{Binding ActivePage.DetailsTitle}"
+                   FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding ActivePage.DetailsTitle}" />
+        <Button Content="Browse files"
+                Command="{Binding ActivePage.BrowseFilesCommand}"
+                IsVisible="{Binding ActivePage.CanBrowseFiles}"
+                HorizontalAlignment="Left" />
+        <Grid ColumnDefinitions="72,*" IsVisible="{Binding ActivePage.ShowPodPicker}">
+          <TextBlock Text="Pod" Classes="hint" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding ActivePage.RelatedPods}"
+                    SelectedItem="{Binding ActivePage.SelectedRelatedPod}"
+                    PlaceholderText="Select pod">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="shared:ResourceRow">
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+        <Grid ColumnDefinitions="72,*" IsVisible="{Binding ActivePage.ShowContainerPicker}">
+          <TextBlock Text="Container" Classes="hint" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding ActivePage.Containers}"
+                    SelectedItem="{Binding ActivePage.SelectedContainer}"
+                    PlaceholderText="Select container">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="shared:PodContainer">
+                <StackPanel Spacing="1">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding Kind}" Classes="hint" Margin="8,0,0,0" />
+                  </Grid>
+                  <TextBlock Text="{Binding ImageLabel}" Classes="hint" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </StackPanel>
+    </Border>
+    <TabControl details:DetailPane.SelectedTab="{Binding ActivePage.SelectedTab, Mode=TwoWay}" Margin="0,8,0,0">
+      <TabItem Header="{x:Static shared:DetailTab.Overview}">
+        <TextBox Text="{Binding ActivePage.OverviewText}" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Yaml}">
+        <views:YamlEditorView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Data}" IsVisible="{Binding ActivePage.IsDataEditor}">
+        <views:DataEditorView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Images}" IsVisible="{Binding ActivePage.ShowImagesTab}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top"
+                     Text="{Binding ActivePage.NodeImagesCaption}"
+                     Classes="hint"
+                     TextWrapping="Wrap"
+                     Margin="0,0,0,6" />
+          <DataGrid ItemsSource="{Binding ActivePage.NodeImages}"
+                    layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.NodeImagesTable}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="State" Width="80" SortMemberPath="State">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding State}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="6,0"
+                               Foreground="{Binding State, Converter={x:Static converters:StatusBrushConverter.Instance}}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Image" Binding="{Binding Image}" Width="*" />
+              <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="SizeBytes" Width="90" />
+              <DataGridTextColumn Header="Pods" Binding="{Binding Pods}" Width="*" />
+              <DataGridTextColumn Header="Other names" Binding="{Binding OtherNames}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.History}" IsVisible="{Binding ActivePage.ShowHelmHistoryTab}">
+        <views:HelmHistoryView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Values}" IsVisible="{Binding ActivePage.ShowHelmValuesTab}">
+        <views:HelmValuesView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Manifest}" IsVisible="{Binding ActivePage.ShowHelmManifestTab}">
+        <views:HelmManifestView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Events}" IsVisible="{Binding ActivePage.ShowEventsTab}">
+        <TextBox Text="{Binding ActivePage.EventsText}" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Pods}" IsVisible="{Binding ActivePage.ShowPodsTab}">
+        <ListBox ItemsSource="{Binding ActivePage.RelatedPods}"
+                 SelectedItem="{Binding ActivePage.SelectedRelatedPod}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="shared:ResourceRow">
+              <StackPanel Spacing="1" Margin="0,2">
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="hint" TextTrimming="CharacterEllipsis">
+                  <TextBlock.Text>
+                    <MultiBinding StringFormat="{}{0}  ·  {1}">
+                      <Binding Path="Namespace" />
+                      <Binding Path="Status" />
+                    </MultiBinding>
+                  </TextBlock.Text>
+                </TextBlock>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Logs}" IsVisible="{Binding ActivePage.ShowLogsTab}">
+        <views:PodLogsView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Terminal}" IsVisible="{Binding ActivePage.ShowTerminalTab}">
+        <views:PodTerminalView />
+      </TabItem>
+      <TabItem Header="{x:Static shared:DetailTab.Chat}" IsVisible="{Binding ShowChat}">
+        <views:ClusterChatView />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

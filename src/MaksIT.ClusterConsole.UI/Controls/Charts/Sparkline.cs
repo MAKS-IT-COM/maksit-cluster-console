@@ -33,6 +33,7 @@ public sealed class Sparkline : Control {
   protected override Size MeasureOverride(Size availableSize) {
     var width = double.IsInfinity(availableSize.Width) ? 200 : Math.Max(0, availableSize.Width);
     var height = double.IsInfinity(availableSize.Height) ? 80 : Math.Max(0, availableSize.Height);
+
     return new Size(width, height);
   }
 
@@ -40,6 +41,7 @@ public sealed class Sparkline : Control {
     var values = Values;
     var bounds = new Rect(Bounds.Size);
     context.FillRectangle(new SolidColorBrush(Color.Parse("#1a1d20")), bounds);
+
     if (values is null || values.Count == 0)
       return;
 
@@ -51,14 +53,17 @@ public sealed class Sparkline : Control {
 
     Point PointAt(int i) {
       var y = origin.Y + h - h * (values[i] / max);
+
       return new Point(origin.X + step * i, y);
     }
 
     var fill = new StreamGeometry();
     using (var ctx = fill.Open()) {
       ctx.BeginFigure(new Point(origin.X, origin.Y + h), isFilled: true);
+
       for (var i = 0; i < values.Count; i++)
         ctx.LineTo(PointAt(i));
+
       ctx.LineTo(new Point(PointAt(values.Count - 1).X, origin.Y + h));
       ctx.EndFigure(true);
     }
@@ -71,8 +76,10 @@ public sealed class Sparkline : Control {
     var line = new StreamGeometry();
     using (var ctx = line.Open()) {
       ctx.BeginFigure(PointAt(0), isFilled: false);
+
       for (var i = 1; i < values.Count; i++)
         ctx.LineTo(PointAt(i));
+
       ctx.EndFigure(false);
     }
 

@@ -12,6 +12,7 @@ public sealed record PodContainer(
   public string StatusLine {
     get {
       var state = string.IsNullOrEmpty(State) ? ReadyLabel : State;
+
       return Restarts > 0 ? $"{state} · {Restarts} restarts" : state;
     }
   }

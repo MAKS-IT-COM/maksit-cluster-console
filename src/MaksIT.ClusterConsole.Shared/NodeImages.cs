@@ -28,6 +28,7 @@ public static class NodeImages {
       .Replace("\\", "\\\\", StringComparison.Ordinal)
       .Replace(",", "\\,", StringComparison.Ordinal)
       .Replace("=", "\\=", StringComparison.Ordinal);
+
     return "spec.nodeName=" + escaped;
   }
 
@@ -39,6 +40,7 @@ public static class NodeImages {
     var cached = ReadCached(node);
     var uses = podsKnown ? PodUses(pods) : [];
     var rows = new List<NodeCachedImage>(cached.Count);
+
     foreach (var image in cached) {
       var podsUsing = uses
         .Where(use => image.Refs.Any(cachedRef => use.Refs.Any(podRef => Matches(cachedRef, podRef))))
@@ -47,12 +49,14 @@ public static class NodeImages {
         .Order(StringComparer.Ordinal)
         .ToList();
       string state;
+
       if (!podsKnown)
         state = "—";
       else if (podsUsing.Count > 0)
         state = Used;
       else
         state = Unused;
+
       rows.Add(new NodeCachedImage(
         state,
         image.Display,
@@ -64,14 +68,18 @@ public static class NodeImages {
 
     rows.Sort(static (left, right) => {
       var rank = Rank(left.State).CompareTo(Rank(right.State));
+
       if (rank != 0)
         return rank;
+
       var size = right.SizeBytes.CompareTo(left.SizeBytes);
+
       return size != 0 ? size : string.Compare(left.Image, right.Image, StringComparison.OrdinalIgnoreCase);
     });
 
     var usedRows = rows.Where(row => row.State == Used).ToList();
     var unusedRows = rows.Where(row => row.State == Unused).ToList();
+
     return new NodeImageReport(
       rows,
       Caption(
@@ -108,6 +116,7 @@ public static class NodeImages {
         ? "No cached images reported"
         : $"{imageCount} cached · {KubeQuantity.FormatBytesCompact(bytes)}";
       var why = string.IsNullOrWhiteSpace(podsError) ? "pods could not be listed" : podsError;
+
       return listed + " · " + why;
     }
 
@@ -115,19 +124,24 @@ public static class NodeImages {
       return "No cached images reported on this node.";
 
     var text = $"{used} used · {KubeQuantity.FormatBytesCompact(usedBytes)} · {unused} unused · {KubeQuantity.FormatBytesCompact(unusedBytes)}";
+
     if (truncated)
       text += " · kubelet lists at most 50 images, largest first";
+
     return text;
   }
 
   private static List<CachedImage> ReadCached(JsonObject? node) {
     var images = node?["status"]?["images"] as JsonArray;
+
     if (images is null)
       return [];
 
     var cached = new List<CachedImage>();
+
     foreach (var item in images.OfType<JsonObject>()) {
       var names = ReadNames(item);
+
       if (names.Count == 0)
         continue;
 
@@ -145,9 +159,11 @@ public static class NodeImages {
 
   private static List<PodUse> PodUses(IReadOnlyList<JsonObject> pods) {
     var uses = new List<PodUse>();
+
     foreach (var pod in pods) {
       var meta = pod["metadata"] as JsonObject;
       var name = ReadString(meta?["name"]);
+
       if (string.IsNullOrEmpty(name))
         continue;
 
@@ -156,6 +172,7 @@ public static class NodeImages {
       var refs = new List<ImageRef>();
       CollectSpec(pod["spec"] as JsonObject, refs);
       CollectStatus(pod["status"] as JsonObject, refs);
+
       if (refs.Count > 0)
         uses.Add(new PodUse(label, refs));
     }
@@ -188,6 +205,7 @@ public static class NodeImages {
 
     foreach (var item in items.OfType<JsonObject>()) {
       var raw = ReadString(item[field]);
+
       if (!string.IsNullOrWhiteSpace(raw))
         refs.Add(Parse(raw));
     }
@@ -211,6 +229,7 @@ public static class NodeImages {
 
   private static ImageRef Parse(string raw) {
     var value = raw.Trim();
+
     foreach (var prefix in new[] { "docker-pullable://", "containerd://", "cri-o://" }) {
       if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         value = value[prefix.Length..];
@@ -221,15 +240,19 @@ public static class NodeImages {
 
     string? digest = null;
     var at = value.LastIndexOf('@');
+
     if (at >= 0) {
       var tail = value[(at + 1)..];
+
       if (IsDigest(tail))
         digest = tail.ToLowerInvariant();
+
       value = value[..at];
     }
 
     string? tag = null;
     var colon = value.LastIndexOf(':');
+
     if (colon > 0 && !value[(colon + 1)..].Contains('/')) {
       tag = value[(colon + 1)..];
       value = value[..colon];
@@ -240,20 +263,24 @@ public static class NodeImages {
 
   private static bool IsDigest(string value) {
     var colon = value.IndexOf(':');
+
     if (colon <= 0)
       return false;
 
     var algo = value[..colon];
+
     if (!string.Equals(algo, "sha256", StringComparison.OrdinalIgnoreCase)
         && !string.Equals(algo, "sha512", StringComparison.OrdinalIgnoreCase))
       return false;
 
     var hex = value[(colon + 1)..];
+
     return hex.Length >= 32 && hex.All(static c => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
   }
 
   private static string NormalizeRepository(string name) {
     name = name.ToLowerInvariant();
+
     if (name.StartsWith("index.docker.io/", StringComparison.Ordinal))
       name = name["index.docker.io/".Length..];
     else if (name.StartsWith("docker.io/", StringComparison.Ordinal))
@@ -268,6 +295,7 @@ public static class NodeImages {
   private static string DisplayName(IReadOnlyList<string> names) {
     foreach (var name in names) {
       var parsed = Parse(name);
+
       if (parsed.Repository.Length > 0 && parsed.Tag is not null && parsed.Digest is null)
         return name;
     }
@@ -277,6 +305,7 @@ public static class NodeImages {
 
   private static List<string> ReadNames(JsonObject image) {
     var names = image["names"] as JsonArray;
+
     if (names is null)
       return [];
 
@@ -293,12 +322,16 @@ public static class NodeImages {
   private static long ReadBytes(JsonNode? node) {
     if (node is not JsonValue value)
       return 0;
+
     if (value.TryGetValue<long>(out var n))
       return n;
+
     if (value.TryGetValue<int>(out var i))
       return i;
+
     if (value.TryGetValue<double>(out var d))
       return (long)d;
+
     return 0;
   }
 

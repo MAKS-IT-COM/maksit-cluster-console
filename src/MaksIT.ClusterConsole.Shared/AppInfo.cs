@@ -28,16 +28,21 @@ public static class AppInfo {
     get {
       var assembly = Assembly.GetEntryAssembly() ?? typeof(AppInfo).Assembly;
       var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
       if (!string.IsNullOrWhiteSpace(informational)) {
         var plus = informational.IndexOf('+', StringComparison.Ordinal);
+
         return plus >= 0 ? informational[..plus] : informational;
       }
 
       var version = assembly.GetName().Version;
+
       if (version is null)
         return "";
+
       if (version.Build < 0)
         return $"{version.Major}.{version.Minor}";
+
       return $"{version.Major}.{version.Minor}.{version.Build}";
     }
   }

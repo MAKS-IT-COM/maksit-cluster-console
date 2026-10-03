@@ -36,6 +36,7 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
     GrammarRegistry.SetTheme(Options.GetDefaultTheme());
     Theme = GrammarRegistry.GetTheme();
     Brushes = [];
+
     foreach (var color in Theme.GetColorMap()) {
       if (string.IsNullOrEmpty(color))
         continue;
@@ -78,16 +79,19 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
     }
     catch (ArgumentOutOfRangeException) {
       Clear();
+
       return;
     }
 
     var index = line.LineNumber - 1;
+
     if (index < 0 || index >= _lines.Count)
       return;
 
     foreach (var span in _lines[index]) {
       var start = line.Offset + span.Start;
       var end = line.Offset + span.End;
+
       if (start >= end || start < line.Offset || end > line.EndOffset)
         continue;
 
@@ -98,6 +102,7 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
   void EnsureThrough(int lineNumber) {
     var document = _document;
     var grammar = _grammar;
+
     if (document is null || grammar is null)
       return;
 
@@ -106,12 +111,14 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
       var text = document.GetText(line);
       var previous = _states.Count == 0 ? null : _states[^1];
       ITokenizeLineResult result;
+
       try {
         result = grammar.TokenizeLine(text, previous, TokenLimit);
       }
       catch (Exception) {
         _states.Add(previous);
         _lines.Add([]);
+
         continue;
       }
 
@@ -122,6 +129,7 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
 
   void OnDocumentChanged(object? sender, DocumentChangeEventArgs e) {
     var document = _document;
+
     if (document is null)
       return;
 
@@ -155,32 +163,40 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
     }
 
     Grammars[scope] = cached;
+
     return cached;
   }
 
   static LineSpan[] Spans(string text, ITokenizeLineResult result) {
     var tokens = result.Tokens;
+
     if (tokens is null || tokens.Length == 0 || text.Length == 0)
       return [];
 
     var spans = new List<LineSpan>(tokens.Length);
+
     for (var i = 0; i < tokens.Length; i++) {
       var start = tokens[i].StartIndex;
       var end = i + 1 < tokens.Length ? tokens[i + 1].StartIndex : text.Length;
+
       if (start >= text.Length)
         break;
+
       if (end > text.Length)
         end = text.Length;
+
       if (start >= end)
         continue;
 
       var style = StyleFor(tokens[i].Scopes);
+
       if (style is null)
         continue;
 
       if (spans.Count > 0 && spans[^1].End == start && spans[^1].Style.Equals(style.Value)) {
         var previous = spans[^1];
         spans[^1] = previous with { End = end };
+
         continue;
       }
 
@@ -195,6 +211,7 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
       return null;
 
     List<string>? list = null;
+
     foreach (var scope in scopes) {
       list ??= [];
       list.Add(scope);
@@ -206,11 +223,14 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
     var foreground = 0;
     var background = 0;
     var fontStyle = ThemeFontStyle.NotSet;
+
     foreach (var rule in Theme.Match(list)) {
       if (foreground == 0 && rule.foreground > 0)
         foreground = rule.foreground;
+
       if (background == 0 && rule.background > 0)
         background = rule.background;
+
       if (fontStyle == ThemeFontStyle.NotSet && rule.fontStyle > 0)
         fontStyle = rule.fontStyle;
     }
@@ -220,6 +240,7 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
 
     Brushes.TryGetValue(foreground, out var foregroundBrush);
     Brushes.TryGetValue(background, out var backgroundBrush);
+
     if (foregroundBrush is null && backgroundBrush is null && fontStyle == ThemeFontStyle.NotSet)
       return null;
 
@@ -229,12 +250,14 @@ sealed class MarkupColorizer : DocumentColorizingTransformer {
   static void Apply(VisualLineElement element, LineSpan span) {
     if (span.Style.Foreground is not null)
       element.TextRunProperties.SetForegroundBrush(span.Style.Foreground);
+
     if (span.Style.Background is not null)
       element.TextRunProperties.SetBackgroundBrush(span.Style.Background);
 
     var italic = span.Style.Font != ThemeFontStyle.NotSet && (span.Style.Font & ThemeFontStyle.Italic) != 0;
     var bold = span.Style.Font != ThemeFontStyle.NotSet && (span.Style.Font & ThemeFontStyle.Bold) != 0;
     var underline = span.Style.Font != ThemeFontStyle.NotSet && (span.Style.Font & ThemeFontStyle.Underline) != 0;
+
     if (underline)
       element.TextRunProperties.SetTextDecorations(TextDecorations.Underline);
 

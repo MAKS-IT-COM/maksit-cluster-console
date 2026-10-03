@@ -34,6 +34,7 @@ public sealed record HelmRevision(
 public static class HelmRelease {
   public static HelmRevision? Read(JsonObject release) {
     var name = JsonPath.Text(release["name"]);
+
     if (string.IsNullOrWhiteSpace(name))
       return null;
 
@@ -43,6 +44,7 @@ public static class HelmRelease {
     var chartVersion = JsonPath.Text(metadata?["version"]);
     var chart = string.IsNullOrEmpty(chartVersion) ? chartName : $"{chartName}-{chartVersion}";
     var status = JsonPath.Text(info?["status"]);
+
     if (string.IsNullOrWhiteSpace(status))
       status = "unknown";
 
@@ -51,12 +53,14 @@ public static class HelmRelease {
       ? "No user-supplied values.\n"
       : YamlFormatter.FromJson(config);
     var manifest = JsonPath.Text(release["manifest"]);
+
     if (string.IsNullOrWhiteSpace(manifest))
       manifest = "No manifest stored in this revision.\n";
     else if (!manifest.EndsWith('\n'))
       manifest += "\n";
 
     DateTimeOffset? updated = null;
+
     if (DateTimeOffset.TryParse(JsonPath.Text(info?["last_deployed"]), out var parsed))
       updated = parsed;
 
@@ -102,6 +106,7 @@ public static class HelmRelease {
         var lines = string.Join(
           '\n',
           installed.Select(revision => $"{revision.Namespace}/{revision.Name}  {revision.Status}  r{revision.Revision}"));
+
         return new HelmChart(
           group.Key.Name,
           group.Key.ChartVersion,
@@ -119,6 +124,7 @@ public static class HelmRelease {
   public static string Diff(string before, string after) {
     var left = Lines(before);
     var right = Lines(after);
+
     if (left.SequenceEqual(right))
       return "No differences.";
 
@@ -127,8 +133,10 @@ public static class HelmRelease {
 
     var ops = Changes(left, right);
     var sb = new System.Text.StringBuilder();
+
     foreach (var (kind, line) in ops)
       sb.Append(kind).Append(' ').AppendLine(line);
+
     return sb.ToString();
   }
 
@@ -136,6 +144,7 @@ public static class HelmRelease {
     var n = left.Length;
     var m = right.Length;
     var score = new int[n + 1, m + 1];
+
     for (var i = n - 1; i >= 0; i--) {
       for (var j = m - 1; j >= 0; j--)
         score[i, j] = left[i] == right[j]
@@ -146,6 +155,7 @@ public static class HelmRelease {
     var ops = new List<(char Kind, string Line)>();
     var x = 0;
     var y = 0;
+
     while (x < n && y < m) {
       if (left[x] == right[y]) {
         ops.Add((' ', left[x]));
@@ -164,8 +174,10 @@ public static class HelmRelease {
 
     while (x < n)
       ops.Add(('-', left[x++]));
+
     while (y < m)
       ops.Add(('+', right[y++]));
+
     return Collapse(ops);
   }
 
@@ -173,9 +185,11 @@ public static class HelmRelease {
     var collapsed = new List<(char Kind, string Line)>();
     var context = new List<string>();
     var started = false;
+
     foreach (var op in ops) {
       if (op.Kind == ' ') {
         context.Add(op.Line);
+
         continue;
       }
 
@@ -186,6 +200,7 @@ public static class HelmRelease {
 
     if (started && context.Count > 0) {
       var tail = context.Count > 2 ? context.Take(2) : context;
+
       foreach (var line in tail)
         collapsed.Add((' ', line));
     }
@@ -197,15 +212,19 @@ public static class HelmRelease {
     if (!started) {
       if (context.Count > 2)
         collapsed.Add((' ', "…"));
+
       foreach (var line in context.TakeLast(2))
         collapsed.Add((' ', line));
+
       return true;
     }
 
     if (context.Count > 4) {
       foreach (var line in context.Take(2))
         collapsed.Add((' ', line));
+
       collapsed.Add((' ', "…"));
+
       foreach (var line in context.TakeLast(2))
         collapsed.Add((' ', line));
     }
@@ -219,20 +238,26 @@ public static class HelmRelease {
 
   private static string[] Lines(string text) {
     var parts = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+
     if (parts.Length > 0 && parts[^1].Length == 0)
       return parts[..^1];
+
     return parts;
   }
 
   private static int? ReadInt(JsonNode? node) {
     if (node is not JsonValue value)
       return null;
+
     if (value.TryGetValue<int>(out var number))
       return number;
+
     if (value.TryGetValue<long>(out var wide))
       return (int)wide;
+
     if (value.TryGetValue<string>(out var text) && int.TryParse(text, out var parsed))
       return parsed;
+
     return null;
   }
 }

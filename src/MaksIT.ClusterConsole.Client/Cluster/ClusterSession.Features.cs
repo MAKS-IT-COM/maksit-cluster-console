@@ -51,6 +51,7 @@ public sealed partial class ClusterSession {
 
     await foreach (var (type, item) in stream.ConfigureAwait(false)) {
       cancellationToken.ThrowIfCancellationRequested();
+
       yield return new ClusterWatchEvent(type.ToString(), KubernetesResult.ToObject(item));
     }
   }
@@ -75,6 +76,7 @@ public sealed partial class ClusterSession {
         "persistentvolumeclaims",
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -99,6 +101,7 @@ public sealed partial class ClusterSession {
         "deployments",
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -111,6 +114,7 @@ public sealed partial class ClusterSession {
     string @namespace,
     CancellationToken cancellationToken = default) {
     var sets = await ListOwnedReplicaSetsAsync(name, @namespace, cancellationToken).ConfigureAwait(false);
+
     if (!sets.IsSuccess)
       return new Result<IReadOnlyList<string>>(null, false, sets.Messages, sets.StatusCode);
 
@@ -124,14 +128,17 @@ public sealed partial class ClusterSession {
         name,
         @namespace,
         cancellationToken).ConfigureAwait(false);
+
       if (!deployment.IsSuccess || deployment.Value is null)
         return Fail(deployment);
 
       var sets = await ListOwnedReplicaSetsAsync(name, @namespace, cancellationToken).ConfigureAwait(false);
+
       if (!sets.IsSuccess)
         return Fail(sets);
 
       var template = RolloutHistory.PreviousTemplate(deployment.Value, sets.Value ?? []);
+
       if (template is null)
         return Result.BadRequest("No previous rollout revision.");
 
@@ -146,6 +153,7 @@ public sealed partial class ClusterSession {
         "deployments",
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -166,6 +174,7 @@ public sealed partial class ClusterSession {
         patch,
         name,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -190,6 +199,7 @@ public sealed partial class ClusterSession {
         @namespace,
         cancellationToken: cancellationToken).ConfigureAwait(false);
       var token = created.Status?.Token;
+
       return string.IsNullOrEmpty(token)
         ? Result<string>.InternalServerError(null, "Token request returned an empty token.")
         : Result<string>.Ok(token);
@@ -226,6 +236,7 @@ public sealed partial class ClusterSession {
       await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
       var text = Encoding.UTF8.GetString(stdoutTask.Result);
       var err = Encoding.UTF8.GetString(stderrTask.Result).TrimEnd();
+
       if (!string.IsNullOrEmpty(err))
         text = string.IsNullOrEmpty(text) ? err : text + "\n" + err;
 
@@ -251,6 +262,7 @@ public sealed partial class ClusterSession {
         podName,
         @namespace,
         cancellationToken).ConfigureAwait(false);
+
       if (!pod.IsSuccess || pod.Value is null)
         return Fail(pod);
 
@@ -264,6 +276,7 @@ public sealed partial class ClusterSession {
         ["stdin"] = true,
         ["tty"] = true
       };
+
       if (!string.IsNullOrWhiteSpace(targetContainer))
         debug["targetContainerName"] = targetContainer;
 
@@ -276,6 +289,7 @@ public sealed partial class ClusterSession {
         podName,
         @namespace,
         cancellationToken: cancellationToken).ConfigureAwait(false);
+
       return Result.Ok();
     }
     catch (Exception ex) {
@@ -292,6 +306,7 @@ public sealed partial class ClusterSession {
       name,
       @namespace,
       cancellationToken).ConfigureAwait(false);
+
     if (!deployment.IsSuccess || deployment.Value is null)
       return new Result<IReadOnlyList<JsonObject>>(null, false, deployment.Messages, deployment.StatusCode);
 
@@ -301,12 +316,14 @@ public sealed partial class ClusterSession {
       @namespace,
       cancellationToken,
       selector is null ? null : new ResourceListOptions { LabelSelector = selector }).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return listed;
 
     var owned = (listed.Value ?? [])
       .Where(item => RolloutHistory.Revision(item) > 0)
       .ToList();
+
     return Result<IReadOnlyList<JsonObject>>.Ok(owned);
   }
 
@@ -341,6 +358,7 @@ public sealed partial class ClusterSession {
     var message = source.Messages is { Count: > 0 }
       ? string.Join("; ", source.Messages)
       : "request failed";
+
     return source.StatusCode switch {
       HttpStatusCode.BadRequest => Result.BadRequest(message),
       HttpStatusCode.Unauthorized => Result.Unauthorized(message),
@@ -357,6 +375,7 @@ public sealed partial class ClusterSession {
       return true;
 
     var text = ex.ToString();
+
     return text.Contains("415", StringComparison.Ordinal)
       || text.Contains("UnsupportedMediaType", StringComparison.OrdinalIgnoreCase);
   }
@@ -364,12 +383,16 @@ public sealed partial class ClusterSession {
   private static async Task<byte[]> ReadUntilAsync(Stream stream, CancellationToken cancellationToken) {
     using var buffer = new MemoryStream();
     var chunk = new byte[4096];
+
     try {
       while (!cancellationToken.IsCancellationRequested) {
         var read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
+
         if (read == 0)
           break;
+
         buffer.Write(chunk, 0, read);
+
         if (buffer.Length >= 64 * 1024)
           break;
       }

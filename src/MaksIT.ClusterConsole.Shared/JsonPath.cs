@@ -50,6 +50,7 @@ public static class JsonPath {
       return string.Empty;
 
     var node = Walk(root, path);
+
     return Format(node, path);
   }
 
@@ -78,17 +79,20 @@ public static class JsonPath {
 
   public static string? Namespace(JsonObject item) {
     var text = Text(Property(item["metadata"] as JsonObject ?? item["Metadata"] as JsonObject, "namespace"));
+
     return string.IsNullOrEmpty(text) ? null : text;
   }
 
   public static string Uid(JsonObject item) {
     var text = Text(Property(item["metadata"] as JsonObject ?? item["Metadata"] as JsonObject, "uid"));
+
     return string.IsNullOrEmpty(text) ? Name(item) : text;
   }
 
   private static JsonNode? Property(JsonObject? root, string name) {
     if (root is null)
       return null;
+
     if (root[name] is { } exact)
       return exact;
 
@@ -105,14 +109,17 @@ public static class JsonPath {
       return string.Empty;
 
     var claim = item["spec"]?["claimRef"] as JsonObject;
+
     if (claim is null)
       return string.Empty;
 
     var name = claim["name"]?.GetValue<string>();
+
     if (string.IsNullOrWhiteSpace(name))
       return string.Empty;
 
     var ns = claim["namespace"]?.GetValue<string>();
+
     return string.IsNullOrWhiteSpace(ns) ? name : $"{ns}/{name}";
   }
 
@@ -121,14 +128,17 @@ public static class JsonPath {
       return string.Empty;
 
     var type = Text(item["spec"]?["type"]);
+
     if (!type.Equals("LoadBalancer", StringComparison.OrdinalIgnoreCase))
       return string.IsNullOrWhiteSpace(type) ? string.Empty : "Active";
 
     var requested = RequestedLoadBalancerIps(item);
     var assigned = AssignedLoadBalancerIps(item);
     var requestedMissing = requested.Any(ip => !assigned.Contains(ip, StringComparer.OrdinalIgnoreCase));
+
     if (requested.Count > 0 && (requestedMissing || !IpamSatisfied(item)))
       return "Unreachable";
+
     if (assigned.Count == 0)
       return "Pending";
 
@@ -155,6 +165,7 @@ public static class JsonPath {
     }
 
     var annotation = Text(item["metadata"]?["annotations"]?["lbipam.cilium.io/ips"]);
+
     if (!string.IsNullOrWhiteSpace(annotation)) {
       foreach (var ip in annotation.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         AddUnique(ips, ip);
@@ -167,6 +178,7 @@ public static class JsonPath {
     var ips = new List<string>();
     AddUnique(ips, Text(item["spec"]?["loadBalancerIP"]));
     var annotation = Text(item["metadata"]?["annotations"]?["lbipam.cilium.io/ips"]);
+
     if (!string.IsNullOrWhiteSpace(annotation)) {
       foreach (var ip in annotation.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         AddUnique(ips, ip);
@@ -177,6 +189,7 @@ public static class JsonPath {
 
   private static List<string> AssignedLoadBalancerIps(JsonObject item) {
     var ips = new List<string>();
+
     if (item["status"]?["loadBalancer"]?["ingress"] is JsonArray ingress) {
       foreach (var entry in ingress.OfType<JsonObject>()) {
         AddUnique(ips, Text(entry["ip"]));
@@ -193,6 +206,7 @@ public static class JsonPath {
 
     foreach (var condition in conditions.OfType<JsonObject>()) {
       var type = Text(condition["type"]);
+
       if (!type.Contains("ipam", StringComparison.OrdinalIgnoreCase)
           || !type.Contains("satisfied", StringComparison.OrdinalIgnoreCase))
         continue;
@@ -206,26 +220,31 @@ public static class JsonPath {
   private static void AddUnique(List<string> ips, string? value) {
     if (string.IsNullOrWhiteSpace(value))
       return;
+
     if (!ips.Contains(value, StringComparer.OrdinalIgnoreCase))
       ips.Add(value);
   }
 
   public static string PodReady(JsonObject item) {
     var statuses = item["status"]?["containerStatuses"] as JsonArray;
+
     if (statuses is null || statuses.Count == 0)
       return "0/0";
 
     var ready = statuses.OfType<JsonObject>().Count(c => c["ready"]?.GetValue<bool>() == true);
+
     return $"{ready}/{statuses.Count}";
   }
 
   public static string CrdStorageVersion(JsonObject? crd) {
     var versions = crd?["spec"]?["versions"] as JsonArray;
+
     if (versions is null)
       return string.Empty;
 
     var stored = versions.OfType<JsonObject>().FirstOrDefault(v => IsTrue(v["storage"]));
     var served = versions.OfType<JsonObject>().FirstOrDefault(v => IsTrue(v["served"]));
+
     return stored?["name"]?.GetValue<string>()
       ?? served?["name"]?.GetValue<string>()
       ?? versions.OfType<JsonObject>().FirstOrDefault()?["name"]?.GetValue<string>()
@@ -234,10 +253,12 @@ public static class JsonPath {
 
   public static string PodRestarts(JsonObject item) {
     var statuses = item["status"]?["containerStatuses"] as JsonArray;
+
     if (statuses is null)
       return "0";
 
     var sum = statuses.OfType<JsonObject>().Sum(c => c["restartCount"]?.GetValue<int>() ?? 0);
+
     return sum.ToString(CultureInfo.InvariantCulture);
   }
 
@@ -251,6 +272,7 @@ public static class JsonPath {
     AddContainers(items, spec?["initContainers"] as JsonArray, status?["initContainerStatuses"] as JsonArray, "Init");
     AddContainers(items, spec?["containers"] as JsonArray, status?["containerStatuses"] as JsonArray, "Container");
     AddContainers(items, spec?["ephemeralContainers"] as JsonArray, status?["ephemeralContainerStatuses"] as JsonArray, "Ephemeral");
+
     return items;
   }
 
@@ -271,6 +293,7 @@ public static class JsonPath {
 
     foreach (var container in spec.OfType<JsonObject>()) {
       var name = container["name"]?.GetValue<string>();
+
       if (string.IsNullOrEmpty(name))
         continue;
 
@@ -292,6 +315,7 @@ public static class JsonPath {
 
   private static string ContainerState(JsonObject? status) {
     var state = status?["state"] as JsonObject;
+
     if (state is null)
       return string.Empty;
 
@@ -347,21 +371,26 @@ public static class JsonPath {
 
   public static string Age(DateTimeOffset when, DateTimeOffset utcNow) {
     var age = utcNow - when.ToUniversalTime();
+
     if (age.TotalDays >= 1)
       return $"{(int)age.TotalDays}d";
+
     if (age.TotalHours >= 1) {
       var hours = (int)age.TotalHours;
       var minutes = age.Minutes;
+
       return minutes > 0 ? $"{hours}h{minutes}m" : $"{hours}h";
     }
 
     if (age.TotalMinutes >= 1)
       return $"{(int)age.TotalMinutes}m";
+
     return $"{Math.Max(0, (int)age.TotalSeconds)}s";
   }
 
   public static bool TryTimestamp(JsonNode? node, out DateTimeOffset value) {
     value = default;
+
     return node is not null && TryTimestamp(node.ToString(), out value);
   }
 
@@ -371,11 +400,13 @@ public static class JsonPath {
   private static string NodeCondition(JsonNode root) {
     var conditions = Walk(root, "status.conditions") as JsonArray;
     var ready = conditions?.OfType<JsonObject>().FirstOrDefault(c => c["type"]?.ToString() == "Ready");
+
     return ready?["status"]?.ToString() == "True" ? "Ready" : "NotReady";
   }
 
   private static string NodeRoles(JsonNode root) {
     var labels = Walk(root, "metadata.labels") as JsonObject;
+
     if (labels is null)
       return string.Empty;
 
@@ -383,77 +414,99 @@ public static class JsonPath {
       .Where(p => p.Key.StartsWith("node-role.kubernetes.io/", StringComparison.Ordinal))
       .Select(p => p.Key["node-role.kubernetes.io/".Length..])
       .ToList();
+
     return roles.Count == 0 ? "worker" : string.Join(",", roles);
   }
 
   private static string LonghornSize(JsonObject? item) {
     var bytes = ReadBytes(item?["spec"]?["size"]);
+
     return bytes <= 0 ? "" : KubeQuantity.FormatBytesCompact(bytes);
   }
 
   private static string LonghornScheduling(JsonObject? item) {
     var node = item?["spec"]?["allowScheduling"];
+
     if (node is JsonValue value && value.TryGetValue<bool>(out var allowed))
       return allowed ? "Yes" : "No";
+
     return "";
   }
 
   private static string LonghornDisks(JsonObject? item) {
     var disks = item?["status"]?["diskStatus"] as JsonObject;
+
     if (disks is null || disks.Count == 0)
       return "No disks";
 
     long available = 0;
     var notReady = 0;
+
     foreach (var disk in disks) {
       if (disk.Value is not JsonObject status)
         continue;
+
       available += ReadBytes(status["storageAvailable"]);
       var conditions = status["conditions"] as JsonArray;
       var ready = conditions?.OfType<JsonObject>().FirstOrDefault(c => Text(c["type"]) == "Ready");
+
       if (ready is not null && !string.Equals(Text(ready["status"]), "True", StringComparison.OrdinalIgnoreCase))
         notReady++;
     }
 
     var text = $"{disks.Count} disks · {KubeQuantity.FormatBytesCompact(available)} available";
+
     if (notReady > 0)
       text += $" · {notReady} not ready";
+
     return text;
   }
 
   private static string CnpgInstances(JsonObject? item) {
     var ready = ReadInt(item?["status"]?["readyInstances"]);
     var instances = ReadInt(item?["status"]?["instances"]);
+
     if (ready is null && instances is null)
       return "";
+
     if (ready is null)
       return instances!.Value.ToString(CultureInfo.InvariantCulture);
+
     if (instances is null)
       return ready.Value.ToString(CultureInfo.InvariantCulture);
+
     return $"{ready.Value.ToString(CultureInfo.InvariantCulture)}/{instances.Value.ToString(CultureInfo.InvariantCulture)}";
   }
 
   private static long ReadBytes(JsonNode? node) {
     if (node is not JsonValue value)
       return 0;
+
     if (value.TryGetValue<long>(out var number))
       return number;
+
     if (value.TryGetValue<int>(out var small))
       return small;
+
     if (value.TryGetValue<string>(out var text))
       return KubeQuantity.ToBytes(text);
+
     return 0;
   }
 
   private static int? ReadInt(JsonNode? node) {
     if (node is not JsonValue value)
       return null;
+
     if (value.TryGetValue<int>(out var number))
       return number;
+
     if (value.TryGetValue<long>(out var wide))
       return (int)wide;
+
     if (value.TryGetValue<string>(out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
       return parsed;
+
     return null;
   }
 }

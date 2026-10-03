@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Connections"
         x:Class="MaksIT.ClusterConsole.UI.Windows.ConnectionsWindow"
         x:DataType="vm:ConnectionsViewModel"
@@ -18,20 +19,7 @@
 
     <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
       <TextBlock Text="{Binding Status}" Classes="hint" TextWrapping="Wrap" />
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <Button Content="Add…" Command="{Binding AddCommand}" />
-          <Button Content="Connect" Command="{Binding ConnectCommand}" IsEnabled="{Binding HasSelection}" />
-          <Button Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding HasSelection}" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal">
-          <CheckBox Content="Cleanup unused cluster/user on delete"
-                    IsChecked="{Binding CleanupUnused}"
-                    VerticalAlignment="Center"
-                    Margin="0,0,12,0" />
-          <Button Content="Close" Command="{Binding CloseCommand}" />
-        </StackPanel>
-      </Grid>
+      <footer:WindowFooter Items="{Binding FooterItems}" />
     </StackPanel>
 
     <Grid ColumnDefinitions="280,12,*">

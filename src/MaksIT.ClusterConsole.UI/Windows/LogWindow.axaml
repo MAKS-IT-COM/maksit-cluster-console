@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
         x:Class="MaksIT.ClusterConsole.UI.Windows.LogWindow"
         x:DataType="vm:LogViewModel"
@@ -12,23 +13,10 @@
         Icon="/Assets/icon.ico"
         Title="Logs">
   <DockPanel Margin="16">
-    <StackPanel DockPanel.Dock="Bottom"
-                Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                Spacing="8"
-                Margin="0,12,0,0">
-      <TextBlock Text="{Binding CopyStatus}"
-                 Classes="hint"
-                 VerticalAlignment="Center"
-                 Margin="0,0,8,0" />
-      <Button Content="Copy"
-              Click="OnCopyClick" />
-      <Button Content="Close"
-              Padding="16,8"
-              Click="OnCloseClick"
-              IsDefault="True"
-              IsCancel="True" />
-    </StackPanel>
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0"
+                         Spacing="8" />
     <ComboBox DockPanel.Dock="Top"
               ItemsSource="{Binding Files}"
               SelectedItem="{Binding SelectedFile}"

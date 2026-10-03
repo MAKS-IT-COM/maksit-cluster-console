@@ -59,6 +59,10 @@
     <Setter Property="Padding" Value="10,4" />
     <Setter Property="Margin" Value="0,0,6,0" />
   </Style>
+  <Style Selector="Button.footer-button">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
   <Style Selector="Button.scope-toggle">
     <Setter Property="Padding" Value="12,5" />
     <Setter Property="Margin" Value="0,0,6,0" />

@@ -13,12 +13,14 @@ public static class PodShell {
     command[1] = "-c";
     command[2] = "export TERM=xterm-256color; exec \"$0\" \"$@\"";
     parts.CopyTo(command, 3);
+
     return command;
   }
 
   public static byte[] ResizePayload(int columns, int rows) {
     columns = Math.Clamp(columns, 1, 1000);
     rows = Math.Clamp(rows, 1, 1000);
+
     return Encoding.UTF8.GetBytes(FormattableString.Invariant($"{{\"Width\":{columns},\"Height\":{rows}}}\n"));
   }
 
@@ -28,10 +30,12 @@ public static class PodShell {
 
     try {
       var node = JsonNode.Parse(status);
+
       if (node is null)
         return ShellStatus.Unknown;
 
       var message = node["message"]?.GetValue<string>();
+
       if (string.Equals(node["status"]?.GetValue<string>(), "Success", StringComparison.OrdinalIgnoreCase))
         return new ShellStatus(0, message);
 
@@ -39,6 +43,7 @@ public static class PodShell {
         foreach (var cause in causes) {
           if (!string.Equals(cause?["reason"]?.GetValue<string>(), "ExitCode", StringComparison.Ordinal))
             continue;
+
           if (int.TryParse(cause?["message"]?.GetValue<string>(), out var code))
             return new ShellStatus(code, message);
         }
@@ -56,6 +61,7 @@ public static class PodShell {
       return ["/bin/sh"];
 
     var parts = shell.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     return parts.Length == 0 ? ["/bin/sh"] : parts;
   }
 }

@@ -18,10 +18,16 @@ indent_size = 2
 # K&R braces (opening brace on same line)
 csharp_new_line_before_open_brace = none
 
-# keep else/catch/finally on new line
+# keep else/catch/finally on new line (keyword line only — no extra blank line before them)
 csharp_new_line_before_else = true
 csharp_new_line_before_catch = true
 csharp_new_line_before_finally = true
+
+# Blank lines inside blocks are manual (no Roslyn IDE id):
+# one blank line before if/for/foreach/while/do/switch/try and before
+# return/continue/break/throw/yield when another statement precedes them
+# in the same block. No blank line before else/catch/finally, or between
+# a braceless keyword and its single-statement body.
 
 # indentation
 csharp_indent_block_contents = true

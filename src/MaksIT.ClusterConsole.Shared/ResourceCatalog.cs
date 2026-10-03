@@ -73,7 +73,7 @@ public static class ResourceCatalog {
       new("Age", "metadata.creationTimestamp")
     ],
     new ResourceActions(CanScale: false, CanRestart: false, CanApply: false),
-    ["Overview", "YAML", "Events", "Pods", "Logs", "Terminal"]);
+    [DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Pods, DetailTab.Logs, DetailTab.Terminal]);
 
   public static ResourceDescriptor PortForwardingDescriptor { get; } = new(
     PortForwardingId,
@@ -93,7 +93,7 @@ public static class ResourceCatalog {
       new("Status", "status")
     ],
     new ResourceActions(CanDelete: false, CanApply: false),
-    ["Overview"]);
+    [DetailTab.Overview]);
 
   public static ResourceDescriptor HelmChartsDescriptor { get; } = new(
     HelmChartsId,
@@ -113,7 +113,7 @@ public static class ResourceCatalog {
       new("Namespaces", "namespaces")
     ],
     new ResourceActions(CanDelete: false, CanApply: false),
-    ["Overview"]);
+    [DetailTab.Overview]);
 
   public static ResourceDescriptor HelmReleasesDescriptor { get; } = new(
     HelmReleasesId,
@@ -134,7 +134,7 @@ public static class ResourceCatalog {
       new("Updated", "updated")
     ],
     new ResourceActions(CanDelete: false, CanApply: false),
-    ["Overview", "History", "Values", "Manifest"]);
+    [DetailTab.Overview, DetailTab.History, DetailTab.Values, DetailTab.Manifest]);
 
   public static ResourceDescriptor? Find(string id) =>
     id switch {
@@ -153,6 +153,7 @@ public static class ResourceCatalog {
     var slash = apiVersion.IndexOf('/');
     var group = slash < 0 ? "" : apiVersion[..slash];
     var version = slash < 0 ? apiVersion : apiVersion[(slash + 1)..];
+
     return BuiltIns.FirstOrDefault(d =>
       d.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase)
       && d.Group.Equals(group, StringComparison.OrdinalIgnoreCase)
@@ -162,6 +163,7 @@ public static class ResourceCatalog {
   public static ResourceDescriptor? FromCustomResourceDefinition(JsonObject crd) {
     var spec = crd["spec"] as JsonObject;
     var group = spec?["group"]?.GetValue<string>();
+
     if (string.IsNullOrWhiteSpace(group)
         || group.Equals("apiextensions.k8s.io", StringComparison.OrdinalIgnoreCase))
       return null;
@@ -169,11 +171,13 @@ public static class ResourceCatalog {
     var names = spec?["names"] as JsonObject;
     var plural = names?["plural"]?.GetValue<string>();
     var kind = names?["kind"]?.GetValue<string>();
+
     if (string.IsNullOrEmpty(plural) || string.IsNullOrEmpty(kind)
         || kind.Equals("CustomResourceDefinition", StringComparison.OrdinalIgnoreCase))
       return null;
 
     var version = JsonPath.CrdStorageVersion(crd);
+
     if (string.IsNullOrEmpty(version))
       return null;
 
@@ -184,16 +188,20 @@ public static class ResourceCatalog {
       new("Namespace", "metadata.namespace")
     };
     var stored = CrdVersion(crd, version);
+
     if (stored?["additionalPrinterColumns"] is JsonArray printers) {
       foreach (var column in printers.OfType<JsonObject>()) {
         var header = column["name"]?.GetValue<string>();
         var jsonPath = column["jsonPath"]?.GetValue<string>();
+
         if (string.IsNullOrWhiteSpace(header) || string.IsNullOrWhiteSpace(jsonPath))
           continue;
+
         if (columns.Any(c => c.Header.Equals(header, StringComparison.OrdinalIgnoreCase)))
           continue;
 
         var path = PrinterColumnPath(jsonPath);
+
         if (string.IsNullOrEmpty(path))
           continue;
 
@@ -214,15 +222,17 @@ public static class ResourceCatalog {
       namespaced,
       columns,
       new ResourceActions(),
-      ["Overview", "YAML", "Events"]);
+      [DetailTab.Overview, DetailTab.Yaml, DetailTab.Events]);
   }
 
   public static string PrinterColumnPath(string jsonPath) {
     var path = jsonPath.Trim();
+
     if (path.StartsWith('.'))
       path = path[1..];
 
     var bracket = path.IndexOf('[');
+
     if (bracket >= 0)
       path = path[..bracket];
 
@@ -231,6 +241,7 @@ public static class ResourceCatalog {
 
   private static JsonObject? CrdVersion(JsonObject crd, string version) {
     var versions = crd["spec"]?["versions"] as JsonArray;
+
     return versions?.OfType<JsonObject>().FirstOrDefault(v =>
       string.Equals(v["name"]?.GetValue<string>(), version, StringComparison.Ordinal));
   }
@@ -245,11 +256,11 @@ public static class ResourceCatalog {
       .ToList();
 
   private static IReadOnlyList<ResourceDescriptor> Build() {
-    var yamlTabs = new[] { "Overview", "YAML", "Events" };
-    var nodeTabs = new[] { "Overview", "YAML", "Events", "Images" };
-    var podTabs = new[] { "Overview", "YAML", "Events", "Logs", "Terminal" };
-    var workloadTabs = new[] { "Overview", "YAML", "Events", "Pods", "Logs", "Terminal" };
-    var serviceTabs = new[] { "Overview", "YAML", "Events", "Pods" };
+    var yamlTabs = new[] { DetailTab.Overview, DetailTab.Yaml, DetailTab.Events };
+    var nodeTabs = new[] { DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Images };
+    var podTabs = new[] { DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Logs, DetailTab.Terminal };
+    var workloadTabs = new[] { DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Pods, DetailTab.Logs, DetailTab.Terminal };
+    var serviceTabs = new[] { DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Pods };
     var crud = new ResourceActions();
     var scale = new ResourceActions(CanScale: true, CanRestart: true);
     var logs = new ResourceActions(CanLogs: true, CanExec: true, CanPortForward: true, CanAttach: true, CanDebug: true);
@@ -392,7 +403,7 @@ public static class ResourceCatalog {
         crud, yamlTabs),
       D("events", "Events", Events, "", "v1", "events", "Event", true,
         [new("Type", "type"), new("Reason", "reason"), new("Object", "involvedObject.name"), new("Message", "message"), new("Namespace", "metadata.namespace"), new("Age", "metadata.creationTimestamp")],
-        new ResourceActions(CanDelete: false, CanApply: false), ["Overview", "YAML"]),
+        new ResourceActions(CanDelete: false, CanApply: false), [DetailTab.Overview, DetailTab.Yaml]),
       D("serviceaccounts", "Service Accounts", AccessControl, "", "v1", "serviceaccounts", "ServiceAccount", true, std, new ResourceActions(CanToken: true), yamlTabs),
       D("certificatesigningrequests", "Certificate Signing Requests", AccessControl, "certificates.k8s.io", "v1", "certificatesigningrequests", "CertificateSigningRequest", false,
         [new("Name", "metadata.name"), new("Signer", "spec.signerName"), new("Age", "metadata.creationTimestamp")],

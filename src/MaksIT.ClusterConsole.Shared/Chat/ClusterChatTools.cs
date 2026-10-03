@@ -72,6 +72,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
   public static JsonObject? PrepareManifest(string yaml) {
     var document = YamlFormatter.ToJsonObject(yaml);
+
     return document is null ? null : ResourceDocument.PrepareForApply(document);
   }
 
@@ -80,6 +81,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     var resourceName = Arg(args, "name") ?? "(unnamed)";
     var ns = Arg(args, "namespace");
     var where = string.IsNullOrWhiteSpace(ns) ? "" : $" in {ns}";
+
     return name switch {
       "restart_workload" => $"Restart {kind}/{resourceName}{where}.",
       "delete_pod" => $"Delete Pod/{resourceName}{where}. The controller can recreate it.",
@@ -97,15 +99,18 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       return "";
 
     var yaml = Arg(args, "yaml");
+
     if (string.IsNullOrWhiteSpace(yaml))
       return "No YAML was provided. Nothing will be applied.";
 
     var prepared = PrepareManifest(yaml);
+
     if (prepared is null)
       return "The YAML could not be parsed. Nothing will be applied.";
 
     var text = YamlFormatter.FromJson(prepared);
     const int max = 6000;
+
     return text.Length <= max
       ? text
       : text[..max] + $"{Environment.NewLine}… truncated";
@@ -131,6 +136,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       "apply_manifest" => await ApplyManifestAsync(args, cancellationToken).ConfigureAwait(false),
       _ => $"Unknown tool '{name}'."
     };
+
     return Truncate(result);
   }
 
@@ -140,6 +146,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     if (arguments.ValueKind == JsonValueKind.String) {
       var text = arguments.GetString();
+
       return string.IsNullOrWhiteSpace(text)
         ? []
         : JsonNode.Parse(text) as JsonObject ?? [];
@@ -153,12 +160,15 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
   private async Task<string> GetIssuesAsync(CancellationToken cancellationToken) {
     var issues = await workspace.GetClusterIssuesAsync(cancellationToken).ConfigureAwait(false);
+
     if (!issues.IsSuccess || issues.Value is null)
       return JoinMessages(issues.Messages);
 
     var lines = new List<string>();
+
     foreach (var error in issues.Value.Errors.Take(25))
       lines.Add($"ERROR {error.State} {error.Kind}/{error.ObjectName}: {error.Message} ({error.Age})");
+
     foreach (var warning in issues.Value.Warnings.Take(25))
       lines.Add($"WARN {warning.State} {warning.Kind}/{warning.ObjectName}: {warning.Message} ({warning.Age})");
 
@@ -176,15 +186,18 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     var kind = Arg(args, "kind") ?? context.Kind;
     var name = Arg(args, "name") ?? context.Name;
+
     if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(name))
       return "get_resource needs kind and name.";
 
     var descriptor = Resolve(kind);
+
     if (descriptor is null)
       return $"Unknown kind '{kind}'.";
 
     var ns = NamespaceArg(args, context, descriptor.Namespaced);
     var got = await workspace.Session.GetAsync(descriptor.ToRef(), name, ns, cancellationToken).ConfigureAwait(false);
+
     if (!got.IsSuccess || got.Value is null)
       return JoinMessages(got.Messages);
 
@@ -200,6 +213,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     var pod = Arg(args, "pod") ?? context.Pod ?? (IsPod(context.Kind) ? context.Name : null);
     var ns = Arg(args, "namespace") ?? context.Namespace;
+
     if (string.IsNullOrWhiteSpace(pod))
       return "get_logs needs a pod name. Select a pod in the UI or pass pod.";
 
@@ -210,10 +224,12 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     var tail = IntArg(args, "tailLines", 80, 1, 200);
     var logs = await workspace.Session.GetLogsAsync(pod, ns, container, false, tail, cancellationToken)
       .ConfigureAwait(false);
+
     if (!logs.IsSuccess)
       return JoinMessages(logs.Messages);
 
     var text = logs.Value ?? "";
+
     return string.IsNullOrWhiteSpace(text)
       ? $"No log lines for {pod}/{container ?? "(default container)"}."
       : text;
@@ -227,6 +243,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       return "Not connected to a cluster.";
 
     var name = Arg(args, "name") ?? context.Name;
+
     if (string.IsNullOrWhiteSpace(name))
       return "get_events needs an object name.";
 
@@ -236,6 +253,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       events.ToRef(),
       ns == Configuration.AllNamespaces ? null : ns,
       cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return JoinMessages(listed.Messages);
 
@@ -246,6 +264,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
         var type = e["type"]?.ToString();
         var reason = e["reason"]?.ToString();
         var message = e["message"]?.ToString();
+
         return $"{type} {reason}: {message}";
       })
       .ToList();
@@ -264,16 +283,19 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     var kind = Arg(args, "kind") ?? context.Kind;
     var name = Arg(args, "name") ?? context.Name;
+
     if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(name))
       return "restart_workload needs kind and name.";
 
     var descriptor = Resolve(kind);
+
     if (descriptor is null || !descriptor.Actions.CanRestart)
       return "restart_workload only supports Deployment, StatefulSet, and DaemonSet.";
 
     var ns = NamespaceArg(args, context, descriptor.Namespaced);
     var restarted = await workspace.Session.RestartAsync(descriptor.ToRef(), name, ns, cancellationToken)
       .ConfigureAwait(false);
+
     return restarted.IsSuccess
       ? $"Restarted {descriptor.Kind}/{name}."
       : JoinMessages(restarted.Messages);
@@ -287,16 +309,19 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       return "Not connected to a cluster.";
 
     var name = Arg(args, "name") ?? (IsPod(context.Kind) ? context.Name : context.Pod);
+
     if (string.IsNullOrWhiteSpace(name))
       return "delete_pod needs a pod name.";
 
     var pods = ResourceCatalog.Find("pods");
+
     if (pods is null)
       return "Pod catalog entry is missing.";
 
     var ns = NamespaceArg(args, context, true);
     var deleted = await workspace.Session.DeleteAsync(pods.ToRef(), name, ns, force: false, cancellationToken)
       .ConfigureAwait(false);
+
     return deleted.IsSuccess
       ? $"Deleted Pod/{name}."
       : JoinMessages(deleted.Messages);
@@ -314,16 +339,19 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     var kind = Arg(args, "kind") ?? context.Kind;
     var name = Arg(args, "name") ?? context.Name;
+
     if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(name))
       return "scale_workload needs kind and name.";
 
     var descriptor = Resolve(kind);
+
     if (descriptor is null || !descriptor.Actions.CanScale)
       return "scale_workload only supports scalable workloads.";
 
     var ns = NamespaceArg(args, context, descriptor.Namespaced);
     var scaled = await workspace.Session.ScaleAsync(descriptor.ToRef(), name, ns, replicas, cancellationToken)
       .ConfigureAwait(false);
+
     return scaled.IsSuccess
       ? $"Scaled {descriptor.Kind}/{name} to {replicas}."
       : JoinMessages(scaled.Messages);
@@ -331,10 +359,12 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
   private async Task<string> ApplyManifestAsync(JsonObject args, CancellationToken cancellationToken) {
     var yaml = Arg(args, "yaml");
+
     if (string.IsNullOrWhiteSpace(yaml))
       return "apply_manifest needs yaml.";
 
     var prepared = PrepareManifest(yaml);
+
     if (prepared is null)
       return "apply_manifest could not parse the YAML.";
 
@@ -342,17 +372,20 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       return "Not connected to a cluster.";
 
     var applied = await workspace.ApplyDocumentAsync(prepared, cancellationToken).ConfigureAwait(false);
+
     if (!applied.IsSuccess || applied.Value is null)
       return JoinMessages(applied.Messages);
 
     var kind = prepared["kind"]?.GetValue<string>() ?? "object";
     var name = (prepared["metadata"] as JsonObject)?["name"]?.GetValue<string>() ?? "(unnamed)";
+
     return $"Applied {kind}/{name}.";
   }
 
   private static string DescribeManifest(JsonObject args) {
     var yaml = Arg(args, "yaml");
     var prepared = string.IsNullOrWhiteSpace(yaml) ? null : PrepareManifest(yaml);
+
     if (prepared is null)
       return "Apply a manifest.";
 
@@ -361,6 +394,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     var name = meta?["name"]?.GetValue<string>() ?? "(unnamed)";
     var ns = meta?["namespace"]?.GetValue<string>();
     var where = string.IsNullOrWhiteSpace(ns) ? "" : $" in {ns}";
+
     return $"Apply {kind}/{name}{where}.";
   }
 
@@ -368,10 +402,12 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     replicas = 0;
     error = "scale_workload replicas must be an integer from 0 to 100.";
     var node = args["replicas"];
+
     if (node is not JsonValue value)
       return false;
 
     int number;
+
     if (value.TryGetValue<int>(out number)) {
     }
     else if (value.TryGetValue<long>(out var wide) && wide is >= 0 and <= 100) {
@@ -388,6 +424,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
     replicas = number;
     error = "";
+
     return true;
   }
 
@@ -396,20 +433,24 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       ("kind", "Deployment, StatefulSet, ReplicaSet, or ReplicationController", true),
       ("name", "Workload name", true),
       ("namespace", "Namespace. Defaults to the UI selection.", false));
+
     if (schema["properties"] is JsonObject properties)
       properties["replicas"] = new JsonObject {
         ["type"] = "integer",
         ["description"] = "Desired replicas, from 0 to 100"
       };
+
     if (schema["required"] is JsonArray required)
       required.Add("replicas");
     else
       schema["required"] = new JsonArray { "replicas" };
+
     return schema;
   }
 
   private ResourceDescriptor? Resolve(string kind) {
     var direct = workspace.FindDescriptor(kind) ?? ResourceCatalog.Find(kind);
+
     if (direct is not null)
       return direct;
 
@@ -432,11 +473,13 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
   private static JsonObject ObjectSchema(params (string Name, string Description, bool Required)[] fields) {
     var properties = new JsonObject();
     var required = new JsonArray();
+
     foreach (var field in fields) {
       properties[field.Name] = new JsonObject {
         ["type"] = field.Name == "tailLines" ? "integer" : "string",
         ["description"] = field.Description
       };
+
       if (field.Required)
         required.Add(field.Name);
     }
@@ -445,6 +488,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       ["type"] = "object",
       ["properties"] = properties
     };
+
     if (required.Count > 0)
       schema["required"] = required;
 
@@ -453,20 +497,24 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
 
   private static string? Arg(JsonObject args, string key) {
     var node = args[key];
+
     if (node is null)
       return null;
 
     var text = node is JsonValue value && value.TryGetValue<string>(out var typed)
       ? typed
       : node.ToString();
+
     return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
   }
 
   private static int IntArg(JsonObject args, string key, int fallback, int min, int max) {
     var node = args[key];
+
     if (node is JsonValue value) {
       if (value.TryGetValue<int>(out var number))
         return Math.Clamp(number, min, max);
+
       if (value.TryGetValue<string>(out var text) && int.TryParse(text, out var parsed))
         return Math.Clamp(parsed, min, max);
     }
@@ -479,6 +527,7 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       return null;
 
     var ns = Arg(args, "namespace") ?? context.Namespace;
+
     if (string.IsNullOrWhiteSpace(ns) || ns == Configuration.AllNamespaces)
       return "default";
 

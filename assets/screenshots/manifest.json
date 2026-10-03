@@ -1,0 +1,344 @@
+{
+  "Context": "staging",
+  "Catalog": "catalog.png",
+  "Shots": [
+    {
+      "Id": "welcome",
+      "Window": "welcome.png"
+    },
+    {
+      "Id": "connections",
+      "Window": "connections.png"
+    },
+    {
+      "Id": "ai-settings",
+      "Window": "ai-settings.png"
+    },
+    {
+      "Id": "overview",
+      "Window": "overview.png"
+    },
+    {
+      "Id": "apiservices",
+      "Window": "apiservices.png"
+    },
+    {
+      "Id": "flowschemas",
+      "Window": "flowschemas.png"
+    },
+    {
+      "Id": "prioritylevelconfigurations",
+      "Window": "prioritylevelconfigurations.png"
+    },
+    {
+      "Id": "nodes",
+      "Window": "nodes.png"
+    },
+    {
+      "Id": "nodes-images",
+      "Window": "nodes-images.png"
+    },
+    {
+      "Id": "applications",
+      "Window": "applications.png"
+    },
+    {
+      "Id": "workloads-overview",
+      "Window": "workloads-overview.png"
+    },
+    {
+      "Id": "daemonsets",
+      "Window": "daemonsets.png"
+    },
+    {
+      "Id": "deployments",
+      "Window": "deployments.png"
+    },
+    {
+      "Id": "pods",
+      "Window": "pods.png"
+    },
+    {
+      "Id": "pods-yaml",
+      "Window": "pods-yaml.png"
+    },
+    {
+      "Id": "pods-logs",
+      "Window": "pods-logs.png"
+    },
+    {
+      "Id": "pods-chat",
+      "Window": "pods-chat.png"
+    },
+    {
+      "Id": "replicasets",
+      "Window": "replicasets.png"
+    },
+    {
+      "Id": "statefulsets",
+      "Window": "statefulsets.png"
+    },
+    {
+      "Id": "configmaps",
+      "Window": "configmaps.png"
+    },
+    {
+      "Id": "configmaps-data",
+      "Window": "configmaps-data.png"
+    },
+    {
+      "Id": "leases",
+      "Window": "leases.png"
+    },
+    {
+      "Id": "mutatingwebhookconfigurations",
+      "Window": "mutatingwebhookconfigurations.png"
+    },
+    {
+      "Id": "poddisruptionbudgets",
+      "Window": "poddisruptionbudgets.png"
+    },
+    {
+      "Id": "priorityclasses",
+      "Window": "priorityclasses.png"
+    },
+    {
+      "Id": "runtimeclasses",
+      "Window": "runtimeclasses.png"
+    },
+    {
+      "Id": "secrets",
+      "Window": "secrets.png"
+    },
+    {
+      "Id": "validatingwebhookconfigurations",
+      "Window": "validatingwebhookconfigurations.png"
+    },
+    {
+      "Id": "port-forwarding",
+      "Window": "port-forwarding.png"
+    },
+    {
+      "Id": "endpointslices",
+      "Window": "endpointslices.png"
+    },
+    {
+      "Id": "endpoints",
+      "Window": "endpoints.png"
+    },
+    {
+      "Id": "ipaddresses",
+      "Window": "ipaddresses.png"
+    },
+    {
+      "Id": "servicecidrs",
+      "Window": "servicecidrs.png"
+    },
+    {
+      "Id": "services",
+      "Window": "services.png"
+    },
+    {
+      "Id": "csidrivers",
+      "Window": "csidrivers.png"
+    },
+    {
+      "Id": "csinodes",
+      "Window": "csinodes.png"
+    },
+    {
+      "Id": "persistentvolumeclaims",
+      "Window": "persistentvolumeclaims.png"
+    },
+    {
+      "Id": "persistentvolumes",
+      "Window": "persistentvolumes.png"
+    },
+    {
+      "Id": "storageclasses",
+      "Window": "storageclasses.png"
+    },
+    {
+      "Id": "volumeattachments",
+      "Window": "volumeattachments.png"
+    },
+    {
+      "Id": "longhorn-nodes",
+      "Window": "longhorn-nodes.png"
+    },
+    {
+      "Id": "longhorn-volumes",
+      "Window": "longhorn-volumes.png"
+    },
+    {
+      "Id": "namespaces",
+      "Window": "namespaces.png"
+    },
+    {
+      "Id": "helm-charts",
+      "Window": "helm-charts.png"
+    },
+    {
+      "Id": "dapr-control-plane",
+      "Window": "dapr-control-plane.png"
+    },
+    {
+      "Id": "dapr-sidecars",
+      "Window": "dapr-sidecars.png"
+    },
+    {
+      "Id": "configurations",
+      "Window": "configurations.png"
+    },
+    {
+      "Id": "subscriptions",
+      "Window": "subscriptions.png"
+    },
+    {
+      "Id": "certificatesigningrequests",
+      "Window": "certificatesigningrequests.png"
+    },
+    {
+      "Id": "clusterrolebindings",
+      "Window": "clusterrolebindings.png"
+    },
+    {
+      "Id": "clusterroles",
+      "Window": "clusterroles.png"
+    },
+    {
+      "Id": "rolebindings",
+      "Window": "rolebindings.png"
+    },
+    {
+      "Id": "roles",
+      "Window": "roles.png"
+    },
+    {
+      "Id": "serviceaccounts",
+      "Window": "serviceaccounts.png"
+    },
+    {
+      "Id": "customresourcedefinitions",
+      "Window": "customresourcedefinitions.png"
+    }
+  ],
+  "Skipped": [
+    {
+      "Id": "deviceclasses",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "resourceslices",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "controllerrevisions",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "cronjobs",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "jobs",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "replicationcontrollers",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "resourceclaimtemplates",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "resourceclaims",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "horizontalpodautoscalers",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "limitranges",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "mutatingadmissionpolicies",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "mutatingadmissionpolicybindings",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "podtemplates",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "resourcequotas",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "storageversionmigrations",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "validatingadmissionpolicies",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "validatingadmissionpolicybindings",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "ingressclasses",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "ingresses",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "networkpolicies",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "csistoragecapacities",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "volumeattributesclasses",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "events",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "helm-releases",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "components",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "httpendpoints",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "resiliencies",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "cnpg-clusters",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "clustertrustbundles",
+      "Reason": "No rows."
+    }
+  ]
+}

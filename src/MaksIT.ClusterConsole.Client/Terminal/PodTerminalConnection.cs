@@ -34,6 +34,7 @@ public sealed class PodTerminalConnection : IDisposable {
 
   public async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) {
     using var linked = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken);
+
     return await _stdout.ReadAsync(buffer, linked.Token).ConfigureAwait(false);
   }
 
@@ -42,6 +43,7 @@ public sealed class PodTerminalConnection : IDisposable {
       return;
 
     await _write.WaitAsync(cancellationToken).ConfigureAwait(false);
+
     try {
       await _stdin.WriteAsync(data, cancellationToken).ConfigureAwait(false);
       await _stdin.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -57,6 +59,7 @@ public sealed class PodTerminalConnection : IDisposable {
 
     var payload = PodShell.ResizePayload(columns, rows);
     await _write.WaitAsync(cancellationToken).ConfigureAwait(false);
+
     try {
       await _resize.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
       await _resize.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -72,6 +75,7 @@ public sealed class PodTerminalConnection : IDisposable {
 
     _disposed = true;
     _cts.Cancel();
+
     try {
       _demux.Dispose();
     }

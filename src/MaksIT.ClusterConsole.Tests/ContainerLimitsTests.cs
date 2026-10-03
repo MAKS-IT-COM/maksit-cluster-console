@@ -51,12 +51,16 @@ public class ContainerLimitsTests {
         };
     var requests = new Dictionary<string, ResourceQuantity>();
     var limits = new Dictionary<string, ResourceQuantity>();
+
     if (cpuReq.Length > 0)
       requests["cpu"] = new ResourceQuantity(cpuReq);
+
     if (memReq.Length > 0)
       requests["memory"] = new ResourceQuantity(memReq);
+
     if (cpuLim.Length > 0)
       limits["cpu"] = new ResourceQuantity(cpuLim);
+
     if (memLim.Length > 0)
       limits["memory"] = new ResourceQuantity(memLim);
 

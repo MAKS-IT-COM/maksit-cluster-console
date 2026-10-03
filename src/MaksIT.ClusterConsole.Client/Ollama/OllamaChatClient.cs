@@ -18,6 +18,7 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
     try {
       var response = await http.GetAsync(Combine(endpoint, "/api/tags"), cancellationToken).ConfigureAwait(false);
       var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
       if (!response.IsSuccessStatusCode)
         return Result<IReadOnlyList<string>>.InternalServerError(null, OllamaError(response.StatusCode, body));
 
@@ -27,7 +28,11 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
         .Where(n => !string.IsNullOrWhiteSpace(n))
         .Select(n => n!)
         .ToList();
+
       return Result<IReadOnlyList<string>>.Ok(names);
+    }
+    catch (OperationCanceledException) {
+      throw;
     }
     catch (Exception ex) {
       return Result<IReadOnlyList<string>>.InternalServerError(null, OllamaUnavailable(endpoint, ex));
@@ -45,10 +50,12 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
         JsonOptions,
         cancellationToken).ConfigureAwait(false);
       var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
       if (!response.IsSuccessStatusCode)
         return Result<OllamaChatResponse>.InternalServerError(null, OllamaError(response.StatusCode, body));
 
       var parsed = JsonSerializer.Deserialize<OllamaChatResponse>(body, JsonOptions);
+
       if (parsed is null)
         return Result<OllamaChatResponse>.UnprocessableEntity(null, "Ollama returned an empty chat response.");
 
@@ -57,6 +64,9 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
 
       return Result<OllamaChatResponse>.Ok(parsed);
     }
+    catch (OperationCanceledException) {
+      throw;
+    }
     catch (Exception ex) {
       return Result<OllamaChatResponse>.InternalServerError(null, OllamaUnavailable(endpoint, ex));
     }
@@ -64,6 +74,7 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
 
   private static string Combine(string endpoint, string path) {
     var root = string.IsNullOrWhiteSpace(endpoint) ? "http://127.0.0.1:11434" : endpoint.TrimEnd('/');
+
     return root + path;
   }
 
@@ -76,6 +87,7 @@ public sealed class OllamaChatClient(HttpClient http) : IOllamaChatClient {
 
     try {
       using var doc = JsonDocument.Parse(body);
+
       if (doc.RootElement.TryGetProperty("error", out var error))
         return error.GetString() ?? body;
     }

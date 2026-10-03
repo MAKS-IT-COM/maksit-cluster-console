@@ -4,6 +4,7 @@ using k8s;
 using MaksIT.Results;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.Shared.Chat;
+using MaksIT.ClusterConsole.Client.Ollama;
 using MaksIT.ClusterConsole.Client.Cluster;
 using MaksIT.ClusterConsole.Client.Terminal;
 
@@ -199,6 +200,45 @@ public class ClusterChatTests {
   }
 
   [Fact]
+  public void Drain_note_prompt_asks_whether_it_is_safe_and_which_pods_remain() {
+    var prompt = DrainAdvice.SystemPrompt();
+    Assert.Contains("safe to continue", prompt, StringComparison.Ordinal);
+    Assert.Contains("expected to remain", prompt, StringComparison.Ordinal);
+    Assert.Contains("will move", prompt, StringComparison.Ordinal);
+    Assert.Contains("Do not invent", prompt, StringComparison.Ordinal);
+
+    var plan = "node-a\nWill move (1)\n  apps/api-0\nWill remain (1)\n  kube-system/cilium  DaemonSet";
+    Assert.Equal(plan, DrainAdvice.UserPrompt(plan));
+    Assert.Contains("…", DrainAdvice.UserPrompt(new string('x', 7000)));
+  }
+
+  [Fact]
+  public async Task AssessDrain_sends_the_plan_and_returns_the_note() {
+    var ollama = new ScriptedOllama("<think>check</think>\nSafe to continue. cilium remains because it is a DaemonSet.");
+    var chat = new ClusterChatService(ollama, new ClusterWorkspace());
+    var note = await chat.AssessDrainAsync(
+      "http://127.0.0.1:11434",
+      "qwen3:8b",
+      "node-a\nWill remain (1)\n  kube-system/cilium",
+      TestContext.Current.CancellationToken);
+
+    Assert.True(note.IsSuccess);
+    Assert.Equal("Safe to continue. cilium remains because it is a DaemonSet.", note.Value);
+    Assert.Null(ollama.Request?.Tools);
+    Assert.Contains("kube-system/cilium", ollama.Request?.Messages[1].Content, StringComparison.Ordinal);
+    Assert.Contains("safe to continue", ollama.Request?.Messages[0].Content, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Timeout_outside_5_to_3600_seconds_returns_to_the_default() {
+    var cfg = new Configuration { OllamaTimeoutSeconds = 1 };
+    cfg.EnsureDefaults();
+    Assert.Equal(ClusterChatService.DefaultTimeoutSeconds, cfg.OllamaTimeoutSeconds);
+    Assert.Equal(90, ClusterChatService.NormalizeTimeout(90));
+    Assert.Equal("Ollama did not answer within 90 seconds.", ClusterChatService.TimedOut(90));
+  }
+
+  [Fact]
   public void HasModel_matches_tag_or_bare_name() {
     Assert.True(ClusterChatService.HasModel(["qwen3:8b"], "qwen3:8b"));
     Assert.True(ClusterChatService.HasModel(["qwen3:8b"], "qwen3"));
@@ -213,6 +253,7 @@ public class ClusterChatTests {
     Assert.False(cfg.AiAgentEnabled);
     Assert.Equal(ClusterChatService.DefaultModel, cfg.OllamaModel);
     Assert.Equal(ClusterChatService.DefaultEndpoint, cfg.OllamaEndpoint);
+    Assert.Equal(ClusterChatService.DefaultTimeoutSeconds, cfg.OllamaTimeoutSeconds);
   }
 
   private static ClusterChatContext SampleContext() =>
@@ -235,7 +276,28 @@ public class ClusterChatTests {
     var workspace = new ClusterWorkspace();
     var connected = await workspace.ConnectAsync(session);
     Assert.True(connected.IsSuccess);
+
     return (new ClusterChatTools(workspace), session);
+  }
+
+  private sealed class ScriptedOllama(string answer) : IOllamaChatClient {
+    public OllamaChatRequest? Request { get; private set; }
+
+    public Task<Result<IReadOnlyList<string>>> ListModelsAsync(
+      string endpoint,
+      CancellationToken cancellationToken = default) =>
+      Task.FromResult(Result<IReadOnlyList<string>>.Ok((IReadOnlyList<string>)["qwen3:8b"]));
+
+    public Task<Result<OllamaChatResponse>> ChatAsync(
+      string endpoint,
+      OllamaChatRequest request,
+      CancellationToken cancellationToken = default) {
+      Request = request;
+
+      return Task.FromResult(Result<OllamaChatResponse>.Ok(new OllamaChatResponse {
+        Message = new OllamaChatMessage { Role = "assistant", Content = answer }
+      }));
+    }
   }
 
   private sealed class RecordingSession : IClusterSession {
@@ -257,6 +319,7 @@ public class ClusterChatTests {
       CancellationToken cancellationToken = default) {
       Applies++;
       Applied = document;
+
       return Task.FromResult(Result<JsonObject>.Ok(document));
     }
 
@@ -266,6 +329,7 @@ public class ClusterChatTests {
       string? @namespace,
       CancellationToken cancellationToken = default) {
       Restarts++;
+
       return Task.FromResult(Result.Ok());
     }
 
@@ -276,6 +340,7 @@ public class ClusterChatTests {
       int replicas,
       CancellationToken cancellationToken = default) {
       Scales++;
+
       return Task.FromResult(Result.Ok());
     }
 

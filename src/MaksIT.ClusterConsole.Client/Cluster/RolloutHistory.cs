@@ -15,6 +15,7 @@ public static class RolloutHistory {
 
   public static int Revision(JsonObject item) {
     var text = Text(item["metadata"]?["annotations"]?[RevisionAnnotation]);
+
     return int.TryParse(text, out var revision) ? revision : 0;
   }
 
@@ -26,10 +27,13 @@ public static class RolloutHistory {
       .Select(item => {
         var ready = Text(item.Item["status"]?["readyReplicas"]);
         var replicas = Text(item.Item["status"]?["replicas"]);
+
         if (string.IsNullOrEmpty(ready))
           ready = "0";
+
         if (string.IsNullOrEmpty(replicas))
           replicas = "0";
+
         return $"{item.Revision}  {Text(item.Item["metadata"]?["name"])}  {ready}/{replicas}";
       })
       .ToList();
@@ -44,6 +48,7 @@ public static class RolloutHistory {
       .OrderByDescending(item => item.Revision)
       .ToList();
     var template = owned.FirstOrDefault().Item?["spec"]?["template"];
+
     return template?.DeepClone() as JsonObject;
   }
 

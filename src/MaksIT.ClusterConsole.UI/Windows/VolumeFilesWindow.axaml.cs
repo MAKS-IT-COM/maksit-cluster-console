@@ -29,6 +29,7 @@ public partial class VolumeFilesWindow : Window {
       Title = "Download file",
       SuggestedFileName = suggestedName
     });
+
     return file?.TryGetLocalPath();
   }
 
@@ -37,6 +38,7 @@ public partial class VolumeFilesWindow : Window {
       Title = "Upload file",
       AllowMultiple = false
     });
+
     if (files.Count == 0)
       return null;
 
@@ -45,6 +47,7 @@ public partial class VolumeFilesWindow : Window {
     await using var stream = await file.OpenReadAsync();
     using var buffer = new MemoryStream();
     await stream.CopyToAsync(buffer);
+
     return new LocalFilePick(name, buffer.ToArray());
   }
 }

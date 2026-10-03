@@ -35,35 +35,41 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_jIJTQXS3pB.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/overview.png</image>
       <caption>Cluster overview</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_CmfgCLXO7x.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/applications.png</image>
       <caption>Applications table</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_FNf58xBr0a.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/pods.png</image>
       <caption>Pods table</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_k9oNwnqYrU.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/pods-chat.png</image>
       <caption>Chat on a selected pod</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_VEkXUIQZ6N.png</image>
-      <caption>Volume files</caption>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/persistentvolumeclaims.png</image>
+      <caption>Persistent volume claims</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_zQePBIqSNT.png</image>
-      <caption>Dapr components</caption>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/dapr-control-plane.png</image>
+      <caption>Dapr control plane</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.3/assets/images/MaksIT.ClusterConsole.UI_ktu7J3X0DP.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/port-forwarding.png</image>
       <caption>Port forwarding</caption>
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.6" date="2026-10-03">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.6/CHANGELOG.md</url>
+      <description>
+        <p>A drain note when AI is on. Cordon and Drain stay hidden unless another Ready node remains.</p>
+      </description>
+    </release>
     <release version="0.8.5" date="2026-10-01">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.5/CHANGELOG.md</url>
       <description>
