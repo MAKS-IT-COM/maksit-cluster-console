@@ -37,9 +37,11 @@ public sealed partial class LogViewModel : ObservableObject {
     }
 
     OnPropertyChanged(nameof(Files));
+
     if (Files.Count == 0) {
       SelectedFile = "";
       Report = "";
+
       return;
     }
 
@@ -57,8 +59,10 @@ public sealed partial class LogViewModel : ObservableObject {
 
   private void LoadSelected() {
     CopyStatus = "";
+
     if (string.IsNullOrWhiteSpace(SelectedFile)) {
       Report = "";
+
       return;
     }
 

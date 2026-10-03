@@ -223,6 +223,14 @@ public class ResourceCatalogTests {
   }
 
   [Fact]
+  public void Pod_details_come_from_the_catalog() {
+    var tabs = ResourceCatalog.Find("pods")!.DetailTabs;
+    Assert.Equal(
+      [DetailTab.Overview, DetailTab.Yaml, DetailTab.Events, DetailTab.Logs, DetailTab.Terminal],
+      tabs);
+  }
+
+  [Fact]
   public void Workload_details_include_logs_and_terminal() {
     var tabs = ResourceCatalog.Find("deployments")!.DetailTabs;
     Assert.Contains("Pods", tabs);
@@ -527,6 +535,7 @@ public class ResourceCatalogTests {
 
   private static JsonObject ReplicaSet(int revision, string owner) {
     var image = revision == 2 ? "two" : "other";
+
     return JsonNode.Parse($$"""
       {
         "metadata": {

@@ -12,8 +12,10 @@ public sealed class ResourceRowComparer(string header) : IComparer, IComparer<Re
   public int Compare(object? x, object? y) {
     if (ReferenceEquals(x, y))
       return 0;
+
     if (x is not ResourceRow left)
       return y is null ? 0 : -1;
+
     if (y is not ResourceRow right)
       return 1;
 
@@ -23,8 +25,10 @@ public sealed class ResourceRowComparer(string header) : IComparer, IComparer<Re
   public int Compare(ResourceRow? x, ResourceRow? y) {
     if (ReferenceEquals(x, y))
       return 0;
+
     if (x is null)
       return -1;
+
     if (y is null)
       return 1;
 
@@ -36,8 +40,10 @@ public static class ResourceColumnSort {
   public static int Compare(string header, string? left, string? right) {
     if (string.IsNullOrEmpty(left) && string.IsNullOrEmpty(right))
       return 0;
+
     if (string.IsNullOrEmpty(left))
       return -1;
+
     if (string.IsNullOrEmpty(right))
       return 1;
 
@@ -63,10 +69,12 @@ public static class ResourceColumnSort {
     var total = 0d;
     var number = 0d;
     var hasDigit = false;
+
     foreach (var c in text) {
       if (char.IsDigit(c)) {
         number = number * 10 + (c - '0');
         hasDigit = true;
+
         continue;
       }
 
@@ -95,8 +103,10 @@ public static class ResourceColumnSort {
     var leftParts = SplitIpCell(left);
     var rightParts = SplitIpCell(right);
     var count = Math.Min(leftParts.Length, rightParts.Length);
+
     for (var i = 0; i < count; i++) {
       var cmp = CompareIpToken(leftParts[i], rightParts[i]);
+
       if (cmp != 0)
         return cmp;
     }
@@ -110,10 +120,13 @@ public static class ResourceColumnSort {
   private static int CompareIpToken(string left, string right) {
     var leftMissing = IsMissingIp(left);
     var rightMissing = IsMissingIp(right);
+
     if (leftMissing && rightMissing)
       return 0;
+
     if (leftMissing)
       return -1;
+
     if (rightMissing)
       return 1;
 
@@ -136,11 +149,13 @@ public static class ResourceColumnSort {
 
   private static int CompareAddress(IPAddress left, IPAddress right) {
     var family = left.AddressFamily.CompareTo(right.AddressFamily);
+
     if (family != 0)
       return family;
 
     Span<byte> leftBytes = stackalloc byte[16];
     Span<byte> rightBytes = stackalloc byte[16];
+
     if (!left.TryWriteBytes(leftBytes, out var leftLength)
         || !right.TryWriteBytes(rightBytes, out var rightLength))
       return string.CompareOrdinal(left.ToString(), right.ToString());
@@ -152,6 +167,7 @@ public static class ResourceColumnSort {
     ParseReady(left, out var leftReady, out var leftTotal);
     ParseReady(right, out var rightReady, out var rightTotal);
     var cmp = leftReady.CompareTo(rightReady);
+
     return cmp != 0 ? cmp : leftTotal.CompareTo(rightTotal);
   }
 
@@ -159,9 +175,11 @@ public static class ResourceColumnSort {
     ready = 0;
     total = 0;
     var slash = text.IndexOf('/');
+
     if (slash < 0) {
       ready = ParseInt(text);
       total = ready;
+
       return;
     }
 
@@ -172,6 +190,7 @@ public static class ResourceColumnSort {
   private static int ParseInt(string text) {
     var span = text.AsSpan().Trim();
     var end = 0;
+
     while (end < span.Length && (char.IsDigit(span[end]) || span[end] is '+' or '-'))
       end++;
 
@@ -185,6 +204,7 @@ public static class ResourceColumnSort {
       return 0.05;
 
     var span = text.AsSpan().Trim().TrimEnd('%');
+
     return double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
       ? value
       : 0;

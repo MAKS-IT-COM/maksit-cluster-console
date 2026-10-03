@@ -62,6 +62,7 @@ public sealed class ResourceBar : Control {
   protected override Size MeasureOverride(Size availableSize) {
     var width = double.IsInfinity(availableSize.Width) ? 200 : Math.Max(0, availableSize.Width);
     var height = double.IsInfinity(availableSize.Height) ? 20 : Math.Max(0, availableSize.Height);
+
     return new Size(width, height);
   }
 
@@ -76,6 +77,7 @@ public sealed class ResourceBar : Control {
 
     context.FillRectangle(new SolidColorBrush(Color.Parse("#3f454c")), Bar(Capacity, track.Y, track.Height), 3);
     context.FillRectangle(new SolidColorBrush(Color.Parse("#6b7280")), Bar(Allocatable, track.Y + 1, track.Height - 2), 3);
+
     if (ShowRequests) {
       context.FillRectangle(new SolidColorBrush(Color.Parse("#66ff4d6d")), Bar(Limits, track.Y + 3, track.Height - 6), 2);
       context.FillRectangle(new SolidColorBrush(Color.Parse("#ccff9f0a")), Bar(Requests, track.Y + 4, track.Height - 8), 2);

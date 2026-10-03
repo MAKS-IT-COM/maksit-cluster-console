@@ -1,0 +1,364 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:charts="using:MaksIT.ClusterConsole.UI.Controls.Charts"
+             xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
+             xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterDashboardView"
+             x:DataType="vm:MainViewModel">
+  <Grid Margin="16" RowDefinitions="Auto,*">
+    <StackPanel Spacing="6">
+      <TextBlock Text="{Binding ClusterTitle}" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding ActivePage.OverviewText}" Classes="hint" />
+      <TextBlock Text="{Binding ActivePage.Overview.MetricsHint}" Classes="hint" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+        <Button Content="Cluster"
+                Classes="scope-toggle"
+                Classes.selected="{Binding !ActivePage.Overview.OverviewPerNode}"
+                Command="{Binding ActivePage.Overview.ShowClusterOverviewCommand}" />
+        <Button Content="Nodes"
+                Classes="scope-toggle"
+                Classes.selected="{Binding ActivePage.Overview.OverviewPerNode}"
+                Command="{Binding ActivePage.Overview.ShowNodesOverviewCommand}" />
+      </StackPanel>
+    </StackPanel>
+
+    <Grid Grid.Row="1" Margin="0,16,0,0" RowDefinitions="*,Auto">
+    <Grid IsVisible="{Binding !ActivePage.Overview.OverviewPerNode}"
+          ColumnDefinitions="*,*"
+          RowDefinitions="Auto,Auto">
+      <Border Background="#25282c" Padding="16" CornerRadius="6" Margin="0,0,8,8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="CPU" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="{Binding ActivePage.Overview.CpuCaption}" Classes="hint" />
+          </Grid>
+          <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.Overview.CpuPercent}" Height="8" Margin="0,8,0,8" />
+          <charts:Sparkline Grid.Row="2"
+                              Height="72"
+                              HorizontalAlignment="Stretch"
+                              Values="{Binding ActivePage.Overview.CpuHistory}"
+                              LineBrush="#00a7a0" />
+          <charts:ResourceBar Grid.Row="3"
+                                Height="20"
+                                Margin="0,8,0,8"
+                                HorizontalAlignment="Stretch"
+                                Used="{Binding ActivePage.Overview.CpuSlice.Used}"
+                                Requests="{Binding ActivePage.Overview.CpuSlice.Requests}"
+                                Limits="{Binding ActivePage.Overview.CpuSlice.Limits}"
+                                Allocatable="{Binding ActivePage.Overview.CpuSlice.Allocatable}"
+                                Capacity="{Binding ActivePage.Overview.CpuSlice.Capacity}" />
+          <WrapPanel Grid.Row="4" Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.UsageLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#ff9f0a" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.RequestsLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#ff4d6d" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.LimitsLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.AllocatableLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.CapacityLine}" />
+            </StackPanel>
+            <TextBlock Text="{Binding ActivePage.Overview.CpuSlice.LimitsWarning}"
+                       Classes="warning"
+                       IsVisible="{Binding ActivePage.Overview.CpuSlice.LimitsExceedCapacity}" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" Background="#25282c" Padding="16" CornerRadius="6" Margin="8,0,0,8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Memory" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="{Binding ActivePage.Overview.MemoryCaption}" Classes="hint" />
+          </Grid>
+          <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.Overview.MemoryPercent}" Height="8" Margin="0,8,0,8" />
+          <charts:Sparkline Grid.Row="2"
+                              Height="72"
+                              HorizontalAlignment="Stretch"
+                              Values="{Binding ActivePage.Overview.MemoryHistory}"
+                              LineBrush="#C93DCE" />
+          <charts:ResourceBar Grid.Row="3"
+                                Height="20"
+                                Margin="0,8,0,8"
+                                HorizontalAlignment="Stretch"
+                                Used="{Binding ActivePage.Overview.MemorySlice.Used}"
+                                Requests="{Binding ActivePage.Overview.MemorySlice.Requests}"
+                                Limits="{Binding ActivePage.Overview.MemorySlice.Limits}"
+                                Allocatable="{Binding ActivePage.Overview.MemorySlice.Allocatable}"
+                                Capacity="{Binding ActivePage.Overview.MemorySlice.Capacity}" />
+          <WrapPanel Grid.Row="4" Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.UsageLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#ff9f0a" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.RequestsLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#ff4d6d" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.LimitsLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.AllocatableLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,4">
+              <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.CapacityLine}" />
+            </StackPanel>
+            <TextBlock Text="{Binding ActivePage.Overview.MemorySlice.LimitsWarning}"
+                       Classes="warning"
+                       IsVisible="{Binding ActivePage.Overview.MemorySlice.LimitsExceedCapacity}" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#25282c" Padding="16" CornerRadius="6" Margin="0,8,0,0">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Pods" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="{Binding ActivePage.Overview.PodCaption}" Classes="hint" />
+          </Grid>
+          <ProgressBar Grid.Row="1" Minimum="0" Maximum="100" Value="{Binding ActivePage.Overview.PodPercent}" Height="8" Margin="0,8,0,8" />
+          <charts:ResourceBar Grid.Row="2"
+                                Height="20"
+                                HorizontalAlignment="Stretch"
+                                Used="{Binding ActivePage.Overview.PodSlice.Used}"
+                                Allocatable="{Binding ActivePage.Overview.PodSlice.Allocatable}"
+                                Capacity="{Binding ActivePage.Overview.PodSlice.Capacity}"
+                                ShowRequests="False" />
+          <WrapPanel Grid.Row="3" Margin="0,8,0,0" Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,0">
+              <Border Width="8" Height="8" Background="#00a7a0" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.PodSlice.UsageLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,16,0">
+              <Border Width="8" Height="8" Background="#6b7280" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.PodSlice.AllocatableLine}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Width="8" Height="8" Background="#3f454c" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ActivePage.Overview.PodSlice.CapacityLine}" />
+            </StackPanel>
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <ScrollViewer IsVisible="{Binding ActivePage.Overview.OverviewPerNode}"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding ActivePage.Overview.NodeUsages}" HorizontalAlignment="Stretch">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:NodeUsageViewModel">
+            <Border Background="#25282c" Padding="16" CornerRadius="6" Margin="0,0,0,16" HorizontalAlignment="Stretch">
+              <Grid RowDefinitions="Auto,*">
+                <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+                <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="*,Auto">
+                  <StackPanel Spacing="6" Margin="0,0,8,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="CPU" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="1" Text="{Binding Cpu.Caption}" Classes="hint" />
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuPercent}" Height="8" />
+                    <charts:Sparkline Height="72" HorizontalAlignment="Stretch" Values="{Binding CpuHistory}" LineBrush="#00a7a0" />
+                    <charts:ResourceBar Height="16"
+                                          HorizontalAlignment="Stretch"
+                                          Used="{Binding Cpu.Used}"
+                                          Requests="{Binding Cpu.Requests}"
+                                          Limits="{Binding Cpu.Limits}"
+                                          Allocatable="{Binding Cpu.Allocatable}"
+                                          Capacity="{Binding Cpu.Capacity}" />
+                    <TextBlock Text="{Binding Cpu.UsageLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Cpu.RequestsLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Cpu.LimitsLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Cpu.LimitsWarning}" Classes="warning" IsVisible="{Binding Cpu.LimitsExceedCapacity}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="6" Margin="8,0,0,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Memory" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="1" Text="{Binding Memory.Caption}" Classes="hint" />
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding MemoryPercent}" Height="8" />
+                    <charts:Sparkline Height="72" HorizontalAlignment="Stretch" Values="{Binding MemoryHistory}" LineBrush="#C93DCE" />
+                    <charts:ResourceBar Height="16"
+                                          HorizontalAlignment="Stretch"
+                                          Used="{Binding Memory.Used}"
+                                          Requests="{Binding Memory.Requests}"
+                                          Limits="{Binding Memory.Limits}"
+                                          Allocatable="{Binding Memory.Allocatable}"
+                                          Capacity="{Binding Memory.Capacity}" />
+                    <TextBlock Text="{Binding Memory.UsageLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Memory.RequestsLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Memory.LimitsLine}" Classes="hint" />
+                    <TextBlock Text="{Binding Memory.LimitsWarning}" Classes="warning" IsVisible="{Binding Memory.LimitsExceedCapacity}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="6" Margin="0,12,0,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Pods" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="1" Text="{Binding Pods.Caption}" Classes="hint" />
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding PodPercent}" Height="8" />
+                    <charts:ResourceBar Height="16"
+                                          HorizontalAlignment="Stretch"
+                                          Used="{Binding Pods.Used}"
+                                          Allocatable="{Binding Pods.Allocatable}"
+                                          Capacity="{Binding Pods.Capacity}"
+                                          ShowRequests="False" />
+                    <TextBlock Text="{Binding Pods.UsageLine}" Classes="hint" />
+                  </StackPanel>
+                </Grid>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Margin="0,8,0,0" Spacing="8">
+    <Border Background="#25282c"
+            Padding="12,10"
+            CornerRadius="6"
+            MaxHeight="220"
+            IsVisible="{Binding ActivePage.Overview.HasContainerLimits}">
+      <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <TextBlock Text="{Binding ActivePage.Overview.LimitsCaption}"
+                     FontWeight="SemiBold"
+                     Classes.warning="{Binding ActivePage.Overview.HasLimitOvercommit}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+            <Button Content="Apply selected"
+                    Command="{Binding ActivePage.Overview.ApplySelectedLimitCommand}"
+                    IsVisible="{Binding ActivePage.Overview.HasSelectedLimit}" />
+            <Button Content="Apply edits"
+                    Command="{Binding ActivePage.Overview.ApplyChangedLimitsCommand}"
+                    IsVisible="{Binding ActivePage.Overview.HasDirtyLimits}" />
+          </StackPanel>
+        </Grid>
+        <DataGrid Name="OverviewLimitsGrid"
+                  layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.OverviewLimitsTable}"
+                  Grid.Row="1"
+                  MinHeight="120"
+                  ItemsSource="{Binding ActivePage.Overview.LimitRows}"
+                  SelectedItem="{Binding ActivePage.Overview.SelectedLimitRow}"
+                  AutoGenerateColumns="False"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="True"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Workload" Binding="{Binding Workload}" IsReadOnly="True" Width="180" />
+            <DataGridTextColumn Header="Namespace" Binding="{Binding Namespace}" IsReadOnly="True" Width="120" />
+            <DataGridTextColumn Header="Container" Binding="{Binding Container}" IsReadOnly="True" Width="120" />
+            <DataGridTextColumn Header="Pods" Binding="{Binding Pods}" IsReadOnly="True" Width="60" />
+            <DataGridTextColumn Header="CPU req" Binding="{Binding CpuRequest}" IsReadOnly="True" Width="80" />
+            <DataGridTextColumn Header="CPU limit" Binding="{Binding CpuLimit}" Width="90" />
+            <DataGridTextColumn Header="CPU share" Binding="{Binding CpuShare}" IsReadOnly="True" Width="80" />
+            <DataGridTextColumn Header="MEM req" Binding="{Binding MemoryRequest}" IsReadOnly="True" Width="80" />
+            <DataGridTextColumn Header="MEM limit" Binding="{Binding MemoryLimit}" Width="90" />
+            <DataGridTextColumn Header="MEM share" Binding="{Binding MemoryShare}" IsReadOnly="True" Width="90" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+
+      <Border Background="#25282c" Padding="12,10,12,0" CornerRadius="6"
+              MaxHeight="180"
+              IsVisible="{Binding ActivePage.Overview.HasOverviewErrors}">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="{Binding ActivePage.Overview.OverviewErrorsCaption}" Classes="issue-errors" Margin="0,0,0,8" />
+          <DataGrid Name="OverviewErrorsGrid"
+                    layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.OverviewErrorsTable}"
+                    Grid.Row="1"
+                    MinHeight="100"
+                    ItemsSource="{Binding ActivePage.Overview.OverviewErrors}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    HeadersVisibility="Column"
+                    GridLinesVisibility="Horizontal"
+                    x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+              <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="180" />
+              <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80" />
+              <DataGridTemplateColumn Header="Status" Width="90" SortMemberPath="State">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding State}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="6,0"
+                               Foreground="{Binding State, Converter={x:Static converters:IssueStateBrushConverter.Instance}, ConverterParameter=Error}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Age" Binding="{Binding Age}" SortMemberPath="OccurredAt" Width="80" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </Border>
+
+      <Border Background="#25282c" Padding="12,10" CornerRadius="6">
+        <StackPanel>
+          <TextBlock Text="{Binding ActivePage.Overview.OverviewWarningsCaption}"
+                     Classes="issue-warnings"
+                     Margin="0,0,0,8"
+                     IsVisible="{Binding ActivePage.Overview.HasOverviewWarnings}" />
+          <DataGrid Name="OverviewWarningsGrid"
+                    layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.OverviewWarningsTable}"
+                    MinHeight="100"
+                    MaxHeight="160"
+                    ItemsSource="{Binding ActivePage.Overview.OverviewWarnings}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    HeadersVisibility="Column"
+                    GridLinesVisibility="Horizontal"
+                    IsVisible="{Binding ActivePage.Overview.HasOverviewWarnings}"
+                    x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+              <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="180" />
+              <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80" />
+              <DataGridTemplateColumn Header="Status" Width="90" SortMemberPath="State">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding State}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="6,0"
+                               Foreground="{Binding State, Converter={x:Static converters:IssueStateBrushConverter.Instance}}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Age" Binding="{Binding Age}" SortMemberPath="OccurredAt" Width="80" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <StackPanel HorizontalAlignment="Center"
+                      IsVisible="{Binding !ActivePage.Overview.HasOverviewWarnings}">
+            <TextBlock Text="No issues found" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Text="Everything is fine in the Cluster" Classes="hint" HorizontalAlignment="Center" Margin="0,4,0,0" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

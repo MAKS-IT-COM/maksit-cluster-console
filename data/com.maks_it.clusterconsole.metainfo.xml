@@ -64,6 +64,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.6" date="2026-10-03">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.6/CHANGELOG.md</url>
+      <description>
+        <p>A drain note when AI is on. Cordon and Drain stay hidden unless another Ready node remains.</p>
+      </description>
+    </release>
     <release version="0.8.5" date="2026-10-01">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.5/CHANGELOG.md</url>
       <description>

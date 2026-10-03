@@ -20,11 +20,13 @@ public sealed partial class ClusterWorkspace {
 
     var pods = ResourceCatalog.Find("pods")!;
     var listed = await _session.ListAsync(pods.ToRef(), ns, cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<VolumeMountTarget>>(null, false, listed.Messages, listed.StatusCode);
 
     var mounts = VolumeMounts.Find(listed.Value ?? [], pvcName);
     var running = mounts.Where(m => m.IsRunning).ToList();
+
     if (running.Count > 0)
       return Result<IReadOnlyList<VolumeMountTarget>>.Ok(running);
 
@@ -50,11 +52,13 @@ public sealed partial class ClusterWorkspace {
       mount.Container,
       VolumeFilesCommands.Identity(),
       cancellationToken).ConfigureAwait(false);
+
     if (!result.IsSuccess)
       return MapShellResult(result);
 
     var lines = (result.Value ?? "")
       .Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     if (lines.Length == 0)
       return Result<string>.Ok("container user");
 
@@ -62,6 +66,7 @@ public sealed partial class ClusterWorkspace {
     var uid = lines.Length > 1 ? lines[1] : "";
     var gid = lines.Length > 2 ? lines[2] : "";
     var identity = string.IsNullOrEmpty(uid) ? user : $"{user} ({uid}:{gid})";
+
     return Result<string>.Ok(identity);
   }
 
@@ -70,11 +75,13 @@ public sealed partial class ClusterWorkspace {
     string relativeDirectory,
     CancellationToken cancellationToken = default) {
     var path = VolumePath.Resolve(mount.Root, relativeDirectory);
+
     if (!path.IsSuccess || path.Value is null)
       return new Result<IReadOnlyList<VolumeEntry>>(null, false, path.Messages, path.StatusCode);
 
     var exec = await ExecVolumeAsync(mount, VolumeFilesCommands.List(path.Value), null, cancellationToken)
       .ConfigureAwait(false);
+
     if (!exec.IsSuccess || exec.Value is null)
       return new Result<IReadOnlyList<VolumeEntry>>(null, false, exec.Messages, exec.StatusCode);
 
@@ -82,6 +89,7 @@ public sealed partial class ClusterWorkspace {
       return Result<IReadOnlyList<VolumeEntry>>.UnprocessableEntity(null, ExecError(exec.Value));
 
     var text = Encoding.UTF8.GetString(exec.Value.Stdout);
+
     return Result<IReadOnlyList<VolumeEntry>>.Ok(VolumeListing.Parse(text));
   }
 
@@ -90,11 +98,13 @@ public sealed partial class ClusterWorkspace {
     string relativePath,
     CancellationToken cancellationToken = default) {
     var path = VolumePath.Resolve(mount.Root, relativePath);
+
     if (!path.IsSuccess || path.Value is null)
       return new Result<byte[]>(null, false, path.Messages, path.StatusCode);
 
     var exec = await ExecVolumeAsync(mount, VolumeFilesCommands.Read(path.Value), null, cancellationToken)
       .ConfigureAwait(false);
+
     if (!exec.IsSuccess || exec.Value is null)
       return new Result<byte[]>(null, false, exec.Messages, exec.StatusCode);
 
@@ -110,11 +120,13 @@ public sealed partial class ClusterWorkspace {
     byte[] data,
     CancellationToken cancellationToken = default) {
     var path = VolumePath.Resolve(mount.Root, relativePath);
+
     if (!path.IsSuccess || path.Value is null)
       return path.ToResult();
 
     var exec = await ExecVolumeAsync(mount, VolumeFilesCommands.Write(path.Value), data, cancellationToken)
       .ConfigureAwait(false);
+
     if (!exec.IsSuccess)
       return exec.ToResult();
 
@@ -139,6 +151,7 @@ public sealed partial class ClusterWorkspace {
       command,
       stdin,
       cancellationToken).ConfigureAwait(false);
+
     if (!result.IsSuccess)
       return MapShellResult(result);
 
@@ -147,6 +160,7 @@ public sealed partial class ClusterWorkspace {
 
   private static Result<T> MapShellResult<T>(Result<T> result) {
     var message = string.Join("; ", result.Messages);
+
     if (message.Contains("executable file not found", StringComparison.OrdinalIgnoreCase)
         || message.Contains("no such file or directory", StringComparison.OrdinalIgnoreCase))
       return new Result<T>(

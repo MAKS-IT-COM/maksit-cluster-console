@@ -17,13 +17,16 @@ public static class PodMetricsAggregate {
     IReadOnlyDictionary<string, ResourceMetrics> metrics) {
     var cpu = 0d;
     long memory = 0;
+
     foreach (var pod in pods) {
       if (!ResourceOwnership.Owns(pod, owner))
         continue;
+
       if (pod["status"]?["phase"]?.GetValue<string>() is "Succeeded" or "Failed")
         continue;
 
       var key = $"{JsonPath.Namespace(pod)}/{JsonPath.Name(pod)}";
+
       if (!metrics.TryGetValue(key, out var podMetrics))
         continue;
 
@@ -37,6 +40,7 @@ public static class PodMetricsAggregate {
   public static ResourceMetrics? ToDisplayMetrics(ApplicationUsage usage, bool metricsAvailable) {
     if (!metricsAvailable)
       return null;
+
     if (usage.CpuCores <= 0 && usage.MemoryBytes <= 0)
       return new ResourceMetrics("", null, "-", "-");
 
@@ -49,9 +53,11 @@ public static class PodMetricsAggregate {
 
   public static IReadOnlyDictionary<string, string> DeploymentByReplicaSet(IEnumerable<JsonObject> replicaSets) {
     var map = new Dictionary<string, string>(StringComparer.Ordinal);
+
     foreach (var replicaSet in replicaSets) {
       var ns = JsonPath.Namespace(replicaSet) ?? "";
       var name = JsonPath.Name(replicaSet);
+
       if (string.IsNullOrEmpty(name))
         continue;
 
@@ -61,6 +67,7 @@ public static class PodMetricsAggregate {
           string.Equals(o["kind"]?.ToString(), "Deployment", StringComparison.Ordinal)
           && o["controller"]?.GetValue<bool?>() == true)
         ?["name"]?.ToString();
+
       if (!string.IsNullOrEmpty(deploy))
         map[$"{ns}/{name}"] = deploy;
     }

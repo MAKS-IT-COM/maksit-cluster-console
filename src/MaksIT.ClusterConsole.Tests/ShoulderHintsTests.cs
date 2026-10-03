@@ -38,6 +38,7 @@ public class ShoulderHintsTests {
       Assert.DoesNotContain("lists " + descriptor.Kind + " objects", text);
       Assert.DoesNotContain("Columns:", text);
       Assert.DoesNotContain("defined by this custom resource", text);
+
       foreach (var column in descriptor.Columns) {
         var explained = text.Contains(column.Header + " is", StringComparison.Ordinal)
           || text.Contains(column.Header + " are", StringComparison.Ordinal);

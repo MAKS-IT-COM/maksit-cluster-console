@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
+using Avalonia;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MaksIT.ClusterConsole.Client.KubeConfig;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Connections;
@@ -30,7 +32,24 @@ public partial class ConnectionsViewModel : ObservableObject {
     _kubeConfig = kubeConfig;
     KubeConfigPath = kubeConfig.GetWritablePath();
     Reload();
+    var cleanup = new FooterCheck("Cleanup unused cluster/user on delete", CleanupUnused) {
+      Edge = FooterEdge.Trailing,
+      Margin = new Thickness(0, 0, 6, 0)
+    };
+    cleanup.PropertyChanged += (_, e) => {
+      if (e.PropertyName == nameof(FooterCheck.IsChecked))
+        CleanupUnused = cleanup.IsChecked;
+    };
+    FooterItems = [
+      new FooterButton("Add…", AddCommand),
+      new FooterButton("Connect", ConnectCommand),
+      new FooterButton("Delete", DeleteCommand),
+      cleanup,
+      new FooterButton("Close", CloseCommand) { Edge = FooterEdge.Trailing }
+    ];
   }
+
+  public IReadOnlyList<FooterItem> FooterItems { get; }
 
   public ObservableCollection<ConnectionItemViewModel> Items { get; } = [];
 
@@ -51,6 +70,7 @@ public partial class ConnectionsViewModel : ObservableObject {
         return "Select a context.";
 
       var d = Selected.Details;
+
       return
         $"{d.Name}\n"
         + $"  Namespace: {d.Namespace ?? "(none)"}\n"
@@ -72,17 +92,22 @@ public partial class ConnectionsViewModel : ObservableObject {
   partial void OnSelectedChanged(ConnectionItemViewModel? value) {
     OnPropertyChanged(nameof(DetailsText));
     OnPropertyChanged(nameof(HasSelection));
+    ConnectCommand.NotifyCanExecuteChanged();
+    DeleteCommand.NotifyCanExecuteChanged();
   }
 
   public void Reload() {
     var listed = _kubeConfig.ListContextDetails();
+
     if (!listed.IsSuccess) {
       Status = string.Join("; ", listed.Messages);
+
       return;
     }
 
     var selectedName = Selected?.Name;
     Items.Clear();
+
     foreach (var details in listed.Value ?? [])
       Items.Add(new ConnectionItemViewModel { Details = details, Use = UseForKubectl });
 
@@ -99,8 +124,10 @@ public partial class ConnectionsViewModel : ObservableObject {
       return;
 
     var used = _kubeConfig.UseContext(item.Name);
+
     if (!used.IsSuccess) {
       Status = string.Join("; ", used.Messages);
+
       return;
     }
 
@@ -109,20 +136,21 @@ public partial class ConnectionsViewModel : ObservableObject {
     Status = string.Join("; ", used.Messages);
   }
 
-  [RelayCommand]
+  [RelayCommand(CanExecute = nameof(HasSelection))]
   private void Delete() {
     if (Selected is null)
       return;
 
     var deleted = _kubeConfig.DeleteContext(Selected.Name, CleanupUnused);
     Status = string.Join("; ", deleted.Messages);
+
     if (deleted.IsSuccess) {
       Selected = null;
       Reload();
     }
   }
 
-  [RelayCommand]
+  [RelayCommand(CanExecute = nameof(HasSelection))]
   private void Connect() =>
     CloseRequested?.Invoke(Selected?.Name);
 
@@ -133,10 +161,12 @@ public partial class ConnectionsViewModel : ObservableObject {
   public bool TryAdd(KubeConnectionRequest request) {
     var added = _kubeConfig.UpsertConnection(request);
     Status = string.Join("; ", added.Messages);
+
     if (!added.IsSuccess)
       return false;
 
     Reload();
+
     if (Items.FirstOrDefault(i => i.Name == request.ContextName) is { } addedItem)
       Selected = addedItem;
 

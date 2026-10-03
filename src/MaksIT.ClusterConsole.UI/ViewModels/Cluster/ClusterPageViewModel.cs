@@ -22,13 +22,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private readonly ConfigurationFileService _configuration;
   private readonly ClusterChatService _chat;
   private readonly Action<string> _setStatus;
-  private CancellationTokenSource? _logsCts;
   private CancellationTokenSource? _watchCts;
   private DispatcherTimer? _refreshTimer;
   private bool _refreshBusy;
   private bool _watchHealthy;
   private int _watchGeneration;
-  private int _logsGeneration;
   private bool _hasDaprCrd;
   private bool _hasLonghornCrd;
   private bool _hasCnpgCrd;
@@ -41,13 +39,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private bool _loadingDetails;
   private bool _updatingPodContext;
   private string? _rebindUid;
-  private readonly List<double> _cpuHistory = [];
-  private readonly List<double> _memoryHistory = [];
   private readonly List<string> _selectedUids = [];
   private IReadOnlyList<ResourceRow> _selectedRows = [];
   private bool _syncingSelection;
-  private const int HistoryPoints = 60;
-
   public ClusterPageViewModel(
     KubeContextInfo context,
     ClusterWorkspace workspace,
@@ -60,10 +54,41 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _chat = new ClusterChatService(ollama, workspace);
     _setStatus = setStatus;
     selectedNamespace = NormalizeNamespace(_configuration.Current.NamespaceFor(context.Name));
-    overviewPerNode = _configuration.Current.OverviewPerNode;
-    chatStatus = ModelStatus();
-    WireTerminal();
+    Overview = new ClusterOverviewViewModel(
+      _workspace,
+      _configuration,
+      _setStatus,
+      () => IsClusterDashboard,
+      text => OverviewText = text);
+    Workloads = new WorkloadsBoardViewModel(
+      _workspace,
+      () => SelectedNamespace,
+      () => Name,
+      text => OverviewText = text,
+      _setStatus,
+      OpenWorkloadKind);
+    Helm = new HelmDetailsViewModel(
+      _workspace,
+      DetailsStillCurrent,
+      text => OverviewText = text,
+      text => EventsText = text,
+      SetYaml);
+    Chat = new ClusterChatViewModel(_configuration, _chat, ChatSelection);
+    Terminal = new PodTerminalViewModel(_workspace, CurrentShellTarget, () => SelectedTab == DetailTab.Terminal);
+    Logs = new PodLogsViewModel(_workspace, CurrentLogTarget);
   }
+
+  public ClusterOverviewViewModel Overview { get; }
+
+  public WorkloadsBoardViewModel Workloads { get; }
+
+  public HelmDetailsViewModel Helm { get; }
+
+  public ClusterChatViewModel Chat { get; }
+
+  public PodTerminalViewModel Terminal { get; }
+
+  public PodLogsViewModel Logs { get; }
 
   public KubeContextInfo Context { get; }
 
@@ -90,16 +115,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool HasSelectedDataEntry => SelectedDataEntry is not null;
 
-  public ObservableCollection<WorkloadKindCount> WorkloadCounts { get; } = [];
-
-  public ObservableCollection<NodeUsageViewModel> NodeUsages { get; } = [];
-
-  public ObservableCollection<ClusterIssue> OverviewWarnings { get; } = [];
-
-  public ObservableCollection<ClusterIssue> OverviewErrors { get; } = [];
-
-  public ObservableCollection<LimitRowViewModel> LimitRows { get; } = [];
-
   [ObservableProperty]
   private NavigatorItem? selectedNavItem;
 
@@ -113,9 +128,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool SyncingSelection =>
     _syncingSelection;
-
-  [ObservableProperty]
-  private LimitRowViewModel? selectedLimitRow;
 
   [ObservableProperty]
   private ResourceRow? selectedRelatedPod;
@@ -148,10 +160,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private string terminalText = string.Empty;
 
   [ObservableProperty]
-  private string terminalCommand = "/bin/sh";
-
-  [ObservableProperty]
-  private string selectedTab = "Overview";
+  private string selectedTab = DetailTab.Overview;
 
   [ObservableProperty]
   private int scaleReplicas = 1;
@@ -175,63 +184,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private int rebindLocalPort = 8080;
 
   [ObservableProperty]
-  private bool followLogs;
-
-  [ObservableProperty]
   private bool isDirty;
-
-  [ObservableProperty]
-  private ResourceSlice cpuSlice = ResourceSlice.Empty("cpu");
-
-  [ObservableProperty]
-  private ResourceSlice memorySlice = ResourceSlice.Empty("memory");
-
-  [ObservableProperty]
-  private ResourceSlice podSlice = ResourceSlice.Empty("pods");
-
-  [ObservableProperty]
-  private string cpuCaption = "—";
-
-  [ObservableProperty]
-  private string memoryCaption = "—";
-
-  [ObservableProperty]
-  private string podCaption = "—";
-
-  [ObservableProperty]
-  private double cpuPercent;
-
-  [ObservableProperty]
-  private double memoryPercent;
-
-  [ObservableProperty]
-  private double podPercent;
-
-  [ObservableProperty]
-  private string metricsHint = "Usage charts use metrics-server (metrics.k8s.io), same as kubectl top.";
-
-  [ObservableProperty]
-  private IReadOnlyList<double> cpuHistory = [];
-
-  [ObservableProperty]
-  private IReadOnlyList<double> memoryHistory = [];
-
-  [ObservableProperty]
-  private bool overviewPerNode;
-
-  partial void OnOverviewPerNodeChanged(bool value) {
-    var cfg = _configuration.Current;
-    if (cfg.OverviewPerNode == value)
-      return;
-    cfg.OverviewPerNode = value;
-    _configuration.Save(cfg);
-  }
-
-  [RelayCommand]
-  private void ShowClusterOverview() => OverviewPerNode = false;
-
-  [RelayCommand]
-  private void ShowNodesOverview() => OverviewPerNode = true;
 
   public bool CanScale =>
     HasSelectedRow && SelectedResourceRef()?.Actions.CanScale == true;
@@ -254,9 +207,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public event Action<VolumeFilesViewModel>? VolumeFilesRequested;
 
-  public bool CanLogs => HasDetailTab("Logs");
+  public bool CanLogs => HasDetailTab(DetailTab.Logs);
 
-  public bool CanExec => HasDetailTab("Terminal");
+  public bool CanExec => HasDetailTab(DetailTab.Terminal);
 
   public bool CanPortForward =>
     HasSelectedRow
@@ -270,10 +223,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     IsPortForwardingView && HasSelectedRow;
 
   public bool CanCordon =>
+    HasSelectedRow && SelectedDescriptor?.Actions.CanCordon == true && LeavesAvailableNode();
+
+  public bool CanUncordon =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanCordon == true;
 
   public bool CanDrain =>
-    HasSelectedRow && SelectedDescriptor?.Actions.CanDrain == true;
+    HasSelectedRow && SelectedDescriptor?.Actions.CanDrain == true && LeavesAvailableNode();
 
   public bool CanTrigger =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanTrigger == true;
@@ -286,7 +242,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
 
-  public Func<DrainPreview, Task<bool>>? ConfirmDrain { get; set; }
+  public Func<DrainConfirmViewModel, Task<bool>>? ConfirmDrain { get; set; }
 
   public bool CanRollout =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanRollout == true;
@@ -321,40 +277,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool CanEditData =>
     IsDataEditor && (HasSelectedRow || IsDirty);
 
-  public bool HasFooterActions =>
-    CanDelete
-    || CanForceDelete
-    || CanDeleteNamespace
-    || CanScale
-    || CanRestart
-    || CanCordon
-    || CanDrain
-    || CanTrigger
-    || CanResize
-    || CanRetain
-    || CanRollout
-    || CanApprove
-    || CanToken
-    || CanAttach
-    || CanDebug
-    || CanPortForward
-    || CanStopPortForward;
+  public bool ShowEventsTab => HasDetailTab(DetailTab.Events);
 
-  public bool ShowEventsTab => HasDetailTab("Events");
+  public bool ShowImagesTab => HasDetailTab(DetailTab.Images);
 
-  public bool ShowImagesTab => HasDetailTab("Images");
+  public bool ShowPodsTab => HasDetailTab(DetailTab.Pods);
 
-  public bool ShowPodsTab => HasDetailTab("Pods");
+  public bool ShowLogsTab => HasDetailTab(DetailTab.Logs);
 
-  public bool ShowLogsTab => HasDetailTab("Logs");
+  public bool ShowTerminalTab => HasDetailTab(DetailTab.Terminal);
 
-  public bool ShowTerminalTab => HasDetailTab("Terminal");
+  public bool ShowHelmHistoryTab => HasDetailTab(DetailTab.History);
 
-  public bool ShowHelmHistoryTab => HasDetailTab("History");
+  public bool ShowHelmValuesTab => HasDetailTab(DetailTab.Values);
 
-  public bool ShowHelmValuesTab => HasDetailTab("Values");
-
-  public bool ShowHelmManifestTab => HasDetailTab("Manifest");
+  public bool ShowHelmManifestTab => HasDetailTab(DetailTab.Manifest);
 
   public bool ShowPodPicker => ShowPodsTab;
 
@@ -367,14 +304,17 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public string DetailsTitle {
     get {
       var targets = ActionTargets;
+
       if (targets.Count > 1)
         return $"{targets.Count} {SelectedDescriptor?.Title ?? "items"} selected";
+
       if (SelectedRow is null)
         return "Select a resource";
 
       var kind = SelectedDocumentKind
         ?? SelectedResourceRef()?.Kind
         ?? SelectedDescriptor?.Kind;
+
       return kind is { Length: > 0 }
         ? $"{kind}  ·  {SelectedRow.Name}"
         : SelectedRow.Name;
@@ -398,30 +338,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public string ShoulderHint =>
     ShoulderHints.Text(SelectedNavItem?.Id, SelectedDescriptor);
 
-  public string OverviewWarningsCaption =>
-    ClusterIssues.Caption("Warnings", OverviewWarnings);
-
-  public string OverviewErrorsCaption =>
-    ClusterIssues.Caption("Errors", OverviewErrors);
-
-  public bool HasOverviewWarnings => OverviewWarnings.Count > 0;
-
-  public bool HasOverviewErrors => OverviewErrors.Count > 0;
-
-  public bool HasContainerLimits => LimitRows.Count > 0;
-
-  public bool HasSelectedLimit => SelectedLimitRow is not null;
-
-  public bool HasDirtyLimits => LimitRows.Any(row => row.IsDirty);
-
-  public bool HasLimitOvercommit =>
-    CpuSlice.LimitsExceedCapacity || MemorySlice.LimitsExceedCapacity;
-
-  public string LimitsCaption =>
-    HasLimitOvercommit
-      ? $"Resource limits ({LimitRows.Count}) — specified limits are higher than node capacity"
-      : $"Resource limits ({LimitRows.Count})";
-
   public ResourceDescriptor? SelectedDescriptor =>
     SelectedNavItem?.Descriptor ?? _workspace.FindDescriptor(SelectedNavItem?.Id ?? "");
 
@@ -433,6 +349,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private ResourceDescriptor? SelectedResourceRef() {
     var match = _workspace.FindByGvk(SelectedDocumentApiVersion, SelectedDocumentKind);
+
     if (match is not null
         && match.Id != ResourceCatalog.ApplicationsId
         && match.Id != ResourceCatalog.PortForwardingId)
@@ -448,6 +365,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public async Task<MaksIT.Results.Result> StartAsync(IClusterSession session) {
     var connected = await _workspace.ConnectAsync(session);
+
     if (!connected.IsSuccess)
       return connected;
 
@@ -460,6 +378,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _hasCnpgCrd = cnpg.Result.IsSuccess && cnpg.Result.Value;
     RebuildNavigator();
     _syncingLayout = true;
+
     try {
       var items = Navigator.SelectMany(g => g.AllItems()).Select(i => i.Item).ToList();
       var savedId = _configuration.Current.Layout.SelectedNavId;
@@ -474,6 +393,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
     _setStatus($"Connected to {Name}");
     ResumePolling();
+
     return MaksIT.Results.Result.Ok();
   }
 
@@ -489,19 +409,21 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public void Dispose() {
     PausePolling();
+
     if (_refreshTimer is not null) {
       _refreshTimer.Tick -= OnRefreshTimerTick;
       _refreshTimer = null;
     }
 
-    _logsCts?.Cancel();
     StopWatch();
-    CloseTerminalSession();
-    _chatCts?.Cancel();
-    foreach (var row in LimitRows)
-      row.PropertyChanged -= OnLimitRowPropertyChanged;
+    Logs.Cancel();
+    Terminal.Close();
+    Chat.Cancel();
+    Overview.Detach();
+
     foreach (var pf in PortForwards.ToList())
       pf.Handle.Dispose();
+
     PortForwards.Clear();
     _workspace.Disconnect();
   }
@@ -528,8 +450,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void OnColumnFilterChanged(string header) {
     ApplyColumnFilters();
+
     if (header == "Namespace")
       SyncNamespaceFromColumnFilter();
+
     PersistColumnFilters();
   }
 
@@ -539,6 +463,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private void ApplyColumnFilters(IReadOnlyList<string> keepUids) {
     var filters = _columnFilters.Values.Select(filter => filter.Model);
     var desired = new List<ResourceRow>();
+
     foreach (var row in _listedRows) {
       if (ResourceColumnFilter.MatchesAll(row, filters))
         desired.Add(row);
@@ -547,6 +472,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     SortRows(desired);
 
     _syncingSelection = true;
+
     try {
       CollectionSync.MergeByKey(
         Rows,
@@ -556,14 +482,17 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         matchSourceOrder: true);
 
       var restored = new List<ResourceRow>();
+
       foreach (var uid in keepUids) {
         var row = Rows.FirstOrDefault(item => string.Equals(item.Uid, uid, StringComparison.Ordinal));
+
         if (row is not null)
           restored.Add(row);
       }
 
       if (SelectedRow is null || !Rows.Contains(SelectedRow))
         SelectedRow = restored.FirstOrDefault();
+
       ReplaceSelectedRows(restored);
       SelectedRowsRestored?.Invoke(_selectedRows);
     }
@@ -590,6 +519,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   partial void OnSelectedNavItemChanged(NavigatorItem? value) {
     _columnFilters.Clear();
+
     foreach (var item in Navigator.SelectMany(g => g.AllItems()))
       item.IsSelected = item.Item.Id == value?.Id;
 
@@ -610,6 +540,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       cfg.Layout.SelectedNavId = value?.Id;
       _configuration.Save(cfg);
       var savedSearch = cfg.Layout.SearchFor(Name, value?.Id);
+
       if (Filter != savedSearch) {
         _syncingLayout = true;
         Filter = savedSearch;
@@ -626,6 +557,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   partial void OnSelectedNamespaceChanged(string value) {
     if (_syncingNamespace)
       return;
+
     PersistSelectedNamespace(NormalizeNamespace(value));
   }
 
@@ -646,14 +578,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     NotifyActionFlags();
     NotifyDetailsUi();
     SyncRebindLocalPort();
+
     if (value?.Uid == _detailsUid)
       return;
-    _ = LoadDetailsAsync();
-  }
 
-  partial void OnSelectedLimitRowChanged(LimitRowViewModel? value) {
-    OnPropertyChanged(nameof(HasSelectedLimit));
-    OnPropertyChanged(nameof(CanApplyLimits));
+    _ = LoadDetailsAsync();
   }
 
   partial void OnSelectedDataEntryChanged(DataEntryViewModel? value) =>
@@ -664,20 +593,25 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     ApplyContainers(value?.Document);
+
     if (SelectedRow is not null)
       OverviewText = SelectedRow.FormatOverview(Containers);
+
     NotifyDetailsUi();
-    _ = LoadLogsAsync();
-    _ = EnsureTerminalAsync();
+    _ = Logs.LoadAsync();
+    _ = Terminal.EnsureAsync();
   }
 
   partial void OnSelectedContainerChanged(PodContainer? value) {
     if (_updatingPodContext)
       return;
 
-    _ = LoadLogsAsync();
-    _ = EnsureTerminalAsync();
+    _ = Logs.LoadAsync();
+    _ = Terminal.EnsureAsync();
   }
+
+  partial void OnSelectedTabChanged(string value) =>
+    _ = Terminal.EnsureAsync();
 
   partial void OnIsDirtyChanged(bool value) {
     OnPropertyChanged(nameof(CanApplyYaml));
@@ -689,9 +623,6 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       IsDirty = true;
   }
 
-  partial void OnFollowLogsChanged(bool value) =>
-    _ = LoadLogsAsync();
-
   [RelayCommand]
   private async Task RefreshRowsAsync() {
     if (_refreshBusy || SelectedNavItem is null)
@@ -699,24 +630,29 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     _refreshBusy = true;
     StopWatch();
+
     try {
-      await SampleClusterUsageAsync();
+      await Overview.SampleAsync();
 
       if (SelectedNavItem.Id == ResourceCatalog.OverviewId) {
         _listedRows.Clear();
         Rows.Clear();
-        await LoadOverviewIssuesAsync();
+        await Overview.LoadIssuesAsync();
         _setStatus($"Overview · {Name}");
+
         return;
       }
 
       if (SelectedNavItem.Id == ResourceCatalog.WorkloadsOverviewId) {
-        await LoadWorkloadsOverviewAsync();
+        Rows.Clear();
+        await Workloads.LoadAsync();
+
         return;
       }
 
       if (SelectedNavItem.Id == ResourceCatalog.PortForwardingId) {
         ShowPortForwardRows();
+
         return;
       }
 
@@ -727,15 +663,19 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         labelSelector: LabelSelector);
       var keepUids = SnapshotSelectedUids();
       _listedRows.Clear();
+
       if (!listed.IsSuccess) {
         Rows.Clear();
         _setStatus(string.Join("; ", listed.Messages));
+
         return;
       }
 
       _listedRows.AddRange(listed.Value ?? []);
+
       foreach (var column in SelectedDescriptor?.Columns ?? [])
         FilterFor(column.Header).LoadValues(_listedRows);
+
       SeedNamespaceColumnFromSelection();
 
       ApplyColumnFilters(keepUids);
@@ -759,13 +699,16 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     try {
       var doc = YamlFormatter.ToJsonObject(YamlText);
+
       if (doc is null) {
         _setStatus("YAML is empty or invalid.");
+
         return;
       }
 
       var applied = await _workspace.ApplyDocumentAsync(doc);
       _setStatus(applied.IsSuccess ? "Applied YAML." : string.Join("; ", applied.Messages));
+
       if (!applied.IsSuccess)
         return;
 
@@ -788,14 +731,17 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     var doc = _editDocument is not null
       ? ResourceDocument.Clone(_editDocument)
       : YamlFormatter.ToJsonObject(YamlText);
+
     if (doc is null) {
       _setStatus("Nothing to apply.");
+
       return;
     }
 
     ResourceDocument.WriteDataEntries(doc, DataEntries.Select(e => new ResourceDataEntry(e.Key, e.Value, e.IsBinary)));
     var applied = await _workspace.ApplyDocumentAsync(doc);
     _setStatus(applied.IsSuccess ? "Applied data." : string.Join("; ", applied.Messages));
+
     if (!applied.IsSuccess)
       return;
 
@@ -839,18 +785,22 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task DeleteAsync() {
     var resource = SelectedResourceRef();
+
     if (resource is null || resource.Actions.CanDelete == false)
       return;
 
     var rows = ActionTargets;
     var owned = rows.Any(IsControllerOwned);
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.DeleteAsync(resource.ToRef(), row.Name, row.Namespace)) is not { } outcome)
       return;
 
     var status = outcome.Format("Deleted.", $"Deleted {outcome.Total}.");
+
     if (owned && outcome.Succeeded > 0)
       status += " A controller may recreate this pod — open Namespaces and force-delete the sandbox namespace.";
+
     _setStatus(status);
     await RefreshRowsAsync();
   }
@@ -858,18 +808,22 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task ForceDeleteAsync() {
     var resource = SelectedResourceRef();
+
     if (resource is null || resource.Actions.CanDelete == false)
       return;
 
     var rows = ActionTargets;
     var owned = rows.Any(IsControllerOwned);
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.DeleteAsync(resource.ToRef(), row.Name, row.Namespace, force: true)) is not { } outcome)
       return;
 
     var status = outcome.Format("Force-deleted.", $"Force-deleted {outcome.Total}.");
+
     if (owned && outcome.Succeeded > 0)
       status += " A controller may recreate this pod — open Namespaces and force-delete the sandbox namespace.";
+
     _setStatus(status);
     await RefreshRowsAsync();
   }
@@ -880,6 +834,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     var names = DeletableNamespaceNames;
+
     if (names.Count == 0)
       return;
 
@@ -892,6 +847,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _setStatus(outcome.Format(
       $"Force-deleted namespace {names[0]}.",
       $"Force-deleted {outcome.Total} namespaces."));
+
     if (names.Contains(SelectedNamespace, StringComparer.Ordinal)) {
       SelectedNamespace = Configuration.AllNamespaces;
       _columnFilters.Remove("Namespace");
@@ -917,8 +873,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private static bool IsControllerOwned(ResourceRow row) {
     var owners = row.Document["metadata"]?["ownerReferences"] as JsonArray;
+
     return owners?.OfType<JsonObject>().Any(o => {
       var kind = o["kind"]?.GetValue<string>();
+
       return kind is "ReplicaSet" or "Deployment" or "StatefulSet" or "DaemonSet" or "Job";
     }) == true;
   }
@@ -926,10 +884,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task ScaleAsync() {
     var resource = SelectedResourceRef();
+
     if (resource is null || resource.Actions.CanScale == false)
       return;
 
     var replicas = ScaleReplicas;
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.ScaleAsync(resource.ToRef(), row.Name, row.Namespace, replicas)) is not { } outcome)
       return;
@@ -941,6 +901,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task RestartAsync() {
     var resource = SelectedResourceRef();
+
     if (resource is null || resource.Actions.CanRestart == false)
       return;
 
@@ -954,6 +915,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task ResizeAsync() {
     var storage = ResizeStorage.Trim();
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.ResizePersistentVolumeClaimAsync(row.Name, row.Namespace ?? "default", storage)) is not { } outcome)
       return;
@@ -968,9 +930,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     RetainReclaimViewModel viewModel;
+
     if (SelectedDescriptor.Id == "storageclasses") {
       if (ActionTargets.Count > 1) {
         _setStatus("Retain one storage class at a time.");
+
         return;
       }
 
@@ -981,6 +945,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
     else {
       var names = ActionTargets.Select(row => row.Name).ToList();
+
       if (names.Count == 0)
         return;
 
@@ -991,8 +956,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     await ShowRetainReclaim(viewModel);
+
     if (viewModel.StatusText.Length > 0)
       _setStatus(viewModel.StatusText);
+
     if (viewModel.Changed)
       await RefreshRowsAsync();
   }
@@ -1016,6 +983,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task RolloutHistoryAsync() {
     var row = SelectedRow;
+
     if (_workspace.Session is null || row is null)
       return;
 
@@ -1055,17 +1023,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private async Task CreateTokenAsync() {
     var row = SelectedRow;
+
     if (_workspace.Session is null || row is null)
       return;
 
     var token = await _workspace.Session.CreateServiceAccountTokenAsync(row.Name, row.Namespace ?? "default");
+
     if (!token.IsSuccess || string.IsNullOrEmpty(token.Value)) {
       _setStatus(string.Join("; ", token.Messages));
+
       return;
     }
 
     TerminalText = token.Value;
-    SelectedTab = "Overview";
+    SelectedTab = DetailTab.Overview;
     _setStatus("Service account token created. It is shown once in the details pane.");
     OverviewText = "Token (shown once):\n" + token.Value;
   }
@@ -1077,18 +1048,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     var pod = TargetPodName;
     var ns = TargetPodNamespace ?? "default";
+
     if (pod is null) {
       TerminalText = "Attach requires a pod.";
-      SelectedTab = "Terminal";
+      SelectedTab = DetailTab.Terminal;
+
       return;
     }
 
     var result = await _workspace.Session.AttachAsync(pod, ns, SelectedContainer?.Name);
-    ShowInTerminal(result.IsSuccess ? result.Value ?? "" : string.Join("; ", result.Messages));
-    TerminalStatus = result.IsSuccess
+    Terminal.Show(result.IsSuccess ? result.Value ?? "" : string.Join("; ", result.Messages));
+    Terminal.TerminalStatus = result.IsSuccess
       ? "Attached output. Reconnect opens a shell."
       : string.Join("; ", result.Messages);
-    SelectedTab = "Terminal";
+    SelectedTab = DetailTab.Terminal;
   }
 
   [RelayCommand]
@@ -1098,19 +1071,28 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     var pod = TargetPodName;
     var ns = TargetPodNamespace ?? "default";
+
     if (pod is null) {
       _setStatus("Debug requires a pod.");
+
       return;
     }
 
     var result = await _workspace.Session.AddEphemeralContainerAsync(pod, ns, DebugImage, SelectedContainer?.Name);
     _setStatus(result.IsSuccess ? $"Ephemeral container added with {DebugImage.Trim()}." : string.Join("; ", result.Messages));
+
     if (result.IsSuccess)
       await RefreshRowsAsync();
   }
 
   [RelayCommand]
   private async Task CordonAsync() {
+    if (!LeavesAvailableNode()) {
+      _setStatus("Cordon needs another Ready node.");
+
+      return;
+    }
+
     if (await RunOnSelectedAsync(row =>
           _workspace.Session!.CordonAsync(row.Name, true)) is not { } outcome)
       return;
@@ -1132,15 +1114,33 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     if (_workspace.Session is null || ActionTargets.Count == 0)
       return;
 
-    var names = ActionTargets.Select(row => row.Name).Distinct(StringComparer.Ordinal).ToList();
-    var preview = await _workspace.PreviewDrainAsync(names);
-    if (!preview.IsSuccess || preview.Value is null) {
-      _setStatus(string.Join("; ", preview.Messages));
+    if (!LeavesAvailableNode()) {
+      _setStatus("Drain needs another Ready node.");
+
       return;
     }
 
-    if (ConfirmDrain is null || !await ConfirmDrain(preview.Value)) {
+    var names = ActionTargets.Select(row => row.Name).Distinct(StringComparer.Ordinal).ToList();
+    var preview = await _workspace.PreviewDrainAsync(names);
+
+    if (!preview.IsSuccess || preview.Value is null) {
+      _setStatus(string.Join("; ", preview.Messages));
+
+      return;
+    }
+
+    var dialog = new DrainConfirmViewModel(preview.Value);
+    var cfg = _configuration.Current;
+
+    if (cfg.Ai.Enabled) {
+      var plan = DrainPlan.Format(preview.Value.Nodes);
+      _ = dialog.LoadAdviceAsync(ct =>
+        _chat.AssessDrainAsync(cfg.Ai.Endpoint, cfg.Ai.Model, plan, ct, cfg.Ai.TimeoutSeconds));
+    }
+
+    if (ConfirmDrain is null || !await ConfirmDrain(dialog)) {
       _setStatus("Drain cancelled.");
+
       return;
     }
 
@@ -1166,8 +1166,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     var target = await ResolvePortForwardTargetAsync();
+
     if (!target.IsSuccess || target.Value is null) {
       _setStatus(PortForwardRow.FailedMessage(target.Messages));
+
       return;
     }
 
@@ -1191,8 +1193,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       ForwardLocalPort,
       target.Value.RequestedPort,
       ResolveEndpoint(saved));
+
     if (!started.IsSuccess || started.Value is null) {
       _setStatus(PortForwardRow.FailedMessage(started.Messages));
+
       return;
     }
 
@@ -1206,8 +1210,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     };
     PortForwards.Add(item);
     PersistStarted(item);
+
     if (IsPortForwardingView)
       ShowPortForwardRows();
+
     _setStatus(PortForwardRow.StartedMessage(started.Value));
   }
 
@@ -1220,32 +1226,39 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     item.Handle.Dispose();
     PortForwards.Remove(item);
     PersistStopped(localPort);
+
     if (IsPortForwardingView)
       ShowPortForwardRows();
+
     _setStatus($"Stopped port-forward localhost:{localPort}.");
   }
 
   [RelayCommand]
   private void StopSelectedPortForward() {
     var rows = ActionTargets;
+
     if (rows.Count == 0)
       return;
 
     var stoppedPorts = new List<int>();
     var failures = new List<string>();
+
     foreach (var row in rows) {
       var live = PortForwards.FirstOrDefault(item => item.Uid == row.Uid);
+
       if (live is not null) {
         var port = live.Handle.LocalPort;
         live.Handle.Dispose();
         PortForwards.Remove(live);
         PersistStopped(port);
         stoppedPorts.Add(port);
+
         continue;
       }
 
       if (!PortForwardRow.TryLocalPort(row, out var localPort)) {
         failures.Add($"{row.Name}: not a port-forward");
+
         continue;
       }
 
@@ -1255,6 +1268,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     if (IsPortForwardingView)
       ShowPortForwardRows();
+
     if (failures.Count == 0 && stoppedPorts.Count == 1)
       _setStatus($"Stopped port-forward localhost:{stoppedPorts[0]}.");
     else if (failures.Count == 0)
@@ -1269,11 +1283,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private void OpenSelectedPortForward() {
     if (!IsPortForwardingView || SelectedRow is null)
       return;
+
     if (!PortForwardRow.TryLocalPort(SelectedRow, out var localPort))
       return;
 
     if (!PortForwards.Any(item => item.Handle.LocalPort == localPort)) {
       _setStatus(PortForwardRow.FailedMessage(["forward is not active"]));
+
       return;
     }
 
@@ -1294,27 +1310,33 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private async Task RebindSelectedPortForwardAsync() {
     if (_workspace.Session is null || SelectedRow is null || !IsPortForwardingView)
       return;
+
     if (!PortForwardRow.TryLocalPort(SelectedRow, out var oldPort))
       return;
 
     var newPort = RebindLocalPort;
+
     if (newPort == oldPort) {
       _setStatus($"Port-forward already listening on localhost:{oldPort}.");
+
       return;
     }
 
     if (newPort is < 1 or > 65535) {
       _setStatus(PortForwardRow.FailedMessage(["local port must be between 1 and 65535"]));
+
       return;
     }
 
     if (IsLocalPortTaken(newPort)) {
       _setStatus(PortForwardRow.FailedMessage([$"localhost:{newPort} is already in use by another port-forward"]));
+
       return;
     }
 
     var live = PortForwards.FirstOrDefault(item => item.Uid == SelectedRow.Uid)
       ?? PortForwards.FirstOrDefault(item => item.Handle.LocalPort == oldPort);
+
     if (live is not null)
       await RebindLiveAsync(live, oldPort, newPort);
     else
@@ -1332,21 +1354,28 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private void SeedNamespaceColumnFromSelection() {
     if (!_columnFilters.TryGetValue("Namespace", out var filter))
       return;
+
     var ns = NormalizeNamespace(SelectedNamespace);
+
     if (ns == Configuration.AllNamespaces)
       return;
+
     if (!filter.Values.Any(value => string.Equals(value.Value, ns, StringComparison.Ordinal)))
       return;
+
     filter.IncludeOnly(ns);
   }
 
   private void SyncNamespaceFromColumnFilter() {
     if (!_columnFilters.TryGetValue("Namespace", out var filter))
       return;
+
     var distinct = filter.Values.Select(value => value.Value).ToList();
     var scope = ResourceColumnFilter.Scope(filter.Model, distinct);
+
     if (string.Equals(SelectedNamespace, scope, StringComparison.Ordinal))
       return;
+
     _syncingNamespace = true;
     SelectedNamespace = scope;
     _syncingNamespace = false;
@@ -1355,6 +1384,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void PersistSelectedNamespace(string ns) {
     var cfg = _configuration.Current;
+
     if (string.Equals(cfg.NamespaceFor(Name), ns, StringComparison.Ordinal)
         && string.Equals(cfg.ActiveContext, Name, StringComparison.Ordinal))
       return;
@@ -1371,6 +1401,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     var map = new Dictionary<string, SavedColumnFilter>(StringComparer.Ordinal);
+
     foreach (var (header, filter) in _columnFilters)
       map[header] = filter.Snapshot();
 
@@ -1381,6 +1412,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void SortRows(List<ResourceRow> rows) {
     var sort = _configuration.Current.Layout.SortFor(Name, TableKey());
+
     if (sort is null)
       return;
 
@@ -1388,6 +1420,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     var descending = string.Equals(sort.Direction, "Descending", StringComparison.OrdinalIgnoreCase);
     rows.Sort((left, right) => {
       var cmp = comparer.Compare(left, right);
+
       return descending ? -cmp : cmp;
     });
   }
@@ -1397,15 +1430,19 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void RebuildNavigator() {
     Navigator.Clear();
+
     foreach (var section in ResourceCatalog.Sections) {
       if (section == ResourceCatalog.Dapr && !_hasDaprCrd)
         continue;
+
       if (section == ResourceCatalog.Longhorn && !_hasLonghornCrd)
         continue;
+
       if (section == ResourceCatalog.CloudNativePG && !_hasCnpgCrd)
         continue;
 
       var sectionItems = _workspace.Navigator.Where(i => i.Section == section).ToList();
+
       if (section == ResourceCatalog.CustomResources) {
         var definitions = sectionItems
           .Where(i => i.Descriptor?.Kind == "CustomResourceDefinition")
@@ -1419,10 +1456,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
             [],
             topLevel: false))
           .ToList();
+
         if (definitions.Count == 0 && groups.Count == 0)
           continue;
 
         Navigator.Add(CreateNavGroup(section, section, definitions, groups));
+
         continue;
       }
 
@@ -1454,6 +1493,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       ExpandedChanged = PersistNavigatorExpanded
     };
     group.IsExpanded = _configuration.Current.IsNavigatorExpanded(path);
+
     return group;
   }
 
@@ -1468,6 +1508,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private static void CollapseGroup(NavGroupViewModel group) {
     group.IsExpanded = false;
+
     foreach (var child in group.Groups)
       CollapseGroup(child);
   }
@@ -1482,215 +1523,30 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     var map = new Dictionary<string, bool>(StringComparer.Ordinal);
     void Walk(NavGroupViewModel group) {
       map[group.Path] = group.IsExpanded;
+
       foreach (var child in group.Groups)
         Walk(child);
     }
 
     foreach (var group in groups)
       Walk(group);
+
     return map;
+  }
+
+  private void OpenWorkloadKind(string id) {
+    var item = Navigator.SelectMany(group => group.AllItems()).Select(item => item.Item).FirstOrDefault(item => item.Id == id);
+
+    if (item is not null)
+      SelectedNavItem = item;
   }
 
   private NavItemViewModel ToNavItem(NavigatorItem item) =>
     new() { Item = item, Select = selected => SelectedNavItem = selected };
 
-  private async Task LoadWorkloadsOverviewAsync() {
-    Rows.Clear();
-    WorkloadCounts.Clear();
-    if (_workspace.Session is null)
-      return;
-
-    var kinds = new[] {
-      "pods", "deployments", "statefulsets", "daemonsets",
-      "replicasets", "jobs", "cronjobs", "replicationcontrollers"
-    };
-    foreach (var id in kinds) {
-      var listed = await _workspace.ListAsync(id, SelectedNamespace, null);
-      var count = listed.IsSuccess ? listed.Value?.Count ?? 0 : 0;
-      WorkloadCounts.Add(new WorkloadKindCount {
-        Id = id,
-        Title = ResourceCatalog.Find(id)?.Title ?? id,
-        Count = count,
-        Open = OpenWorkloadKind
-      });
-    }
-
-    OverviewText = SelectedNamespace == Configuration.AllNamespaces
-      ? "Counts for all namespaces."
-      : $"Counts in namespace {SelectedNamespace}.";
-    _setStatus($"Workloads · {Name}");
-  }
-
-  private void OpenWorkloadKind(string id) {
-    var item = Navigator.SelectMany(g => g.AllItems()).Select(i => i.Item).FirstOrDefault(i => i.Id == id);
-    if (item is not null)
-      SelectedNavItem = item;
-  }
-
-  private async Task SampleClusterUsageAsync() {
-    if (_workspace.Session is null)
-      return;
-
-    var usage = await _workspace.Session.GetClusterUsageAsync();
-    if (!usage.IsSuccess || usage.Value is null) {
-      MetricsHint = string.Join("; ", usage.Messages);
-      return;
-    }
-
-    ApplyUsage(usage.Value);
-  }
-
-  private async Task LoadOverviewIssuesAsync() {
-    var issues = await _workspace.GetClusterIssuesAsync();
-    var warnings = issues.IsSuccess && issues.Value is not null
-      ? issues.Value.Warnings
-      : [];
-    var errors = issues.IsSuccess && issues.Value is not null
-      ? issues.Value.Errors
-      : [];
-    CollectionSync.MergeByKey(OverviewWarnings, warnings, issue => issue.Id);
-    CollectionSync.MergeByKey(OverviewErrors, errors, issue => issue.Id);
-
-    OnPropertyChanged(nameof(OverviewWarningsCaption));
-    OnPropertyChanged(nameof(OverviewErrorsCaption));
-    OnPropertyChanged(nameof(HasOverviewWarnings));
-    OnPropertyChanged(nameof(HasOverviewErrors));
-  }
-
-  private void ApplyUsage(ClusterUsage usage) {
-    if (IsClusterDashboard)
-      OverviewText = $"Kubernetes {usage.GitVersion} ({usage.Platform})\nNodes: {usage.NodeCount}";
-    CpuSlice = usage.Cpu;
-    MemorySlice = usage.Memory;
-    PodSlice = usage.Pods;
-    CpuCaption = usage.CpuCaption;
-    MemoryCaption = usage.MemoryCaption;
-    PodCaption = usage.PodCaption;
-    CpuPercent = usage.CpuPercent;
-    MemoryPercent = usage.MemoryPercent;
-    PodPercent = usage.PodPercent;
-    ApplyNodeUsages(usage.Nodes, usage.MetricsAvailable);
-    ApplyLimitRows(usage.ContainerLimits);
-    MetricsHint = usage.MetricsAvailable
-      ? "Live usage from metrics-server (metrics.k8s.io). Sparklines are sampled in this session."
-      : usage.MetricsMessage ?? MetricsHint;
-
-    if (!usage.MetricsAvailable)
-      return;
-
-    AppendHistory(_cpuHistory, usage.CpuPercent);
-    AppendHistory(_memoryHistory, usage.MemoryPercent);
-    CpuHistory = _cpuHistory.ToArray();
-    MemoryHistory = _memoryHistory.ToArray();
-  }
-
-  private void ApplyNodeUsages(IReadOnlyList<NodeUsage> nodes, bool sampleHistory) {
-    var existing = NodeUsages.ToDictionary(n => n.Name, StringComparer.Ordinal);
-    var desired = new List<NodeUsageViewModel>(nodes.Count);
-    foreach (var node in nodes) {
-      if (!existing.TryGetValue(node.Name, out var vm))
-        vm = new NodeUsageViewModel { Name = node.Name };
-      vm.Update(node, HistoryPoints, sampleHistory);
-      desired.Add(vm);
-    }
-
-    CollectionSync.MergeByKey(NodeUsages, desired, n => n.Name);
-  }
-
-  private void ApplyLimitRows(IReadOnlyList<WorkloadContainerLimit> limits) {
-    var keep = SelectedLimitRow;
-    var existing = LimitRows.ToDictionary(row => LimitKey(row.Source), StringComparer.Ordinal);
-    var desired = new List<LimitRowViewModel>(limits.Count);
-    foreach (var limit in limits) {
-      if (existing.TryGetValue(LimitKey(limit), out var vm)) {
-        vm.SyncFrom(limit);
-        desired.Add(vm);
-      }
-      else
-        desired.Add(new LimitRowViewModel(limit));
-    }
-
-    foreach (var row in LimitRows)
-      row.PropertyChanged -= OnLimitRowPropertyChanged;
-
-    CollectionSync.MergeByKey(LimitRows, desired, row => LimitKey(row.Source));
-    foreach (var row in LimitRows)
-      row.PropertyChanged += OnLimitRowPropertyChanged;
-
-    if (keep is not null && LimitRows.Contains(keep))
-      SelectedLimitRow = keep;
-    else if (SelectedLimitRow is null || !LimitRows.Contains(SelectedLimitRow))
-      SelectedLimitRow = LimitRows.FirstOrDefault();
-    OnPropertyChanged(nameof(HasContainerLimits));
-    OnPropertyChanged(nameof(HasLimitOvercommit));
-    OnPropertyChanged(nameof(LimitsCaption));
-    OnPropertyChanged(nameof(HasSelectedLimit));
-    OnPropertyChanged(nameof(HasDirtyLimits));
-    OnPropertyChanged(nameof(CanApplyLimits));
-  }
-
-  private void OnLimitRowPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-    if (e.PropertyName is nameof(LimitRowViewModel.CpuLimit)
-        or nameof(LimitRowViewModel.MemoryLimit)
-        or nameof(LimitRowViewModel.IsDirty)) {
-      OnPropertyChanged(nameof(HasDirtyLimits));
-      OnPropertyChanged(nameof(CanApplyLimits));
-    }
-  }
-
-  private static string LimitKey(WorkloadContainerLimit limit) =>
-    $"{limit.Namespace}\0{limit.WorkloadKind}\0{limit.WorkloadName}\0{limit.Container}\0{limit.Init}";
-
-  public bool CanApplyLimits =>
-    LimitRows.Any(row => row.IsDirty) || SelectedLimitRow is not null;
-
-  [RelayCommand]
-  private async Task ApplySelectedLimitAsync() {
-    if (SelectedLimitRow is null)
-      return;
-    if (!SelectedLimitRow.IsDirty) {
-      _setStatus("Edit CPU limit or MEM limit on the selected row, then apply.");
-      return;
-    }
-
-    await ApplyLimitAsync(SelectedLimitRow);
-  }
-
-  [RelayCommand]
-  private async Task ApplyChangedLimitsAsync() {
-    var dirty = LimitRows.Where(row => row.IsDirty).ToList();
-    if (dirty.Count == 0) {
-      _setStatus("No limit edits to apply.");
-      return;
-    }
-
-    foreach (var row in dirty)
-      await ApplyLimitAsync(row);
-  }
-
-  private async Task ApplyLimitAsync(LimitRowViewModel row) {
-    if (_workspace.Session is null)
-      return;
-    var patched = await _workspace.Session.PatchContainerResourcesAsync(
-      row.Source,
-      row.CpuLimit,
-      row.MemoryLimit);
-    _setStatus(patched.IsSuccess
-      ? $"Patched {row.Workload} container {row.Source.Container}."
-      : string.Join("; ", patched.Messages));
-    if (patched.IsSuccess)
-      await SampleClusterUsageAsync();
-  }
-
-  private static void AppendHistory(List<double> history, double value) {
-    history.Add(value);
-    if (history.Count > HistoryPoints)
-      history.RemoveAt(0);
-  }
-
   private async Task LoadDetailsAsync() {
-    _logsCts?.Cancel();
     var row = SelectedRow;
+
     if (row is null) {
       if (IsDirty)
         return;
@@ -1700,24 +1556,25 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       SetYaml("");
       OverviewText = "";
       EventsText = "";
-      LogsText = "";
+      Logs.Clear();
       TerminalText = "";
-      CloseTerminalSession();
-      TerminalStatus = "Select a pod to open a shell.";
+      Terminal.Release("Select a pod to open a shell.");
       ReplaceDataEntries(null);
       ReplaceRelatedPods([]);
       ApplyNodeImages(null);
       ApplyContainers(null);
-      ClearHelmDetails();
+      Helm.Clear();
       NotifyDetailsUi();
+
       return;
     }
 
     _detailsUid = row.Uid;
     var document = row.Document;
     var resource = SelectedResourceRef();
+
     if (SelectedNavItem?.Id == ResourceCatalog.HelmChartsId) {
-      ClearHelmDetails();
+      Helm.Clear();
       ReplaceDataEntries(null);
       ReplaceRelatedPods([]);
       ApplyNodeImages(null);
@@ -1729,6 +1586,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       EventsText = "";
       SetYaml("");
       NotifyDetailsUi();
+
       return;
     }
 
@@ -1737,18 +1595,24 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       ReplaceRelatedPods([]);
       ApplyNodeImages(null);
       ApplyContainers(null);
-      await LoadHelmDetailsAsync(row);
+      await Helm.LoadAsync(row);
+
       if (!DetailsStillCurrent(row))
         return;
+
       NotifyDetailsUi();
+
       return;
     }
 
-    ClearHelmDetails();
+    Helm.Clear();
+
     if (resource is not null && _workspace.Session is not null) {
       var got = await _workspace.Session.GetAsync(resource.ToRef(), row.Name, row.Namespace);
+
       if (!DetailsStillCurrent(row))
         return;
+
       if (got.IsSuccess && got.Value is not null)
         document = got.Value;
     }
@@ -1758,18 +1622,23 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     ReplaceDataEntries(_editDocument);
 
     IReadOnlyList<ResourceRow> related = [];
+
     if (ShowPodsTab) {
       var listed = await _workspace.RelatedPodsAsync(row);
+
       if (!DetailsStillCurrent(row))
         return;
+
       related = listed.IsSuccess ? listed.Value ?? [] : [];
     }
 
     ReplaceRelatedPods(related);
+
     if (ShowImagesTab)
       await LoadNodeImagesAsync(row, document);
     else
       ApplyNodeImages(null);
+
     if (!DetailsStillCurrent(row))
       return;
 
@@ -1778,35 +1647,42 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     ApplyServiceForwardPorts(document);
     OverviewText = row.FormatOverview(Containers);
     var events = await _workspace.EventsForAsync(row);
+
     if (!DetailsStillCurrent(row))
       return;
+
     EventsText = events.IsSuccess
       ? string.Join('\n', (events.Value ?? []).Select(e => $"{e.Cells.GetValueOrDefault("Type")} {e.Cells.GetValueOrDefault("Reason")} {e.Cells.GetValueOrDefault("Message")}"))
       : string.Join("; ", events.Messages);
     NotifyDetailsUi();
-    await LoadLogsAsync();
-    await EnsureTerminalAsync();
+    await Logs.LoadAsync();
+    await Terminal.EnsureAsync();
   }
 
   private async Task LoadNodeImagesAsync(ResourceRow row, JsonObject document) {
     var listed = await _workspace.NodeImagesAsync(document);
+
     if (!DetailsStillCurrent(row))
       return;
 
     ApplyNodeImages(listed.IsSuccess ? listed.Value : null);
+
     if (!listed.IsSuccess)
       NodeImagesCaption = string.Join("; ", listed.Messages);
   }
 
   private void ApplyNodeImages(NodeImageReport? report) {
     NodeImages.Clear();
+
     if (report is null) {
       NodeImagesCaption = "";
+
       return;
     }
 
     foreach (var image in report.Images)
       NodeImages.Add(image);
+
     NodeImagesCaption = report.Caption;
   }
 
@@ -1826,9 +1702,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
     var keepKey = SelectedDataEntry?.Key;
     DataEntries.Clear();
+
     if (document is null) {
       SelectedDataEntry = null;
       OnPropertyChanged(nameof(HasSelectedDataEntry));
+
       return;
     }
 
@@ -1854,87 +1732,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       IsDirty = true;
   }
 
-  private async Task LoadLogsAsync() {
-    _logsCts?.Cancel();
-    _logsCts = null;
-    var generation = ++_logsGeneration;
-    if (!ShowLogsTab) {
-      LogsText = "";
-      return;
-    }
-
-    var pod = TargetPodName;
-    var ns = TargetPodNamespace;
-    if (pod is null || ns is null || _workspace.Session is null) {
-      LogsText = ShowPodsTab ? "Select a pod to read logs." : "";
-      return;
-    }
-
-    if (Containers.Count > 1 && SelectedContainer is null) {
-      LogsText = "Select a container to read logs.";
-      return;
-    }
-
-    var container = SelectedContainer?.Name;
-    if (FollowLogs) {
-      _logsCts = new CancellationTokenSource();
-      LogsText = "";
-      _ = FollowLogsLoopAsync(pod, ns, container, generation, _logsCts.Token);
-      return;
-    }
-
-    var logs = await _workspace.Session.GetLogsAsync(pod, ns, container, false, 200);
-    if (generation != _logsGeneration)
-      return;
-
-    LogsText = logs.IsSuccess ? logs.Value ?? "" : string.Join("; ", logs.Messages);
-  }
-
-  private async Task FollowLogsLoopAsync(
-    string pod,
-    string ns,
-    string? container,
-    int generation,
-    CancellationToken cancellationToken) {
-    if (_workspace.Session is null)
-      return;
-
-    try {
-      await foreach (var line in _workspace.Session.FollowLogsAsync(pod, ns, container, cancellationToken)) {
-        var text = line;
-        Dispatcher.UIThread.Post(() => {
-          if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
-            return;
-
-          AppendLogLine(text);
-        });
-      }
-    }
-    catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or IOException) {
-    }
-    catch (Exception ex) {
-      if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
-        return;
-
-      Dispatcher.UIThread.Post(() => {
-        if (generation != _logsGeneration || cancellationToken.IsCancellationRequested)
-          return;
-
-        LogsText = string.IsNullOrEmpty(LogsText) ? ex.Message : LogsText + Environment.NewLine + ex.Message;
-      });
-    }
-  }
-
-  private void AppendLogLine(string line) {
-    LogsText += line + Environment.NewLine;
-    if (LogsText.Length > 200_000)
-      LogsText = LogsText[^100_000..];
-  }
-
   private void ReplaceRelatedPods(IReadOnlyList<ResourceRow> pods) {
     _updatingPodContext = true;
     var keep = SelectedRelatedPod?.Name;
     RelatedPods.Clear();
+
     foreach (var pod in pods)
       RelatedPods.Add(pod);
 
@@ -1947,6 +1749,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _updatingPodContext = true;
     var keep = SelectedContainer?.Name;
     Containers.Clear();
+
     foreach (var container in JsonPath.ListPodContainers(pod))
       Containers.Add(container);
 
@@ -1959,14 +1762,17 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void ShowPortForwardRows(string? keepUid = null) {
     var keepUids = SnapshotSelectedUids().ToList();
+
     if (keepUid is not null && !keepUids.Contains(keepUid, StringComparer.Ordinal))
       keepUids.Add(keepUid);
+
     var livePorts = PortForwards.Select(item => item.Handle.LocalPort).ToHashSet();
     _listedRows.Clear();
+
     foreach (var item in PortForwards)
       _listedRows.Add(PortForwardRow.From(item.Handle, item.Uid));
 
-    foreach (var saved in _configuration.Current.PortForwardsFor(Name)) {
+    foreach (var saved in _configuration.Current.Forwards.For(Name)) {
       if (livePorts.Contains(saved.LocalPort))
         continue;
 
@@ -1982,19 +1788,23 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   public async Task<PortForwardRestoreSummary> RestorePortForwardsAsync() {
-    var saved = _configuration.Current.PortForwardsFor(Name);
+    var saved = _configuration.Current.Forwards.For(Name);
+
     if (saved.Count == 0)
       return new PortForwardRestoreSummary(0, []);
 
     var restored = 0;
     var failures = new List<string>();
+
     foreach (var item in saved) {
       if (PortForwards.Any(live => live.Handle.LocalPort == item.LocalPort)) {
         restored++;
+
         continue;
       }
 
       var opened = await OpenPersistedPortForwardAsync(item);
+
       if (opened.IsSuccess)
         restored++;
       else
@@ -2012,6 +1822,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return Result.ServiceUnavailable("not connected");
 
     var resolved = await ResolveOwnedTargetAsync(saved);
+
     if (!resolved.IsSuccess || resolved.Value is null)
       return resolved.ToResult();
 
@@ -2024,6 +1835,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       saved.LocalPort,
       resolved.Value.RequestedPort,
       ResolveEndpoint(saved));
+
     if (!started.IsSuccess || started.Value is null)
       return started.ToResult();
 
@@ -2037,17 +1849,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     };
     PortForwards.Add(item);
     PersistStarted(item);
+
     return Result.Ok();
   }
 
   private Func<CancellationToken, Task<Result<PortForwardEndpoint>>> ResolveEndpoint(PersistedPortForward saved) =>
     async _ => {
       var resolved = await ResolveOwnedTargetAsync(saved);
+
       if (!resolved.IsSuccess || resolved.Value is null)
         return new Result<PortForwardEndpoint>(null, false, resolved.Messages, resolved.StatusCode);
 
       saved.PodName = resolved.Value.PodName;
       saved.Namespace = resolved.Value.Namespace;
+
       return Result<PortForwardEndpoint>.Ok(new PortForwardEndpoint(
         resolved.Value.PodName,
         resolved.Value.Namespace,
@@ -2056,23 +1871,28 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private async Task<Result<PortForwardTarget>> ResolveOwnedTargetAsync(PersistedPortForward saved) {
     var ns = string.IsNullOrWhiteSpace(saved.Namespace) ? "default" : saved.Namespace;
+
     if (string.Equals(saved.Kind, "Service", StringComparison.OrdinalIgnoreCase))
       return await ResolvePersistedServiceAsync(saved, ns);
 
     var descriptor = ResourceCatalog.BuiltIns.FirstOrDefault(d =>
       d.Kind.Equals(saved.Kind, StringComparison.OrdinalIgnoreCase));
+
     if (descriptor is not null
         && !string.Equals(saved.Kind, "Pod", StringComparison.OrdinalIgnoreCase)) {
       var got = await _workspace.Session!.GetAsync(descriptor.ToRef(), saved.Name, ns);
+
       if (!got.IsSuccess || got.Value is null)
         return new Result<PortForwardTarget>(null, false, got.Messages, got.StatusCode);
 
       RememberLabels(saved, got.Value);
       var listed = await _workspace.RelatedPodsAsync(ResourceRow.From(got.Value, descriptor));
+
       if (!listed.IsSuccess)
         return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
 
       var picked = ServicePortForward.PickRunning(listed.Value ?? [], saved.PodName, saved.MatchLabels);
+
       if (picked is null)
         return Result<PortForwardTarget>.NotFound(null, "No running pods match this port-forward.");
 
@@ -2086,17 +1906,20 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private async Task<Result<PortForwardTarget>> ResolvePersistedServiceAsync(PersistedPortForward saved, string ns) {
     var services = ResourceCatalog.Find("services")!;
     var got = await _workspace.Session!.GetAsync(services.ToRef(), saved.Name, ns);
+
     if (!got.IsSuccess || got.Value is null)
       return new Result<PortForwardTarget>(null, false, got.Messages, got.StatusCode);
 
     RememberLabels(saved, got.Value);
     var owner = ResourceRow.From(got.Value, services);
     var listed = await _workspace.RelatedPodsAsync(owner);
+
     if (!listed.IsSuccess)
       return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
 
     var preferred = (listed.Value ?? []).FirstOrDefault(p =>
       string.Equals(p.Name, saved.PodName, StringComparison.Ordinal));
+
     return ServicePortForward.Resolve(got.Value, listed.Value ?? [], preferred, saved.RemotePort);
   }
 
@@ -2104,9 +1927,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     var pods = ResourceCatalog.Find("pods")!;
     var preferredName = string.IsNullOrWhiteSpace(saved.PodName) ? saved.Name : saved.PodName;
     var got = await _workspace.Session!.GetAsync(pods.ToRef(), preferredName, ns);
+
     if (got.IsSuccess && got.Value is not null) {
       RememberLabels(saved, got.Value);
       var row = ResourceRow.From(got.Value, pods);
+
       if (string.Equals(PodStatus.Of(got.Value), "Running", StringComparison.OrdinalIgnoreCase))
         return Result<PortForwardTarget>.Ok(
           new PortForwardTarget(row.Name, row.Namespace ?? ns, saved.RemotePort, saved.RemotePort));
@@ -2120,15 +1945,18 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     }
 
     var listed = await _workspace.Session.ListAsync(pods.ToRef(), ns);
+
     if (!listed.IsSuccess)
       return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
 
     var rows = (listed.Value ?? []).Select(item => ResourceRow.From(item, pods)).ToList();
     var picked = ServicePortForward.PickRunning(rows, preferredName, saved.MatchLabels);
+
     if (picked is null)
       return Result<PortForwardTarget>.NotFound(null, "No running pods match this port-forward.");
 
     RememberLabels(saved, picked.Document);
+
     return Result<PortForwardTarget>.Ok(
       new PortForwardTarget(picked.Name, picked.Namespace ?? ns, saved.RemotePort, saved.RemotePort));
   }
@@ -2142,13 +1970,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void PersistStarted(PortForwardItemViewModel item) {
     var cfg = _configuration.Current;
-    cfg.UpsertPortForward(item.ToPersisted());
+    cfg.Forwards.Upsert(item.ToPersisted());
     _configuration.Save(cfg);
   }
 
   private void PersistStopped(int localPort) {
     var cfg = _configuration.Current;
-    cfg.RemovePortForward(Name, localPort);
+    cfg.Forwards.Remove(Name, localPort);
     _configuration.Save(cfg);
   }
 
@@ -2163,10 +1991,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       newPort,
       previous.RequestedPort,
       resolve);
+
     if (!started.IsSuccess || started.Value is null) {
       await RollbackLiveAsync(live, previous, oldPort, resolve);
       ShowPortForwardRows(live.Uid);
       _setStatus(PortForwardRow.FailedMessage(started.Messages));
+
       return;
     }
 
@@ -2191,8 +2021,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       oldPort,
       previous.RequestedPort,
       resolve);
+
     if (!rollback.IsSuccess || rollback.Value is null) {
       PortForwards.Remove(live);
+
       return;
     }
 
@@ -2201,23 +2033,26 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   }
 
   private async Task RebindPersistedAsync(int oldPort, int newPort) {
-    var saved = _configuration.Current.PortForwardsFor(Name)
+    var saved = _configuration.Current.Forwards.For(Name)
       .FirstOrDefault(item => item.LocalPort == oldPort);
+
     if (saved is null)
       return;
 
     var cfg = _configuration.Current;
-    cfg.RemovePortForward(Name, oldPort);
+    cfg.Forwards.Remove(Name, oldPort);
     saved.LocalPort = newPort;
-    cfg.UpsertPortForward(saved);
+    cfg.Forwards.Upsert(saved);
     _configuration.Save(cfg);
 
     var opened = await OpenPersistedPortForwardAsync(saved);
     _rebindUid = PortForwardRow.Uid(newPort);
     RebindLocalPort = newPort;
     ShowPortForwardRows(_rebindUid);
+
     if (!opened.IsSuccess) {
       _setStatus(PortForwardRow.FailedMessage(opened.Messages));
+
       return;
     }
 
@@ -2229,18 +2064,19 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void PersistRebind(int oldPort, PortForwardItemViewModel item) {
     var cfg = _configuration.Current;
-    cfg.RemovePortForward(Name, oldPort);
-    cfg.UpsertPortForward(item.ToPersisted());
+    cfg.Forwards.Remove(Name, oldPort);
+    cfg.Forwards.Upsert(item.ToPersisted());
     _configuration.Save(cfg);
   }
 
   private bool IsLocalPortTaken(int localPort) =>
     PortForwards.Any(item => item.Handle.LocalPort == localPort)
-    || _configuration.Current.PortForwardsFor(Name).Any(item => item.LocalPort == localPort);
+    || _configuration.Current.Forwards.For(Name).Any(item => item.LocalPort == localPort);
 
   private void SyncRebindLocalPort() {
     if (!IsPortForwardingView || SelectedRow is null || !PortForwardRow.TryLocalPort(SelectedRow, out var port)) {
       _rebindUid = null;
+
       return;
     }
 
@@ -2253,12 +2089,15 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private async Task<Result<PortForwardTarget>> ResolvePortForwardTargetAsync() {
     var ns = TargetPodNamespace ?? SelectedRow?.Namespace ?? "default";
+
     if (!IsServiceSelection) {
       var pod = TargetPodName;
+
       if (pod is null) {
         var message = ShowPodsTab
           ? "Select a pod in the details pane, then port-forward."
           : "Port-forward requires a pod.";
+
         return Result<PortForwardTarget>.BadRequest(null, message);
       }
 
@@ -2268,8 +2107,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     var related = RelatedPods.Count > 0
       ? RelatedPods.ToList()
       : [];
+
     if (related.Count == 0 && SelectedRow is not null) {
       var listed = await _workspace.RelatedPodsAsync(SelectedRow);
+
       if (!listed.IsSuccess)
         return new Result<PortForwardTarget>(null, false, listed.Messages, listed.StatusCode);
 
@@ -2285,6 +2126,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     var port = ServicePortForward.DefaultPort(document);
+
     if (port is null)
       return;
 
@@ -2301,6 +2143,41 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     || SelectedNavItem?.Id is ResourceCatalog.DaprSidecarsId or ResourceCatalog.DaprControlPlaneId
     || string.Equals(SelectedRow?.Document["kind"]?.GetValue<string>(), "Pod", StringComparison.OrdinalIgnoreCase);
 
+  private ClusterChatSelection ChatSelection() =>
+    new() {
+      ContextName = Name,
+      Namespace = SelectedNamespace,
+      Kind = SelectedDocumentKind ?? SelectedResourceRef()?.Kind ?? SelectedDescriptor?.Kind,
+      ResourceName = SelectedRow?.Name,
+      PodName = TargetPodName,
+      ContainerName = SelectedContainer?.Name,
+      Overview = OverviewText,
+      Events = EventsText,
+      LogText = Logs.LogsText,
+      Targets = ActionTargets,
+      DescriptorTitle = SelectedDescriptor?.Title,
+      RelatedPodName = SelectedRelatedPod?.Name,
+      DocumentKind = SelectedDocumentKind ?? SelectedResourceRef()?.Kind
+    };
+
+  private PodShellTarget CurrentShellTarget() =>
+    new() {
+      PodName = TargetPodName,
+      Namespace = TargetPodNamespace,
+      ContainerName = SelectedContainer?.Name,
+      NeedsPodPicker = ShowPodsTab
+    };
+
+  private PodLogTarget CurrentLogTarget() =>
+    new() {
+      Enabled = ShowLogsTab,
+      NeedsPodPicker = ShowPodsTab,
+      PodName = TargetPodName,
+      Namespace = TargetPodNamespace,
+      ContainerName = SelectedContainer?.Name,
+      NeedsContainer = Containers.Count > 1 && SelectedContainer is null
+    };
+
   private string? TargetPodName =>
     IsPodSelection ? SelectedRow?.Name : SelectedRelatedPod?.Name;
 
@@ -2308,10 +2185,11 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     IsPodSelection ? SelectedRow?.Namespace : SelectedRelatedPod?.Namespace ?? SelectedRow?.Namespace;
 
   private bool HasDetailTab(string tab) {
-    if (IsPodSelection)
-      return tab is "Overview" or "YAML" or "Events" or "Logs" or "Terminal";
+    var tabs = IsPodSelection
+      ? ResourceCatalog.Find("pods")?.DetailTabs
+      : SelectedDescriptor?.DetailTabs;
 
-    return SelectedDescriptor?.DetailTabs.Contains(tab) == true;
+    return tabs?.Contains(tab) == true;
   }
 
   public void ReplaceSelectedRows(IEnumerable<ResourceRow> rows) {
@@ -2327,9 +2205,15 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private IReadOnlyList<ResourceRow> ActionTargets =>
     ResourceActionBatch.Targets(_selectedRows, SelectedRow);
 
+  private bool LeavesAvailableNode() =>
+    NodeScheduling.LeavesAvailableNode(
+      _listedRows.Select(row => row.Document),
+      ActionTargets.Select(row => row.Name));
+
   private IReadOnlyList<string> SnapshotSelectedUids() {
     if (_selectedUids.Count > 0)
       return [.. _selectedUids];
+
     return SelectedRow is null ? [] : [SelectedRow.Uid];
   }
 
@@ -2357,6 +2241,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanPortForward));
     OnPropertyChanged(nameof(CanStopPortForward));
     OnPropertyChanged(nameof(CanCordon));
+    OnPropertyChanged(nameof(CanUncordon));
     OnPropertyChanged(nameof(CanDrain));
     OnPropertyChanged(nameof(CanTrigger));
     OnPropertyChanged(nameof(CanResize));
@@ -2371,7 +2256,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanReloadYaml));
     OnPropertyChanged(nameof(CanApplyYaml));
     OnPropertyChanged(nameof(CanEditData));
-    OnPropertyChanged(nameof(HasFooterActions));
+    SyncFooter();
     OnPropertyChanged(nameof(CanBrowseFiles));
     BrowseFilesCommand.NotifyCanExecuteChanged();
   }
@@ -2398,7 +2283,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanReloadYaml));
     OnPropertyChanged(nameof(CanApplyYaml));
     OnPropertyChanged(nameof(CanEditData));
-    OnPropertyChanged(nameof(HasFooterActions));
+    SyncFooter();
     OnPropertyChanged(nameof(CanBrowseFiles));
     BrowseFilesCommand.NotifyCanExecuteChanged();
   }
@@ -2406,6 +2291,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private DispatcherTimer CreateRefreshTimer() {
     var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
     timer.Tick += OnRefreshTimerTick;
+
     return timer;
   }
 
@@ -2415,7 +2301,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private async Task RefreshFromTimerAsync() {
     try {
       if (_watchHealthy && IsWatchable(SelectedDescriptor)) {
-        await SampleClusterUsageAsync();
+        await Overview.SampleAsync();
+
         return;
       }
 
@@ -2428,6 +2315,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private void StartWatch(ResourceDescriptor? descriptor, string? resourceVersion) {
     StopWatch();
+
     if (!IsWatchable(descriptor) || _workspace.Session is null || descriptor is null)
       return;
 
@@ -2465,6 +2353,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     string? selector,
     int generation,
     CancellationToken cancellationToken) {
+
     try {
       await foreach (var ev in session.WatchAsync(
         descriptor.ToRef(),
@@ -2472,8 +2361,10 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         resourceVersion,
         selector,
         cancellationToken).ConfigureAwait(false)) {
+
         if (generation != _watchGeneration)
           return;
+
         if (ev.Type is "Error")
           break;
 
@@ -2495,11 +2386,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private void ApplyWatchEvent(ResourceDescriptor descriptor, ClusterWatchEvent ev, int generation) {
     if (generation != _watchGeneration || SelectedDescriptor?.Id != descriptor.Id || ev.Object is null)
       return;
+
     if (ev.Type is not ("Added" or "Modified" or "Deleted"))
       return;
 
     var row = ResourceRow.From(ev.Object, descriptor);
     var index = _listedRows.FindIndex(item => item.Uid == row.Uid);
+
     if (ev.Type == "Deleted" || !ClusterWorkspace.Matches(row, Filter)) {
       if (index >= 0)
         _listedRows.RemoveAt(index);

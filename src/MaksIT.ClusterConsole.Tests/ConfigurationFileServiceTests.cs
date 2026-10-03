@@ -187,7 +187,7 @@ public class ConfigurationFileServiceTests {
     try {
       var service = new ConfigurationFileService(path);
       var cfg = service.Current;
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "homelab",
         Kind = "Service",
         Name = "postgres",
@@ -196,7 +196,7 @@ public class ConfigurationFileServiceTests {
         LocalPort = 5432,
         RemotePort = 5432
       });
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "homelab",
         Kind = "Service",
         Name = "postgres",
@@ -205,7 +205,7 @@ public class ConfigurationFileServiceTests {
         LocalPort = 5432,
         RemotePort = 5432
       });
-      cfg.UpsertPortForward(new PersistedPortForward {
+      cfg.Forwards.Upsert(new PersistedPortForward {
         Context = "dev",
         Kind = "Pod",
         Name = "web",
@@ -218,16 +218,16 @@ public class ConfigurationFileServiceTests {
       service.Save(cfg);
 
       var reloaded = new ConfigurationFileService(path);
-      var homelab = reloaded.Current.PortForwardsFor("homelab");
+      var homelab = reloaded.Current.Forwards.For("homelab");
       Assert.Single(homelab);
       Assert.Equal("postgres-1", homelab[0].PodName);
       Assert.Equal(5432, homelab[0].LocalPort);
       Assert.Equal("Service", homelab[0].Kind);
 
-      reloaded.Current.RemovePortForward("homelab", 5432);
+      reloaded.Current.Forwards.Remove("homelab", 5432);
       reloaded.Save(reloaded.Current);
-      Assert.Empty(new ConfigurationFileService(path).Current.PortForwardsFor("homelab"));
-      var dev = new ConfigurationFileService(path).Current.PortForwardsFor("dev");
+      Assert.Empty(new ConfigurationFileService(path).Current.Forwards.For("homelab"));
+      var dev = new ConfigurationFileService(path).Current.Forwards.For("dev");
       Assert.Single(dev);
       Assert.Equal("web", dev[0].MatchLabels!["app"]);
     }
@@ -257,6 +257,7 @@ public class ConfigurationFileServiceTests {
   [Fact]
   public void Save_to_new_file_writes_only_configuration() {
     var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+
     try {
       var service = new ConfigurationFileService(path);
       service.Save(new Configuration { SelectedNamespace = "kube-system" });

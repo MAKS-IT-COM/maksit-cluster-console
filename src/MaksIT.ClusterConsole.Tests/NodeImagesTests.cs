@@ -124,8 +124,10 @@ public class NodeImagesTests {
 
   private static JsonObject Image(string name, string? digestName, long size) {
     var names = new JsonArray(name);
+
     if (digestName is not null)
       names.Add(digestName);
+
     return new JsonObject {
       ["names"] = names,
       ["sizeBytes"] = size
@@ -137,6 +139,7 @@ public class NodeImagesTests {
       ["name"] = "app",
       ["image"] = image
     };
+
     if (imageId is not null)
       status["imageID"] = imageId;
 

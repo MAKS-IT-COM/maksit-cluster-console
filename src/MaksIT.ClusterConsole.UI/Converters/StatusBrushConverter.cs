@@ -17,8 +17,8 @@ public sealed class StatusBrushConverter : IValueConverter {
   private static readonly IBrush Info = new SolidColorBrush(Color.Parse("#6ea8fe"));
   private static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#9aa0a6"));
 
-  public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
-    return ResourceStatusPaint.Tone(value as string) switch {
+  public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+    ResourceStatusPaint.Tone(value as string) switch {
       ResourceStatusTone.Healthy => Healthy,
       ResourceStatusTone.Warning => Warning,
       ResourceStatusTone.Error => Error,
@@ -26,7 +26,6 @@ public sealed class StatusBrushConverter : IValueConverter {
       ResourceStatusTone.Muted => Muted,
       _ => Neutral
     };
-  }
 
   public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
     BindingOperations.DoNothing;

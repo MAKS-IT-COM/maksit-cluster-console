@@ -18,6 +18,7 @@ public partial class ConnectionsWindow : Window {
   private async Task AddConnectionAsync(ConnectionsViewModel viewModel) {
     var wizard = new ConnectionWizardWindow(new ConnectionWizardViewModel());
     var result = await wizard.ShowDialog<KubeConnectionRequestResult?>(this);
+
     if (result is null)
       return;
 

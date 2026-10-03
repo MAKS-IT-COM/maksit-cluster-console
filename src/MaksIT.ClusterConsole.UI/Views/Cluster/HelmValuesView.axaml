@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.HelmValuesView"
+             x:DataType="vm:MainViewModel">
+  <TextBox Text="{Binding ActivePage.Helm.HelmValuesText}"
+           AcceptsReturn="True"
+           IsReadOnly="True"
+           TextWrapping="NoWrap"
+           FontFamily="Consolas, monospace" />
+</UserControl>

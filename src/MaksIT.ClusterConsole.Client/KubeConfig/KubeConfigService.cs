@@ -12,6 +12,7 @@ public sealed class KubeConfigService : IKubeConfigService {
   public Result<IReadOnlyList<KubeContextInfo>> ListContexts(string? kubeConfigPath = null) {
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result<IReadOnlyList<KubeContextInfo>>.Ok([]);
 
@@ -34,6 +35,7 @@ public sealed class KubeConfigService : IKubeConfigService {
   public Result<IReadOnlyList<KubeContextDetails>> ListContextDetails(string? kubeConfigPath = null) {
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result<IReadOnlyList<KubeContextDetails>>.Ok([]);
 
@@ -41,6 +43,7 @@ public sealed class KubeConfigService : IKubeConfigService {
       var items = (config.Contexts ?? [])
         .Select(c => KubeConfigEditor.ToDetails(c, config))
         .ToList();
+
       return Result<IReadOnlyList<KubeContextDetails>>.Ok(items);
     }
     catch (Exception ex) {
@@ -51,11 +54,13 @@ public sealed class KubeConfigService : IKubeConfigService {
   public Result<string> GetCurrentContext(string? kubeConfigPath = null) {
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result<string>.NotFound(null, "kubeconfig not found");
 
       var config = KubernetesClientConfiguration.LoadKubeConfig(path);
       var current = config.CurrentContext;
+
       if (string.IsNullOrWhiteSpace(current))
         return Result<string>.NotFound(null, "kubeconfig has no current-context");
 
@@ -72,10 +77,12 @@ public sealed class KubeConfigService : IKubeConfigService {
 
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result.NotFound("kubeconfig not found");
 
       var config = KubernetesClientConfiguration.LoadKubeConfig(path);
+
       if (config.Contexts is null || config.Contexts.All(c => c.Name != contextName))
         return Result.NotFound("Context not found: " + contextName);
 
@@ -96,6 +103,7 @@ public sealed class KubeConfigService : IKubeConfigService {
 
   public Result UpsertConnection(KubeConnectionRequest request, string? kubeConfigPath = null) {
     var invalid = Validate(request);
+
     if (invalid is not null)
       return Result.BadRequest(invalid);
 
@@ -107,6 +115,7 @@ public sealed class KubeConfigService : IKubeConfigService {
       KubeConfigEditor.UpsertContext(config, request, cluster.Name, user.Name);
       KubeConfigEditor.PruneUnreferenced(config);
       KubeConfigEditor.Save(path, config);
+
       return Result.Ok(
         "Added/updated context: " + request.ContextName
         + " (cluster: " + cluster.Name + ", user: " + user.Name + ")");
@@ -122,15 +131,18 @@ public sealed class KubeConfigService : IKubeConfigService {
 
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result.NotFound("kubeconfig not found");
 
       var config = KubernetesClientConfiguration.LoadKubeConfig(path);
       var error = KubeConfigEditor.DeleteContext(config, contextName, cleanupUnused);
+
       if (error is not null)
         return Result.NotFound(error);
 
       KubeConfigEditor.Save(path, config);
+
       return Result.Ok("Deleted context: " + contextName);
     }
     catch (Exception ex) {
@@ -141,11 +153,13 @@ public sealed class KubeConfigService : IKubeConfigService {
   public Result<KubernetesClientConfiguration> Build(string contextName, string? kubeConfigPath = null) {
     try {
       var path = ResolvePath(kubeConfigPath);
+
       if (path is null)
         return Result<KubernetesClientConfiguration>.NotFound(null, "kubeconfig not found");
 
       var cfg = KubernetesClientConfiguration.BuildConfigFromConfigFile(path, contextName);
       cfg.DisableHttp2 = true;
+
       return Result<KubernetesClientConfiguration>.Ok(cfg);
     }
     catch (KubeConfigException ex) {
@@ -161,15 +175,18 @@ public sealed class KubeConfigService : IKubeConfigService {
       return File.Exists(kubeConfigPath) ? kubeConfigPath : null;
 
     var fromEnv = Environment.GetEnvironmentVariable("KUBECONFIG");
+
     if (!string.IsNullOrWhiteSpace(fromEnv)) {
       var first = fromEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .FirstOrDefault(File.Exists);
+
       if (first is not null)
         return first;
     }
 
     var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     var fallback = Path.Combine(home, ".kube", "config");
+
     return File.Exists(fallback) ? fallback : null;
   }
 
@@ -178,38 +195,47 @@ public sealed class KubeConfigService : IKubeConfigService {
       return kubeConfigPath;
 
     var fromEnv = Environment.GetEnvironmentVariable("KUBECONFIG");
+
     if (!string.IsNullOrWhiteSpace(fromEnv)) {
       var first = fromEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .FirstOrDefault();
+
       if (!string.IsNullOrWhiteSpace(first))
         return first;
     }
 
     var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
     return Path.Combine(home, ".kube", "config");
   }
 
   private static string? Validate(KubeConnectionRequest request) {
     if (string.IsNullOrWhiteSpace(request.ContextName))
       return "ContextName is required.";
+
     if (string.IsNullOrWhiteSpace(request.Server))
       return "Server URL is required.";
+
     if (!string.IsNullOrWhiteSpace(request.CaFile) && !File.Exists(request.CaFile))
       return "CA file not found.";
 
     if (request.AuthKind == KubeAuthKind.Token) {
       if (string.IsNullOrWhiteSpace(request.Token))
         return "Token is required.";
+
       return null;
     }
 
     if (request.AuthKind == KubeAuthKind.Cert) {
       if (string.IsNullOrWhiteSpace(request.ClientCertFile) || string.IsNullOrWhiteSpace(request.ClientKeyFile))
         return "ClientCertFile and ClientKeyFile are required.";
+
       if (!File.Exists(request.ClientCertFile))
         return "Client certificate file not found.";
+
       if (!File.Exists(request.ClientKeyFile))
         return "Client key file not found.";
+
       return null;
     }
 
@@ -218,12 +244,14 @@ public sealed class KubeConfigService : IKubeConfigService {
           || string.IsNullOrWhiteSpace(request.ClientCertData)
           || string.IsNullOrWhiteSpace(request.ClientKeyData))
         return "certificate-authority-data, client-certificate-data and client-key-data are required.";
+
       return null;
     }
 
     if (request.AuthKind == KubeAuthKind.Basic) {
       if (string.IsNullOrWhiteSpace(request.BasicUser) || string.IsNullOrWhiteSpace(request.BasicPassword))
         return "Username and Password are required.";
+
       return null;
     }
 

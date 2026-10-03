@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 using MaksIT.ClusterConsole.UI.ViewModels.Connections;
 
 
@@ -13,16 +15,26 @@ public partial class ConnectionWizardWindow : Window {
 
   public ConnectionWizardWindow(ConnectionWizardViewModel viewModel) : this() {
     DataContext = viewModel;
+    var next = new FooterButton(viewModel.NextLabel, new RelayCommand(Advance)) {
+      Edge = FooterEdge.Trailing
+    };
+    viewModel.PropertyChanged += (_, e) => {
+      if (e.PropertyName == nameof(ConnectionWizardViewModel.NextLabel))
+        next.Text = viewModel.NextLabel;
+    };
+    Actions.Items = [
+      new FooterButton("Cancel", new RelayCommand(() => Close(null))) { Edge = FooterEdge.Trailing },
+      new FooterButton("Back", viewModel.BackCommand) { Edge = FooterEdge.Trailing },
+      next
+    ];
   }
 
   public KubeConnectionRequestResult? Result { get; private set; }
 
-  private void OnCancelClick(object? sender, RoutedEventArgs e) =>
-    Close(null);
-
-  private void OnNextClick(object? sender, RoutedEventArgs e) {
+  private void Advance() {
     if (DataContext is not ConnectionWizardViewModel vm)
       return;
+
     if (!vm.TryAdvance())
       return;
 
@@ -51,6 +63,7 @@ public partial class ConnectionWizardWindow : Window {
       AllowMultiple = false,
       FileTypeFilter = types
     });
+
     return files.Count == 0 ? null : files[0].TryGetLocalPath();
   }
 

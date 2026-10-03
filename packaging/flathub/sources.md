@@ -9,7 +9,7 @@ Upstream files stay in this repository. The Flathub build installs them from the
 | [src/MaksIT.ClusterConsole.UI/Assets/icon.svg](../../src/MaksIT.ClusterConsole.UI/Assets/icon.svg) | Icon, installed as `share/icons/hicolor/scalable/apps/com.maks_it.clusterconsole.svg`. |
 | [LICENSE.md](../../LICENSE.md) | Apache-2.0. Install to `$FLATPAK_DEST/share/licenses/com.maks_it.clusterconsole/` because the filename is `LICENSE.md`. |
 
-Screenshot URLs in the metainfo use tag `v0.8.3`. The `0.8.5` release entry points at tag `v0.8.5`. On a newer release, point `<image>` and `<release>` at that tag or at a commit.
+Screenshot URLs in the metainfo use tag `v0.8.3`. The `0.8.6` release entry points at tag `v0.8.6`. On a newer release, point `<image>` and `<release>` at that tag or at a commit.
 
 ## Pull request
 

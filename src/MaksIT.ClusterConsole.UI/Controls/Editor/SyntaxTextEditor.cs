@@ -54,13 +54,17 @@ public class SyntaxTextEditor : TextEditor {
 
   protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
     base.OnPropertyChanged(change);
+
     if (change.Property == TextProperty)
       SetDocumentText(change.GetNewValue<string>() ?? "");
+
     else if (change.Property == FileNameProperty || change.Property == PreferYamlProperty)
       ApplySyntax();
+
     else if (change.Property == DocumentProperty) {
       if (change.OldValue is TextDocument oldDocument)
         oldDocument.Changed -= OnDocumentChanged;
+
       if (change.NewValue is TextDocument newDocument) {
         newDocument.Changed += OnDocumentChanged;
         _colorizer.Watch(newDocument);
@@ -84,6 +88,7 @@ public class SyntaxTextEditor : TextEditor {
       return;
 
     var text = Document.Text;
+
     if (!string.Equals(Text, text, StringComparison.Ordinal))
       Text = text;
   }
@@ -91,6 +96,7 @@ public class SyntaxTextEditor : TextEditor {
   void ApplySyntax() {
     var syntax = MarkupSyntaxDetector.Detect(FileName, PreferYaml);
     var scope = ScopeFor(syntax);
+
     if (string.Equals(_scope, scope, StringComparison.Ordinal))
       return;
 
@@ -105,10 +111,12 @@ public class SyntaxTextEditor : TextEditor {
       MarkupSyntax.Yaml => ".yaml",
       _ => null
     };
+
     if (extension is null)
       return null;
 
     var language = Registry.GetLanguageByExtension(extension);
+
     return language is null ? null : Registry.GetScopeByLanguageId(language.Id);
   }
 }

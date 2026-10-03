@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
+             xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.DataEditorView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6" IsVisible="{Binding ActivePage.CanEditData}">
+      <Button Content="Add key" Command="{Binding ActivePage.AddDataEntryCommand}" />
+      <Button Content="Apply data" Command="{Binding ActivePage.ApplyDataCommand}" />
+      <TextBlock Text="Decoded secret values are saved back as stringData." Classes="hint" VerticalAlignment="Center" />
+    </StackPanel>
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" MinHeight="160">
+      <TextBlock DockPanel.Dock="Top"
+                 Text="Value (multiline paste supported)"
+                 Classes="hint"
+                 Margin="0,0,0,4" />
+      <editor:SyntaxTextEditor Text="{Binding ActivePage.SelectedDataEntry.Value}"
+                                 FileName="{Binding ActivePage.SelectedDataEntry.Key}"
+                                 IsEnabled="{Binding ActivePage.HasSelectedDataEntry}" />
+    </DockPanel>
+    <DataGrid Name="DataEntriesGrid"
+              layout:LayoutMemento.Table="{x:Static shared:LayoutSettings.DataEditorTable}"
+              ItemsSource="{Binding ActivePage.DataEntries}"
+              SelectedItem="{Binding ActivePage.SelectedDataEntry}"
+              AutoGenerateColumns="False"
+              CanUserResizeColumns="True"
+              IsReadOnly="False"
+              x:CompileBindings="False">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="140" />
+        <DataGridTextColumn Header="Value" Binding="{Binding ValuePreview}" IsReadOnly="True" Width="*" />
+        <DataGridCheckBoxColumn Header="Binary" Binding="{Binding IsBinary}" Width="80" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</UserControl>

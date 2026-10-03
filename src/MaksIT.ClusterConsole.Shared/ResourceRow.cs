@@ -36,19 +36,23 @@ public sealed class ResourceRow : INotifyPropertyChanged {
   public string FormatOverview(IEnumerable<PodContainer>? containers = null) {
     var lines = Cells.Select(kv => $"{kv.Key}: {kv.Value}").ToList();
     var workloads = ApplicationManifest.Workloads(Document);
+
     if (workloads.Count > 0) {
       lines.Add("");
       lines.Add("Workloads:");
+
       foreach (var (kind, name) in workloads)
         lines.Add($"  {kind}/{name}");
     }
 
     var listed = (containers ?? []).ToList();
+
     if (listed.Count == 0)
       return string.Join('\n', lines);
 
     lines.Add("");
     lines.Add("Containers:");
+
     foreach (var container in listed)
       lines.Add($"  {container.Name}  [{container.Kind}]  {container.StatusLine}  {container.ImageLabel}");
 
@@ -57,8 +61,10 @@ public sealed class ResourceRow : INotifyPropertyChanged {
 
   public void CopyFrom(ResourceRow source) {
     ArgumentNullException.ThrowIfNull(source);
+
     if (ReferenceEquals(this, source))
       return;
+
     if (!string.Equals(Uid, source.Uid, StringComparison.Ordinal))
       throw new ArgumentException("Cannot copy a row with a different uid.", nameof(source));
 
@@ -75,8 +81,10 @@ public sealed class ResourceRow : INotifyPropertyChanged {
 
     if (nameChanged)
       OnPropertyChanged(nameof(Name));
+
     if (namespaceChanged)
       OnPropertyChanged(nameof(Namespace));
+
     if (!cellsChanged && !tipsChanged)
       return;
 
@@ -91,6 +99,7 @@ public sealed class ResourceRow : INotifyPropertyChanged {
 
   public static ResourceRow From(JsonObject item, ResourceDescriptor descriptor, ResourceMetrics? metrics = null) {
     var cells = new Dictionary<string, string>(StringComparer.Ordinal);
+
     foreach (var column in descriptor.Columns) {
       cells[column.Header] = column.Path switch {
         "status.containerStatuses" when column.Header == "Ready" => JsonPath.PodReady(item),
@@ -116,6 +125,7 @@ public sealed class ResourceRow : INotifyPropertyChanged {
   private static string FormatMetricMemory(string? value) {
     if (string.IsNullOrEmpty(value))
       return "";
+
     if (value == "-")
       return value;
 
@@ -125,6 +135,7 @@ public sealed class ResourceRow : INotifyPropertyChanged {
   private static bool CellsEqual(IReadOnlyDictionary<string, string> left, IReadOnlyDictionary<string, string> right) {
     if (ReferenceEquals(left, right))
       return true;
+
     if (left.Count != right.Count)
       return false;
 

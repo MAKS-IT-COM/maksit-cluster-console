@@ -8,6 +8,9 @@ namespace MaksIT.ClusterConsole.Shared.Chat;
 public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspace workspace) {
   public const string DefaultModel = "qwen3:8b";
   public const string DefaultEndpoint = "http://127.0.0.1:11434";
+  public const int DefaultTimeoutSeconds = 240;
+  public const int MinTimeoutSeconds = 5;
+  public const int MaxTimeoutSeconds = 3600;
   public const int ReadOnlyContext = 8192;
   public const int AgentContext = 16384;
   private const int MaxToolRounds = 8;
@@ -23,8 +26,10 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
     Action<string>? status,
     CancellationToken cancellationToken = default,
     bool agent = false,
-    Func<string, string, CancellationToken, Task<bool>>? approve = null) {
-    var ready = await EnsureModelAsync(endpoint, model, cancellationToken).ConfigureAwait(false);
+    Func<string, string, CancellationToken, Task<bool>>? approve = null,
+    int timeoutSeconds = DefaultTimeoutSeconds) {
+    var ready = await EnsureModelAsync(endpoint, model, cancellationToken, timeoutSeconds).ConfigureAwait(false);
+
     if (!ready.IsSuccess)
       return new Result<string>(null, false, ready.Messages, ready.StatusCode);
 
@@ -46,7 +51,11 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
         KeepAlive = "5m",
         Options = new OllamaChatOptions { Temperature = 0.2, NumCtx = agent ? AgentContext : ReadOnlyContext }
       };
-      var chat = await ollama.ChatAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
+      var chat = await CallAsync(
+        timeoutSeconds,
+        cancellationToken,
+        token => ollama.ChatAsync(endpoint, request, token)).ConfigureAwait(false);
+
       if (!chat.IsSuccess || chat.Value?.Message is null)
         return chat.IsSuccess
           ? Result<string>.UnprocessableEntity(null, "Ollama returned no message.")
@@ -56,14 +65,17 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
       var calls = message.ToolCalls?
         .Where(call => !string.IsNullOrWhiteSpace(call.Function?.Name))
         .ToList() ?? [];
+
       if (calls.Count == 0)
         calls = [.. ClusterChatToolMarkup.Parse(message.Content)];
 
       message.Content = ClusterChatToolMarkup.Strip(ClusterChatContext.StripThink(message.Content));
       message.ToolCalls = calls.Count == 0 ? null : calls;
       messages.Add(message);
+
       if (calls.Count == 0) {
         var text = message.Content;
+
         return string.IsNullOrWhiteSpace(text)
           ? Result<string>.UnprocessableEntity(null, "The model returned an empty answer. Try again, or `ollama pull qwen3:8b`.")
           : Result<string>.Ok(text);
@@ -71,11 +83,13 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
 
       foreach (var call in calls) {
         var name = call.Function?.Name;
+
         if (string.IsNullOrWhiteSpace(name))
           continue;
 
         var args = ClusterChatTools.ParseArguments(call.Function?.Arguments ?? default);
         var allow = !ClusterChatTools.IsMutating(name);
+
         if (!allow && agent && approve is not null) {
           var description = _tools.Describe(name, args);
           var change = _tools.ChangePreview(name, args);
@@ -99,7 +113,48 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
       Role = "user",
       Content = "Stop calling tools. Answer the original question from the tool results above. Say what is healthy, what is failing, and whether a change was applied."
     });
-    return await ConcludeAsync(endpoint, model, messages, agent, status, cancellationToken).ConfigureAwait(false);
+
+    return await ConcludeAsync(endpoint, model, messages, agent, status, cancellationToken, timeoutSeconds)
+      .ConfigureAwait(false);
+  }
+
+  public async Task<Result<string>> AssessDrainAsync(
+    string endpoint,
+    string model,
+    string plan,
+    CancellationToken cancellationToken = default,
+    int timeoutSeconds = DefaultTimeoutSeconds) {
+    var ready = await EnsureModelAsync(endpoint, model, cancellationToken, timeoutSeconds).ConfigureAwait(false);
+
+    if (!ready.IsSuccess)
+      return new Result<string>(null, false, ready.Messages, ready.StatusCode);
+
+    var request = new OllamaChatRequest {
+      Model = model,
+      Messages = [
+        new() { Role = "system", Content = DrainAdvice.SystemPrompt() },
+        new() { Role = "user", Content = DrainAdvice.UserPrompt(plan) }
+      ],
+      Stream = false,
+      Think = false,
+      KeepAlive = "5m",
+      Options = new OllamaChatOptions { Temperature = 0.2, NumCtx = ReadOnlyContext }
+    };
+    var chat = await CallAsync(
+      timeoutSeconds,
+      cancellationToken,
+      token => ollama.ChatAsync(endpoint, request, token)).ConfigureAwait(false);
+
+    if (!chat.IsSuccess || chat.Value?.Message is null)
+      return chat.IsSuccess
+        ? Result<string>.UnprocessableEntity(null, "Ollama returned no message.")
+        : new Result<string>(null, false, chat.Messages, chat.StatusCode);
+
+    var text = ClusterChatToolMarkup.Strip(ClusterChatContext.StripThink(chat.Value.Message.Content));
+
+    return string.IsNullOrWhiteSpace(text)
+      ? Result<string>.UnprocessableEntity(null, "The model did not write a drain note.")
+      : Result<string>.Ok(text);
   }
 
   private async Task<Result<string>> ConcludeAsync(
@@ -108,7 +163,8 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
     List<OllamaChatMessage> messages,
     bool agent,
     Action<string>? status,
-    CancellationToken cancellationToken) {
+    CancellationToken cancellationToken,
+    int timeoutSeconds) {
     status?.Invoke("Processing");
     var request = new OllamaChatRequest {
       Model = model,
@@ -118,13 +174,18 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
       KeepAlive = "5m",
       Options = new OllamaChatOptions { Temperature = 0.2, NumCtx = agent ? AgentContext : ReadOnlyContext }
     };
-    var chat = await ollama.ChatAsync(endpoint, request, cancellationToken).ConfigureAwait(false);
+    var chat = await CallAsync(
+      timeoutSeconds,
+      cancellationToken,
+      token => ollama.ChatAsync(endpoint, request, token)).ConfigureAwait(false);
+
     if (!chat.IsSuccess || chat.Value?.Message is null)
       return chat.IsSuccess
         ? Result<string>.UnprocessableEntity(null, "Ollama returned no message.")
         : new Result<string>(null, false, chat.Messages, chat.StatusCode);
 
     var text = ClusterChatToolMarkup.Strip(ClusterChatContext.StripThink(chat.Value.Message.Content));
+
     return string.IsNullOrWhiteSpace(text)
       ? Result<string>.UnprocessableEntity(null, "The check gathered tool results but the model did not write a diagnosis.")
       : Result<string>.Ok(text);
@@ -133,18 +194,51 @@ public sealed class ClusterChatService(IOllamaChatClient ollama, ClusterWorkspac
   public async Task<Result> EnsureModelAsync(
     string endpoint,
     string model,
-    CancellationToken cancellationToken = default) {
-    var listed = await ollama.ListModelsAsync(endpoint, cancellationToken).ConfigureAwait(false);
+    CancellationToken cancellationToken = default,
+    int timeoutSeconds = DefaultTimeoutSeconds) {
+    var listed = await CallAsync(
+      timeoutSeconds,
+      cancellationToken,
+      token => ollama.ListModelsAsync(endpoint, token)).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return listed.ToResult();
 
     var names = listed.Value ?? [];
+
     if (HasModel(names, model))
       return Result.Ok();
 
     var available = names.Count == 0 ? "(none)" : string.Join(", ", names.Take(12));
+
     return Result.NotFound(
       $"Ollama is running, but '{model}' is not pulled. Run `ollama pull {model}`. Installed: {available}.");
+  }
+
+  public static int NormalizeTimeout(int seconds) {
+    if (seconds < MinTimeoutSeconds || seconds > MaxTimeoutSeconds)
+      return DefaultTimeoutSeconds;
+
+    return seconds;
+  }
+
+  public static string TimedOut(int seconds) =>
+    $"Ollama did not answer within {seconds} seconds.";
+
+  private async Task<Result<T>> CallAsync<T>(
+    int timeoutSeconds,
+    CancellationToken cancellationToken,
+    Func<CancellationToken, Task<Result<T>>> call) {
+    var seconds = NormalizeTimeout(timeoutSeconds);
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    timeout.CancelAfter(TimeSpan.FromSeconds(seconds));
+
+    try {
+      return await call(timeout.Token).ConfigureAwait(false);
+    }
+    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) {
+      return Result<T>.ServiceUnavailable(default, TimedOut(seconds));
+    }
   }
 
   public static bool HasModel(IEnumerable<string> installed, string model) {

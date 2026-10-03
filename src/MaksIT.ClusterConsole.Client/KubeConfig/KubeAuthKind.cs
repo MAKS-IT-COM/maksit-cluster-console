@@ -15,6 +15,7 @@ public sealed class KubeAuthKind : Enumeration {
   public static bool TryParse(string? value, [NotNullWhen(true)] out KubeAuthKind? kind) {
     kind = GetAll<KubeAuthKind>().FirstOrDefault(item =>
       string.Equals(item.Name, value, StringComparison.OrdinalIgnoreCase));
+
     return kind is not null;
   }
 }

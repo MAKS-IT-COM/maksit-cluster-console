@@ -26,6 +26,7 @@ public class ResourceActionBatchTests {
       [Row("web-a", "apps"), Row("web-b", "apps")],
       row => {
         names.Add(row.Name);
+
         return Task.FromResult(Result.Ok());
       });
 

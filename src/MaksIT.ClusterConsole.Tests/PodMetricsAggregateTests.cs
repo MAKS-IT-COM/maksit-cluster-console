@@ -88,6 +88,7 @@ public class PodMetricsAggregateTests {
 
   private static JsonObject Pod(string name, string ns, string labelsJson, string phase) {
     var labels = JsonNode.Parse(labelsJson) as JsonObject;
+
     return new JsonObject {
       ["metadata"] = new JsonObject {
         ["name"] = name,
@@ -105,8 +106,10 @@ public class PodMetricsAggregateTests {
     int ready = 0,
     int replicas = 1) {
     var labels = new JsonObject();
+
     if (instance is not null)
       labels[ApplicationManifest.InstanceKey] = instance;
+
     if (nameLabel is not null)
       labels[ApplicationManifest.NameKey] = nameLabel;
 

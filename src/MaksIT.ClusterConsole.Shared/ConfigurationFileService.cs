@@ -42,6 +42,7 @@ public sealed class ConfigurationFileService {
 
   public Configuration Reload() {
     _current = LoadFromDisk();
+
     return _current;
   }
 
@@ -50,6 +51,7 @@ public sealed class ConfigurationFileService {
     configuration.EnsureDefaults();
 
     var dir = Path.GetDirectoryName(FilePath);
+
     if (!string.IsNullOrEmpty(dir))
       Directory.CreateDirectory(dir);
 
@@ -61,15 +63,18 @@ public sealed class ConfigurationFileService {
 
   private Configuration LoadFromDisk() {
     var path = ResolveReadPath();
+
     if (path is null)
       return new Configuration();
 
     using var document = JsonDocument.Parse(File.ReadAllText(path));
+
     if (!document.RootElement.TryGetProperty("Configuration", out var value))
       return new Configuration();
 
     var configuration = JsonSerializer.Deserialize<Configuration>(value.GetRawText(), SerializerOptions) ?? new Configuration();
     configuration.EnsureDefaults();
+
     return configuration;
   }
 
@@ -89,14 +94,17 @@ public sealed class ConfigurationFileService {
 
   private static bool HasConfiguration(string path) {
     using var document = JsonDocument.Parse(File.ReadAllText(path));
+
     return document.RootElement.TryGetProperty("Configuration", out _);
   }
 
   private string? ResolveReadPath() {
     if (File.Exists(FilePath))
       return FilePath;
+
     if (_seedPath is not null && File.Exists(_seedPath))
       return _seedPath;
+
     return null;
   }
 }

@@ -1,13 +1,41 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.Shared.Chat;
 using MaksIT.ClusterConsole.Client.Ollama;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Cluster;
+
+public sealed class ClusterChatSelection {
+  public required string ContextName { get; init; }
+
+  public required string Namespace { get; init; }
+
+  public string? Kind { get; init; }
+
+  public string? ResourceName { get; init; }
+
+  public string? PodName { get; init; }
+
+  public string? ContainerName { get; init; }
+
+  public string Overview { get; init; } = "";
+
+  public string Events { get; init; } = "";
+
+  public string LogText { get; init; } = "";
+
+  public IReadOnlyList<ResourceRow> Targets { get; init; } = [];
+
+  public string? DescriptorTitle { get; init; }
+
+  public string? RelatedPodName { get; init; }
+
+  public string? DocumentKind { get; init; }
+}
 
 public partial class ChatMessageViewModel : ObservableObject {
   private TaskCompletionSource<bool>? _decision;
@@ -51,9 +79,22 @@ public partial class ChatMessageViewModel : ObservableObject {
   }
 }
 
-public partial class ClusterPageViewModel {
-  private readonly List<OllamaChatMessage> _chatHistory = [];
+public partial class ClusterChatViewModel : ObservableObject {
+  private readonly ConfigurationFileService _configuration;
+  private readonly ClusterChatService _chat;
+  private readonly Func<ClusterChatSelection> _selection;
+  private readonly List<OllamaChatMessage> _history = [];
   private CancellationTokenSource? _chatCts;
+
+  public ClusterChatViewModel(
+    ConfigurationFileService configuration,
+    ClusterChatService chat,
+    Func<ClusterChatSelection> selection) {
+    _configuration = configuration;
+    _chat = chat;
+    _selection = selection;
+    chatStatus = ModelStatus();
+  }
 
   public ObservableCollection<ChatMessageViewModel> ChatMessages { get; } = [];
 
@@ -66,6 +107,14 @@ public partial class ClusterPageViewModel {
   [ObservableProperty]
   private bool chatBusy;
 
+  public void Cancel() =>
+    _chatCts?.Cancel();
+
+  public void NotifySettingsChanged() {
+    if (!ChatBusy)
+      ChatStatus = ModelStatus();
+  }
+
   private bool CanSendChat =>
     !ChatBusy && !string.IsNullOrWhiteSpace(ChatInput);
 
@@ -77,8 +126,8 @@ public partial class ClusterPageViewModel {
 
   private string ModelStatus(string? activity = null) =>
     string.IsNullOrWhiteSpace(activity)
-      ? $"Model · {_configuration.Current.OllamaModel}"
-      : $"Model · {_configuration.Current.OllamaModel} · {activity}";
+      ? $"Model · {_configuration.Current.Ai.Model}"
+      : $"Model · {_configuration.Current.Ai.Model} · {activity}";
 
   private static string Activity(string status) {
     if (status.StartsWith("Tool · ", StringComparison.Ordinal))
@@ -93,42 +142,42 @@ public partial class ClusterPageViewModel {
     return status;
   }
 
-  public void NotifyChatSettingsChanged() {
-    if (!ChatBusy)
-      ChatStatus = ModelStatus();
-  }
-
   [RelayCommand]
   private void ClearChat() {
     _chatCts?.Cancel();
-    _chatHistory.Clear();
+    _history.Clear();
     ChatMessages.Clear();
     ChatStatus = ModelStatus();
   }
 
   [RelayCommand]
   private void AskAboutSelection() {
-    var rows = ActionTargets;
+    var selection = _selection();
+    var rows = selection.Targets;
+
     if (rows.Count == 0) {
       ChatInput = "What is currently unhealthy in this cluster?";
+
       return;
     }
 
     if (rows.Count > 1) {
-      var kind = SelectedDescriptor?.Title ?? "resources";
+      var kind = selection.DescriptorTitle ?? "resources";
       var names = string.Join(", ", rows.Select(ResourceActionBatch.Label));
       ChatInput = $"What is wrong with these {kind}: {names}?";
+
       return;
     }
 
-    var name = SelectedRelatedPod?.Name ?? rows[0].Name;
-    var container = SelectedContainer is null ? "" : $" container {SelectedContainer.Name}";
-    ChatInput = $"What is wrong with {SelectedDocumentKind ?? SelectedResourceRef()?.Kind ?? "this resource"} {name}{container}?";
+    var name = selection.RelatedPodName ?? rows[0].Name;
+    var container = string.IsNullOrEmpty(selection.ContainerName) ? "" : $" container {selection.ContainerName}";
+    ChatInput = $"What is wrong with {selection.DocumentKind ?? "this resource"} {name}{container}?";
   }
 
   [RelayCommand(CanExecute = nameof(CanSendChat))]
   private async Task SendChatAsync() {
     var prompt = ChatInput.Trim();
+
     if (prompt.Length == 0 || ChatBusy)
       return;
 
@@ -140,37 +189,40 @@ public partial class ClusterPageViewModel {
     ChatMessages.Add(new ChatMessageViewModel { Role = "user", Text = prompt });
     ChatStatus = ModelStatus("processing");
 
-    var history = _chatHistory.ToList();
+    var history = _history.ToList();
     history.Add(new OllamaChatMessage { Role = "user", Content = prompt });
-    var context = BuildChatContext();
-    var cfg = _configuration.Current;
+    var context = BuildContext();
+    var ai = _configuration.Current.Ai;
 
     try {
-      var agent = cfg.AiEnabled && cfg.AiAgentEnabled;
+      var agent = ai.Enabled && ai.AgentEnabled;
       var result = await _chat.AskAsync(
-        cfg.OllamaEndpoint,
-        cfg.OllamaModel,
+        ai.Endpoint,
+        ai.Model,
         history,
         context,
         status => Dispatcher.UIThread.Post(() => {
           ChatStatus = ModelStatus(Activity(status));
+
           if (status.StartsWith("Tool · ", StringComparison.Ordinal))
             ChatMessages.Add(new ChatMessageViewModel { Role = "tool", Text = status["Tool · ".Length..] });
         }),
         token,
         agent,
-        agent ? ConfirmToolAsync : null);
+        agent ? ConfirmToolAsync : null,
+        ai.TimeoutSeconds);
 
       if (!result.IsSuccess) {
         var error = string.Join("; ", result.Messages);
         ChatMessages.Add(new ChatMessageViewModel { Role = "assistant", Text = error });
         ChatStatus = ModelStatus(error);
+
         return;
       }
 
       var answer = result.Value ?? "";
-      _chatHistory.Add(new OllamaChatMessage { Role = "user", Content = prompt });
-      _chatHistory.Add(new OllamaChatMessage { Role = "assistant", Content = answer });
+      _history.Add(new OllamaChatMessage { Role = "user", Content = prompt });
+      _history.Add(new OllamaChatMessage { Role = "assistant", Content = answer });
       ChatMessages.Add(new ChatMessageViewModel { Role = "assistant", Text = answer });
       ChatStatus = ModelStatus();
     }
@@ -195,18 +247,22 @@ public partial class ClusterPageViewModel {
       ChatMessages.Add(message);
     });
     cancellationToken.Register(() => decision.TrySetCanceled(cancellationToken));
+
     return decision.Task;
   }
 
-  private ClusterChatContext BuildChatContext() =>
-    new(
-      Name,
-      SelectedNamespace,
-      SelectedDocumentKind ?? SelectedResourceRef()?.Kind ?? SelectedDescriptor?.Kind,
-      SelectedRow?.Name,
-      TargetPodName,
-      SelectedContainer?.Name,
-      OverviewText,
-      EventsText,
-      LogsText);
+  private ClusterChatContext BuildContext() {
+    var selection = _selection();
+
+    return new ClusterChatContext(
+      selection.ContextName,
+      selection.Namespace,
+      selection.Kind,
+      selection.ResourceName,
+      selection.PodName,
+      selection.ContainerName,
+      selection.Overview,
+      selection.Events,
+      selection.LogText);
+  }
 }

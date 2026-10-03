@@ -1,14 +1,19 @@
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using CommunityToolkit.Mvvm.Input;
 using MaksIT.ClusterConsole.UI.ViewModels;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 
 
 namespace MaksIT.ClusterConsole.UI.Windows;
 
 
 public partial class AboutWindow : Window {
+  private bool _footerReady;
+
   public AboutWindow() {
     InitializeComponent();
+    DataContextChanged += (_, _) => WireFooter();
   }
 
   public static Task ShowAsync(Window owner) {
@@ -16,9 +21,26 @@ public partial class AboutWindow : Window {
       DataContext = new AboutViewModel(),
       WindowStartupLocation = WindowStartupLocation.CenterOwner
     };
+
     return window.ShowDialog(owner);
   }
 
-  private void OnCloseClick(object? sender, RoutedEventArgs e) =>
-    Close();
+  private void WireFooter() {
+    if (_footerReady || DataContext is not AboutViewModel about)
+      return;
+
+    _footerReady = true;
+    Actions.Items = [
+      new FooterButton(about.Site, about.OpenSiteCommand) {
+        Edge = FooterEdge.Trailing,
+        Padding = new Thickness(12, 7)
+      },
+      new FooterButton("Close", new RelayCommand(Close)) {
+        Edge = FooterEdge.Trailing,
+        IsDefault = true,
+        IsCancel = true,
+        Padding = new Thickness(12, 7)
+      }
+    ];
+  }
 }

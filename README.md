@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.3%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-47.9%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-66.7%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.7%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-48.1%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-67.5%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
@@ -25,7 +25,7 @@ It is a **Kubernetes desktop app**, not a web dashboard and not a command-line c
 
 Downloads: [GitHub Releases](https://github.com/MAKS-IT-COM/maksit-cluster-console/releases) — Windows portable zip and setup, Linux Flatpak (user or system install below), macOS DMG (Apple Silicon and Intel). macOS builds are unsigned: first launch is **Open** from the context menu.
 
-Changes: [CHANGELOG.md](CHANGELOG.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+Changes: [CHANGELOG.md](CHANGELOG.md). In-app notes: [WHATSNEW.md](WHATSNEW.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 If you find this project useful, please consider supporting its development:
 
@@ -99,7 +99,7 @@ The Workloads section opens on counts for Pods, Deployments, StatefulSets, Daemo
 
 ### Nodes
 
-**Cordon** refuses new pods. **Uncordon** accepts them again. **Drain** asks first. The dialog is a table: **Node**, **Outcome** (teal **Will move**, amber **Will remain**), **Namespace**, **Pod**, and **Reason**. Will remain covers a DaemonSet, a mirror pod, a completed pod, a pod with no controller, and any pod a PodDisruptionBudget would refuse. Long text wraps and the row grows. **Cancel** or Escape leaves the node as it is. **Drain** cordons the node and evicts only Will move. A refused eviction is not deleted. The Images tab marks cached images Used or Unused from the pods on that node.
+**Cordon** refuses new pods. **Uncordon** accepts them again. **Cordon** and **Drain** stay hidden unless another Ready node can still take pods, so a single-node cluster has neither. **Uncordon** still restores a node that is already cordoned. **Drain** asks first. The dialog is a table: **Node**, **Outcome** (teal **Will move**, amber **Will remain**), **Namespace**, **Pod**, and **Reason**. Will remain covers a DaemonSet, a mirror pod, a completed pod, a pod with no controller, and any pod a PodDisruptionBudget would refuse. Long text wraps and the row grows. When AI is on, the dialog also includes a short note on whether it is safe to continue and which pods stay. The note does not drain the node. **Cancel** or Escape leaves the node as it is. **Drain** cordons the node and evicts only Will move. A refused eviction is not deleted. The Images tab marks cached images Used or Unused from the pods on that node.
 
 ### Config
 

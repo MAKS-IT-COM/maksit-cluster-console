@@ -10,10 +10,13 @@ public readonly record struct ResourceActionBatchOutcome(
   public string Format(string oneDone, string manyDone) {
     if (Total <= 0)
       return "";
+
     if (Failures.Count == 0)
       return Total == 1 ? oneDone : manyDone;
+
     if (Succeeded == 0)
       return string.Join("; ", Failures);
+
     return $"{Succeeded} of {Total} succeeded. {string.Join("; ", Failures)}";
   }
 }
@@ -24,6 +27,7 @@ public static class ResourceActionBatch {
     ResourceRow? selectedRow) {
     if (selectedRows.Count > 0)
       return selectedRows;
+
     return selectedRow is null ? [] : [selectedRow];
   }
 
@@ -38,10 +42,13 @@ public static class ResourceActionBatch {
 
     var succeeded = 0;
     var failures = new List<string>();
+
     foreach (var row in rows) {
       var result = await action(row);
+
       if (result.IsSuccess) {
         succeeded++;
+
         continue;
       }
 

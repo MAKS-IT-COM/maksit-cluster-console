@@ -224,6 +224,7 @@ public class KubeConfigServiceTests {
     var source = Path.Combine(AppContext.BaseDirectory, "Fixtures", "kubeconfig.yaml");
     var path = Path.Combine(Path.GetTempPath(), "maksit-cluster-console-" + Guid.NewGuid().ToString("N") + ".yaml");
     File.Copy(source, path);
+
     return path;
   }
 }

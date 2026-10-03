@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:details="using:MaksIT.ClusterConsole.UI.Controls.Details"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.PodLogsView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel>
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+      <CheckBox DockPanel.Dock="Left" Content="Follow" IsChecked="{Binding ActivePage.Logs.FollowLogs}" />
+      <TextBlock Text="{Binding ActivePage.SelectedContainer.Display}"
+                 Classes="hint"
+                 TextTrimming="CharacterEllipsis"
+                 VerticalAlignment="Center"
+                 Margin="12,0,0,0"
+                 ToolTip.Tip="{Binding ActivePage.SelectedContainer.Display}" />
+    </DockPanel>
+    <TextBox details:DetailPane.FollowTail="{Binding ActivePage.Logs.FollowLogs}"
+             Text="{Binding ActivePage.Logs.LogsText, Mode=OneWay}"
+             AcceptsReturn="True"
+             IsReadOnly="True"
+             FontFamily="Consolas, monospace" />
+  </DockPanel>
+</UserControl>

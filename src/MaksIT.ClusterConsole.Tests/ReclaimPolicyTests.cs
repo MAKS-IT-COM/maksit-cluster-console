@@ -144,12 +144,16 @@ public class ReclaimPolicyTests {
 
   private static JsonObject Volume(string name, string storageClass, string? policy, string phase, string? claimNamespace, string? claimName) {
     var spec = new JsonObject { ["storageClassName"] = storageClass };
+
     if (policy is not null)
       spec["persistentVolumeReclaimPolicy"] = policy;
+
     if (claimName is not null) {
       var claim = new JsonObject { ["name"] = claimName };
+
       if (claimNamespace is not null)
         claim["namespace"] = claimNamespace;
+
       spec["claimRef"] = claim;
     }
 

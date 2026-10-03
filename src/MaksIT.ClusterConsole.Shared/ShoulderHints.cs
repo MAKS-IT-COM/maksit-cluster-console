@@ -5,8 +5,10 @@ public static class ShoulderHints {
     var explanation = id is not null && ById.TryGetValue(id, out var specific)
       ? specific
       : descriptor is null ? "" : Default(descriptor);
+
     if (descriptor is null || explanation.Length == 0)
       return explanation;
+
     return explanation + "\n\n" + HowToRead(id, descriptor);
   }
 
@@ -17,14 +19,17 @@ public static class ShoulderHints {
       ? "Each row is one object. Namespace is where it lives."
       : "Each row is one cluster-wide object.";
     var reading = $"{scope} {columns}";
+
     if (tabs.Length > 0)
       reading += $" Select a row. This pane shows {tabs}.";
+
     return reading;
   }
 
   private static string ExplainColumn(string? id, string header) {
     if (id is not null && ColumnText.TryGetValue(id + "|" + header, out var specific))
       return specific;
+
     return header switch {
       "Name" => "Name is the object name.",
       "Namespace" => "Namespace is where it lives.",
@@ -37,6 +42,7 @@ public static class ShoulderHints {
     if (descriptor.Section == ResourceCatalog.CustomResources
         && descriptor.Id != "customresourcedefinitions") {
       var group = string.IsNullOrWhiteSpace(descriptor.Group) ? "its API group" : descriptor.Group;
+
       return $"{descriptor.Kind} is a custom resource from {group}. Kubernetes does not define what it means. The software that installed this API does. Select a row to read that object.";
     }
 
@@ -165,7 +171,7 @@ public static class ShoulderHints {
     ["resourceslices"] =
       "A ResourceSlice is a driver's inventory of devices it found, usually on one node. The scheduler reads these when a pod's Resource Claim needs a matching device.",
     ["nodes"] =
-      "A node is one machine in the cluster. Pods run on it. Status is Ready, or the condition that is failing. Version is the kubelet. Cordon refuses new pods. Drain asks first, in a table: Outcome is Will move or Will remain, and Reason says why a pod stays, including a disruption budget that would refuse it. Drain runs only after you accept. Cancel changes nothing. The Images tab marks cached images Used or Unused from the pods on that node.",
+      "A node is one machine in the cluster. Pods run on it. Status is Ready, or the condition that is failing. Version is the kubelet. Cordon refuses new pods. Cordon and Drain stay hidden unless another Ready node can still take pods, so a single-node cluster has neither. Drain asks first, in a table: Outcome is Will move or Will remain, and Reason says why a pod stays, including a disruption budget that would refuse it. When AI is on, that window also includes a short note on whether it is safe to continue and which pods stay. Drain runs only after you accept. Cancel changes nothing. Uncordon still restores a node that is already cordoned. The Images tab marks cached images Used or Unused from the pods on that node.",
     ["pods"] =
       "A pod is the smallest thing Kubernetes runs: one or more containers that share a network and storage on one node. Ready is ready containers over the total. Status is the phase, or why a container is waiting. CPU and Memory need metrics-server. Logs and Terminal are for a container in that pod. Debug adds a temporary container beside them.",
     ["deployments"] =

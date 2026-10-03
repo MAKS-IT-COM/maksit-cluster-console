@@ -17,6 +17,7 @@ public sealed record PortForwardRestoreSummary(int Restored, IReadOnlyList<strin
     }
 
     var failed = string.Join("; ", Failures);
+
     if (Restored == 0)
       return $"Port-forward restore failed: {failed}";
 
@@ -43,19 +44,23 @@ public static class PortForwardRow {
   public static bool TryLocalUrl(ResourceRow row, out string url) {
     if (!TryLocalPort(row, out var localPort)) {
       url = "";
+
       return false;
     }
 
     url = LocalUrl(localPort);
+
     return true;
   }
 
   public static bool TryLocalPort(ResourceRow row, out int localPort) {
     localPort = 0;
+
     if (row.Document["localPort"] is JsonValue value && value.TryGetValue<int>(out localPort) && localPort > 0)
       return true;
 
     var uid = row.Uid;
+
     return uid.StartsWith("pf:", StringComparison.Ordinal)
       && int.TryParse(uid[3..], CultureInfo.InvariantCulture, out localPort)
       && localPort > 0;
@@ -99,6 +104,7 @@ public static class PortForwardRow {
       ["containerPort"] = remotePort,
       ["status"] = status
     };
+
     return ResourceRow.From(document, ResourceCatalog.PortForwardingDescriptor);
   }
 }

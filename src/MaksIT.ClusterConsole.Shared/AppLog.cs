@@ -24,6 +24,7 @@ public static class AppLog {
   public static void Write(Exception exception) {
     if (exception is null)
       return;
+
     Write(ErrorReport.Format(exception));
   }
 }

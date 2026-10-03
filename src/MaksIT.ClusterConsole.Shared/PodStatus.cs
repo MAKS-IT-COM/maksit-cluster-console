@@ -12,10 +12,12 @@ public static class PodStatus {
     var status = pod["status"] as JsonObject;
     var phase = Text(status?["phase"]);
     var reason = Text(status?["reason"]);
+
     if (string.IsNullOrEmpty(reason))
       reason = phase;
 
     var conditions = status?["conditions"] as JsonArray;
+
     if (HasCondition(conditions, "PodScheduled", reason: "SchedulingGated"))
       reason = "SchedulingGated";
 
@@ -23,8 +25,10 @@ public static class PodStatus {
     var initSpecs = spec?["initContainers"] as JsonArray;
     var initializing = false;
     var initStatuses = status?["initContainerStatuses"] as JsonArray;
+
     if (initStatuses is not null) {
       var index = 0;
+
       foreach (var container in initStatuses.OfType<JsonObject>()) {
         var initSpec = FindNamed(initSpecs, Text(container["name"]));
         var state = container["state"] as JsonObject;
@@ -33,30 +37,36 @@ public static class PodStatus {
 
         if (terminated is not null && Int(terminated["exitCode"]) == 0) {
           index++;
+
           continue;
         }
 
         if (IsRestartableInit(initSpec) && IsTrue(container["started"])) {
           index++;
+
           continue;
         }
 
         if (terminated is not null) {
           reason = PrefixInit(TerminatedReason(terminated));
           initializing = true;
+
           break;
         }
 
         var waitingReason = Text(waiting?["reason"]);
+
         if (!string.IsNullOrEmpty(waitingReason) && waitingReason != "PodInitializing") {
           reason = PrefixInit(waitingReason);
           initializing = true;
+
           break;
         }
 
         var total = initSpecs?.Count ?? initStatuses.Count;
         reason = $"Init:{index}/{total}";
         initializing = true;
+
         break;
       }
     }
@@ -65,23 +75,29 @@ public static class PodStatus {
       var hasRunning = false;
       string? errorReason = null;
       var containers = status?["containerStatuses"] as JsonArray;
+
       if (containers is not null) {
         var listed = containers.OfType<JsonObject>().ToList();
+
         for (var i = listed.Count - 1; i >= 0; i--) {
           var container = listed[i];
           var state = container["state"] as JsonObject;
           var waiting = state?["waiting"] as JsonObject;
           var terminated = state?["terminated"] as JsonObject;
           var waitingReason = Text(waiting?["reason"]);
+
           if (!string.IsNullOrEmpty(waitingReason)) {
             reason = waitingReason;
+
             continue;
           }
 
           if (terminated is not null) {
             reason = TerminatedReason(terminated);
+
             if (Int(terminated["exitCode"]) != 0)
               errorReason = reason;
+
             continue;
           }
 
@@ -112,6 +128,7 @@ public static class PodStatus {
     if (reason.Equals("Running", StringComparison.OrdinalIgnoreCase)
         && !HasCondition(conditions, "Ready", statusTrue: true)) {
       var crash = CrashHint(status);
+
       if (!string.IsNullOrEmpty(crash))
         return crash;
 
@@ -125,19 +142,24 @@ public static class PodStatus {
   private static string? CrashHint(JsonObject? status) {
     foreach (var container in AllStatuses(status)) {
       var waiting = Text(container["state"]?["waiting"]?["reason"]);
+
       if (!string.IsNullOrEmpty(waiting))
         return waiting;
 
       var restarts = Int(container["restartCount"]);
       var last = container["lastState"]?["terminated"] as JsonObject;
+
       if (restarts <= 0 || last is null || Int(last["exitCode"]) == 0)
         continue;
 
       var lastReason = Text(last["reason"]);
+
       if (lastReason.Equals("OOMKilled", StringComparison.OrdinalIgnoreCase))
         return "OOMKilled";
+
       if (restarts >= 2)
         return "CrashLoopBackOff";
+
       return string.IsNullOrEmpty(lastReason) ? "Error" : lastReason;
     }
 
@@ -156,10 +178,12 @@ public static class PodStatus {
 
   private static string TerminatedReason(JsonObject terminated) {
     var reason = Text(terminated["reason"]);
+
     if (!string.IsNullOrEmpty(reason))
       return reason;
 
     var signal = Int(terminated["signal"]);
+
     if (signal != 0)
       return $"Signal:{signal}";
 
@@ -185,22 +209,29 @@ public static class PodStatus {
 
   private static bool HasCondition(JsonArray? conditions, string type, string? reason = null, bool? statusTrue = null) {
     var match = conditions?.OfType<JsonObject>().FirstOrDefault(c => Text(c["type"]) == type);
+
     if (match is null)
       return false;
+
     if (reason is not null && Text(match["reason"]) != reason)
       return false;
+
     if (statusTrue is true)
       return IsTrue(match["status"]);
+
     if (statusTrue is false)
       return !IsTrue(match["status"]);
+
     return true;
   }
 
   private static bool IsTrue(JsonNode? node) {
     if (node is not JsonValue value)
       return false;
+
     if (value.TryGetValue<bool>(out var flag))
       return flag;
+
     return value.TryGetValue<string>(out var text)
       && text.Equals("True", StringComparison.OrdinalIgnoreCase);
   }
@@ -209,6 +240,7 @@ public static class PodStatus {
     if (node is JsonValue value) {
       if (value.TryGetValue<int>(out var number))
         return number;
+
       if (value.TryGetValue<long>(out var longer))
         return (int)longer;
     }
@@ -221,9 +253,11 @@ public static class PodStatus {
   private static string Text(JsonNode? node) {
     if (node is null)
       return string.Empty;
+
     if (node is JsonValue value) {
       if (value.TryGetValue<string>(out var text))
         return text ?? string.Empty;
+
       return value.ToString() ?? string.Empty;
     }
 

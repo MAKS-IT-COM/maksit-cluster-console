@@ -13,6 +13,7 @@ public sealed record VolumeEntry(string Name, bool IsDirectory, long Size) {
   private static string FormatSize(long size) {
     if (size < 1024)
       return size.ToString(CultureInfo.InvariantCulture) + " B";
+
     if (size < 1024 * 1024)
       return (size / 1024.0).ToString("0.#", CultureInfo.InvariantCulture) + " KB";
 
@@ -26,26 +27,32 @@ public static class VolumeListing {
       return [];
 
     var items = new List<VolumeEntry>();
+
     foreach (var line in text.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
       var tab = line.IndexOf('\t');
+
       if (tab < 0) {
         var lsDir = line.EndsWith('/');
         var lsName = line.TrimEnd('/');
+
         if (string.IsNullOrEmpty(lsName) || lsName is "." or ".." || lsName.Contains('/'))
           continue;
 
         items.Add(new VolumeEntry(lsName, lsDir, 0));
+
         continue;
       }
 
       var type = line[..tab];
       var rest = line[(tab + 1)..];
       var tab2 = rest.IndexOf('\t');
+
       if (tab2 < 0)
         continue;
 
       var sizeText = rest[..tab2].Trim();
       var name = rest[(tab2 + 1)..];
+
       if (string.IsNullOrEmpty(name) || name is "." or ".." || name.Contains('/'))
         continue;
 

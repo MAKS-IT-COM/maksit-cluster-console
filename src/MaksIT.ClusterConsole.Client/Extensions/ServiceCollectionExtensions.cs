@@ -13,8 +13,9 @@ public static class ServiceCollectionExtensions {
   /// </summary>
   public static IServiceCollection AddOllamaChatClient(this IServiceCollection services) {
     services.AddHttpClient<IOllamaChatClient, OllamaChatClient>(client => {
-      client.Timeout = TimeSpan.FromMinutes(4);
+      client.Timeout = Timeout.InfiniteTimeSpan;
     });
+
     return services;
   }
 }

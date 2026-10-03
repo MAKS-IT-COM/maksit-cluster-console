@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
         x:Class="MaksIT.ClusterConsole.UI.Windows.DrainPreviewWindow"
         x:DataType="vm:DrainConfirmViewModel"
@@ -26,10 +27,24 @@
                Classes="hint"
                TextWrapping="Wrap"
                Margin="0,0,0,12" />
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" Spacing="8">
-      <Button Content="Cancel" Click="OnCancel" />
-      <Button Content="Drain" Click="OnDrain" />
-    </StackPanel>
+    <Border DockPanel.Dock="Top"
+            IsVisible="{Binding ShowAdvice}"
+            Background="#1a1d20"
+            BorderBrush="#2a2e33"
+            BorderThickness="1"
+            Padding="10"
+            Margin="0,0,0,12">
+      <ScrollViewer MaxHeight="160">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Assistant" Classes="hint" />
+          <TextBlock Text="{Binding Advice}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0"
+                         Spacing="8" />
     <DataGrid ItemsSource="{Binding Rows}"
               AutoGenerateColumns="False"
               IsReadOnly="True"

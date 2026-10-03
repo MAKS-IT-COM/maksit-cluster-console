@@ -1,7 +1,8 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.Client.Cluster;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Storage;
@@ -15,7 +16,13 @@ public partial class RetainReclaimViewModel : ObservableObject {
     _session = session;
     _storageClassName = storageClassName;
     _volumeNames = volumeNames ?? [];
+    FooterItems = [
+      new FooterButton("Cancel", CancelCommand) { Edge = FooterEdge.Trailing },
+      new FooterButton("Apply", ApplyCommand) { Edge = FooterEdge.Trailing }
+    ];
   }
+
+  public IReadOnlyList<FooterItem> FooterItems { get; }
 
   public static RetainReclaimViewModel ForStorageClass(IClusterSession session, string name) =>
     new(session, name, null);
@@ -116,6 +123,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
         return false;
 
       var volumeCount = Volumes.Count(volume => volume.WillChange);
+
       if (!ShowClassOption)
         return volumeCount > 0;
 
@@ -129,6 +137,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
     OnPropertyChanged(nameof(CanCancel));
     OnPropertyChanged(nameof(ShowLoading));
     ApplyCommand.NotifyCanExecuteChanged();
+    CancelCommand.NotifyCanExecuteChanged();
   }
 
   partial void OnLoadedChanged(bool value) {
@@ -142,6 +151,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
     OnPropertyChanged(nameof(PolicyHint));
     OnPropertyChanged(nameof(ClassMatchText));
     OnPropertyChanged(nameof(ClassOptionText));
+
     if (!_applyingPreview && Loaded)
       ApplySelection();
   }
@@ -166,12 +176,15 @@ public partial class RetainReclaimViewModel : ObservableObject {
   public async Task LoadAsync() {
     IsBusy = true;
     Error = "";
+
     try {
       var preview = _storageClassName is null
         ? await _session.PreviewPersistentVolumeReclaimAsync(_volumeNames)
         : await _session.PreviewStorageClassReclaimAsync(_storageClassName);
+
       if (!preview.IsSuccess || preview.Value is null) {
         Error = preview.Messages is { Count: > 0 } ? string.Join(" ", preview.Messages) : "Could not read reclaim policy.";
+
         return;
       }
 
@@ -190,6 +203,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
   private async Task ApplyAsync() {
     IsBusy = true;
     Error = "";
+
     try {
       var policy = ReclaimPolicy.Normalize(SelectedPolicy) ?? ReclaimPolicy.Retain;
       var result = _storageClassName is null
@@ -200,10 +214,13 @@ public partial class RetainReclaimViewModel : ObservableObject {
           UpdateVolumes && Volumes.Any(volume => volume.WillChange),
           UpdateClass && ClassNeedsChange);
       var outcome = result.Value;
+
       if (outcome is not null) {
         if (outcome.VolumesPatched > 0 || outcome.ClassRecreated)
           Changed = true;
+
         StatusText = outcome.Summary;
+
         if (outcome.RecoveryDocument is not null) {
           RecoveryYaml = YamlFormatter.FromJson(outcome.RecoveryDocument);
           HasRecoveryYaml = RecoveryYaml.Length > 0;
@@ -212,6 +229,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
 
       if (result.IsSuccess && outcome is { Errors.Count: 0 }) {
         CloseRequested?.Invoke();
+
         return;
       }
 
@@ -225,7 +243,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
     }
   }
 
-  [RelayCommand]
+  [RelayCommand(CanExecute = nameof(CanCancel))]
   private void Cancel() =>
     CloseRequested?.Invoke();
 
@@ -235,6 +253,7 @@ public partial class RetainReclaimViewModel : ObservableObject {
     IsDefaultClass = preview.IsDefaultClass;
     ClassPolicyText = preview.ClassPolicy.Length == 0 ? "" : $"Current reclaim policy: {preview.ClassPolicy}";
     _applyingPreview = true;
+
     try {
       SelectedPolicy = DefaultTarget(preview.ClassPolicy);
     }
@@ -247,13 +266,19 @@ public partial class RetainReclaimViewModel : ObservableObject {
 
   private void ApplySelection() {
     var policy = ReclaimPolicy.Normalize(SelectedPolicy) ?? ReclaimPolicy.Retain;
+
     Volumes = _sourceVolumes.Select(volume => volume with {
       WillChange = volume.Phase != "Missing" && !ReclaimPolicy.Same(volume.Policy, policy)
     }).ToList();
+
     ClassNeedsChange = ShowClassOption && !ReclaimPolicy.Same(_classPolicy, policy);
+
     OnPropertyChanged(nameof(ShowClassMatches));
+
     UpdateClass = ClassNeedsChange;
+
     UpdateVolumes = Volumes.Any(volume => volume.WillChange);
+
     var changing = Volumes.Count(volume => volume.WillChange);
     VolumeOptionText = changing switch {
       0 => $"No volumes need {policy}",

@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+             x:Class="MaksIT.ClusterConsole.UI.Controls.Footer.WindowFooter"
+             x:Name="FooterHost">
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="footer:FooterButton" x:DataType="footer:FooterButton">
+      <Button Classes="footer-button"
+              Content="{Binding Text}"
+              Command="{Binding Command}"
+              CommandParameter="{Binding CommandParameter}"
+              ToolTip.Tip="{Binding ToolTip}"
+              IsDefault="{Binding IsDefault}"
+              IsCancel="{Binding IsCancel}"
+              Padding="{Binding Padding}"
+              Margin="{Binding Margin}" />
+    </DataTemplate>
+    <DataTemplate DataType="footer:FooterLabel" x:DataType="footer:FooterLabel">
+      <TextBlock Classes="hint"
+                 Text="{Binding Text}"
+                 Margin="{Binding Margin}"
+                 IsVisible="{Binding IsVisible}"
+                 VerticalAlignment="Center" />
+    </DataTemplate>
+    <DataTemplate DataType="footer:FooterCheck" x:DataType="footer:FooterCheck">
+      <CheckBox Content="{Binding Text}"
+                IsChecked="{Binding IsChecked}"
+                Margin="{Binding Margin}"
+                VerticalAlignment="Center" />
+    </DataTemplate>
+    <DataTemplate DataType="footer:FooterNumberGroup" x:DataType="footer:FooterNumberGroup">
+      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <ItemsControl ItemsSource="{Binding Fields}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="6" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="footer:FooterNumberField">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Caption}"
+                           Classes="hint"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding HasCaption}"
+                           ToolTip.Tip="{Binding CaptionTip}" />
+                <NumericUpDown Value="{Binding Value, Mode=TwoWay}"
+                               Minimum="{Binding Minimum}"
+                               Maximum="{Binding Maximum}"
+                               Width="{Binding Width}"
+                               ToolTip.Tip="{Binding ToolTip}"
+                               VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ContentControl Content="{Binding Button}" VerticalAlignment="Center" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="footer:FooterTextGroup" x:DataType="footer:FooterTextGroup">
+      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBox Text="{Binding Field.Text, Mode=TwoWay}"
+                 PlaceholderText="{Binding Field.Placeholder}"
+                 Width="{Binding Field.Width}"
+                 VerticalAlignment="Center" />
+        <ContentControl Content="{Binding Button}" VerticalAlignment="Center" />
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+  <Grid ColumnDefinitions="*,Auto">
+    <ItemsControl ItemsSource="{Binding Leading, ElementName=FooterHost}" VerticalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="{Binding Spacing, ElementName=FooterHost}" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+    </ItemsControl>
+    <ItemsControl Grid.Column="1"
+                  ItemsSource="{Binding Trailing, ElementName=FooterHost}"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="{Binding Spacing, ElementName=FooterHost}" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+    </ItemsControl>
+  </Grid>
+</UserControl>

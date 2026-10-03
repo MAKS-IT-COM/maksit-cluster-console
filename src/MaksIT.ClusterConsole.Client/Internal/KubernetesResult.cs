@@ -34,6 +34,7 @@ internal static class KubernetesResult {
 
   public static Result<T> Map<T>(Exception ex) {
     var mapped = Map(ex);
+
     return new Result<T>(default, mapped.IsSuccess, mapped.Messages, mapped.StatusCode);
   }
 
@@ -51,15 +52,18 @@ internal static class KubernetesResult {
       return JsonNode.Parse(element.GetRawText()) as JsonObject;
 
     var json = JsonSerializer.Serialize(raw);
+
     return JsonNode.Parse(json) as JsonObject;
   }
 
   public static IReadOnlyList<JsonObject> Items(object? raw) {
     var root = ToObject(raw);
+
     if (root is null)
       return [];
 
     var items = ArrayProperty(root, "items");
+
     if (items is not null)
       return items.OfType<JsonObject>().ToList();
 
@@ -71,12 +75,14 @@ internal static class KubernetesResult {
 
   public static string? ContinueToken(JsonObject? root) {
     var node = Property(root?["metadata"] as JsonObject, "continue");
+
     if (node is null)
       return null;
 
     var text = node is JsonValue value && value.TryGetValue<string>(out var typed)
       ? typed
       : node.ToString();
+
     return string.IsNullOrWhiteSpace(text) ? null : text;
   }
 
@@ -87,18 +93,21 @@ internal static class KubernetesResult {
     var text = node is JsonValue value && value.TryGetValue<string>(out var typed)
       ? typed
       : node.ToString();
+
     return string.IsNullOrWhiteSpace(text) ? null : text;
   }
 
   private static JsonArray? ArrayProperty(JsonObject root, string name) {
     if (Property(root, name) is JsonArray items)
       return items;
+
     return null;
   }
 
   private static JsonNode? Property(JsonObject? root, string name) {
     if (root is null)
       return null;
+
     if (root[name] is { } exact)
       return exact;
 

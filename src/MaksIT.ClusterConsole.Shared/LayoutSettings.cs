@@ -31,6 +31,7 @@ public sealed class LayoutSettings {
   public const string OverviewLimitsTable = "overview-limits";
   public const string DataEditorTable = "data-editor";
   public const string HelmHistoryTable = "helm-history";
+  public const string NodeImagesTable = "node-images";
 
   public double WindowWidth { get; set; } = 1400;
 
@@ -74,6 +75,7 @@ public sealed class LayoutSettings {
 
   public void Normalize() {
     Tables ??= new Dictionary<string, SavedTableLayout>(StringComparer.Ordinal);
+
     foreach (var table in Tables.Values)
       NormalizeTable(table);
 
@@ -89,6 +91,7 @@ public sealed class LayoutSettings {
 
   public IReadOnlyDictionary<string, double>? ColumnsFor(string? context, string tableKey) {
     var widths = Find(context, tableKey)?.Widths;
+
     return widths is { Count: > 0 } ? widths : null;
   }
 
@@ -103,8 +106,10 @@ public sealed class LayoutSettings {
 
   public SavedColumnFilter? FilterFor(string? context, string tableKey, string header) {
     var filters = Find(context, tableKey)?.Filters;
+
     if (filters is not null && filters.TryGetValue(header, out var filter))
       return filter;
+
     return null;
   }
 
@@ -119,6 +124,7 @@ public sealed class LayoutSettings {
 
   public SavedColumnSort? SortFor(string? context, string tableKey) {
     var sort = Find(context, tableKey)?.Sort;
+
     return sort is null || string.IsNullOrWhiteSpace(sort.Header) ? null : sort;
   }
 
@@ -145,12 +151,14 @@ public sealed class LayoutSettings {
   private SavedTableLayout GetOrAdd(string? context, string tableKey) {
     Tables ??= new Dictionary<string, SavedTableLayout>(StringComparer.Ordinal);
     var key = ContextTable(context, tableKey);
+
     if (!Tables.TryGetValue(key, out var table)) {
       table = new SavedTableLayout();
       Tables[key] = table;
     }
 
     NormalizeTable(table);
+
     return table;
   }
 
@@ -173,7 +181,9 @@ public sealed class LayoutSettings {
       foreach (var (key, widths) in ColumnWidths) {
         if (widths is not { Count: > 0 })
           continue;
+
         var table = GetOrAdd(null, key);
+
         if (table.Widths.Count == 0)
           table.Widths = new Dictionary<string, double>(widths, StringComparer.Ordinal);
       }
@@ -183,7 +193,9 @@ public sealed class LayoutSettings {
       foreach (var (key, filters) in ColumnFilters) {
         if (filters is not { Count: > 0 })
           continue;
+
         var table = GetOrAdd(null, key);
+
         if (table.Filters.Count == 0)
           table.Filters = new Dictionary<string, SavedColumnFilter>(filters, StringComparer.Ordinal);
       }
@@ -193,6 +205,7 @@ public sealed class LayoutSettings {
       foreach (var (key, sort) in ColumnSorts) {
         if (sort is null || string.IsNullOrWhiteSpace(sort.Header))
           continue;
+
         var table = GetOrAdd(null, key);
         table.Sort ??= sort;
       }
@@ -202,7 +215,9 @@ public sealed class LayoutSettings {
       foreach (var (key, text) in SearchByResource) {
         if (string.IsNullOrEmpty(text))
           continue;
+
         var table = GetOrAdd(null, key);
+
         if (string.IsNullOrEmpty(table.Search))
           table.Search = text;
       }

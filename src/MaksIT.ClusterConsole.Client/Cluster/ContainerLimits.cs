@@ -30,22 +30,28 @@ public static class ContainerLimits {
     IEnumerable<V1Pod> pods,
     IEnumerable<V1ReplicaSet> replicaSets) {
     var deployByReplicaSet = new Dictionary<string, string>(StringComparer.Ordinal);
+
     foreach (var rs in replicaSets) {
       var ns = rs.Metadata?.NamespaceProperty ?? "";
       var name = rs.Metadata?.Name ?? "";
+
       if (string.IsNullOrEmpty(name))
         continue;
+
       var deploy = rs.Metadata?.OwnerReferences?
         .FirstOrDefault(o => o.Kind == "Deployment" && o.Controller == true)
         ?.Name;
+
       if (!string.IsNullOrEmpty(deploy))
         deployByReplicaSet[$"{ns}/{name}"] = deploy;
     }
 
     var grouped = new Dictionary<string, Acc>(StringComparer.Ordinal);
+
     foreach (var pod in pods) {
       if (pod.Status?.Phase is "Succeeded" or "Failed")
         continue;
+
       var ns = pod.Metadata?.NamespaceProperty ?? "default";
       var (kind, owner) = ResolveOwner(pod, deployByReplicaSet);
       AddContainers(grouped, ns, kind, owner, pod.Spec?.Containers, false);
@@ -66,11 +72,13 @@ public static class ContainerLimits {
     IReadOnlyDictionary<string, string> deployByReplicaSet) {
     var ns = pod.Metadata?.NamespaceProperty ?? "";
     var controller = pod.Metadata?.OwnerReferences?.FirstOrDefault(o => o.Controller == true);
+
     if (controller is null)
       return ("Pod", pod.Metadata?.Name ?? "");
 
     if (controller.Kind == "ReplicaSet") {
       var key = $"{ns}/{controller.Name}";
+
       if (deployByReplicaSet.TryGetValue(key, out var deploy))
         return ("Deployment", deploy);
     }
@@ -90,14 +98,18 @@ public static class ContainerLimits {
 
     foreach (var container in containers) {
       var name = container.Name ?? "";
+
       if (string.IsNullOrEmpty(name))
         continue;
+
       var cpuLimit = Qty(container.Resources?.Limits, "cpu");
       var memLimit = Qty(container.Resources?.Limits, "memory");
+
       if (string.IsNullOrEmpty(cpuLimit) && string.IsNullOrEmpty(memLimit))
         continue;
 
       var key = $"{ns}/{kind}/{owner}/{name}/{(init ? "i" : "c")}";
+
       if (!grouped.TryGetValue(key, out var acc)) {
         acc = new Acc(ns, kind, owner, name, init, cpuLimit, memLimit,
           Qty(container.Resources?.Requests, "cpu"),
@@ -112,6 +124,7 @@ public static class ContainerLimits {
   private static string Qty(IDictionary<string, ResourceQuantity>? quantities, string name) {
     if (quantities is null || !quantities.TryGetValue(name, out var qty))
       return "";
+
     return qty.ToString() ?? "";
   }
 

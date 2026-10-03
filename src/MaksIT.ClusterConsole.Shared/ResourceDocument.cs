@@ -16,13 +16,16 @@ public static class ResourceDocument {
   public static JsonObject PrepareForEdit(JsonObject document) {
     var clone = Clone(document);
     clone.Remove("status");
+
     if (clone["metadata"] is JsonObject meta)
       meta.Remove("managedFields");
+
     return clone;
   }
 
   public static JsonObject PrepareForApply(JsonObject document) {
     var clone = PrepareForEdit(document);
+
     if (clone["metadata"] is JsonObject meta) {
       meta.Remove("generation");
       meta.Remove("creationTimestamp");
@@ -36,6 +39,7 @@ public static class ResourceDocument {
   public static IReadOnlyList<ResourceDataEntry> ReadDataEntries(JsonObject document) {
     var kind = document["kind"]?.GetValue<string>();
     var entries = new List<ResourceDataEntry>();
+
     if (kind == "Secret") {
       AddMap(entries, document["stringData"] as JsonObject, encoded: false);
       AddMap(entries, document["data"] as JsonObject, encoded: true);
@@ -52,6 +56,7 @@ public static class ResourceDocument {
     var kind = document["kind"]?.GetValue<string>();
     var text = new JsonObject();
     var binary = new JsonObject();
+
     foreach (var entry in entries) {
       if (string.IsNullOrWhiteSpace(entry.Key))
         continue;
@@ -78,6 +83,7 @@ public static class ResourceDocument {
       : $"{descriptor.Group}/{descriptor.Version}";
     var ns = string.IsNullOrWhiteSpace(@namespace) || @namespace == "all" ? "default" : @namespace;
     var meta = new JsonObject { ["name"] = $"new-{descriptor.Id}" };
+
     if (descriptor.Namespaced)
       meta["namespace"] = ns;
 
@@ -106,8 +112,10 @@ public static class ResourceDocument {
         continue;
 
       var raw = prop.Value?.GetValue<string>() ?? prop.Value?.ToJsonString() ?? "";
+
       if (!encoded) {
         entries.Add(new ResourceDataEntry(prop.Key, raw, false));
+
         continue;
       }
 
@@ -128,15 +136,19 @@ public static class ResourceDocument {
   private static string NormalizeBase64(string value) {
     if (TryDecodeUtf8(value, out _))
       return value.Replace("\r", "").Replace("\n", "");
+
     return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
   }
 
   private static bool TryDecodeUtf8(string base64, out string text) {
     text = "";
+
     try {
       var bytes = Convert.FromBase64String(base64.Trim());
+
       if (bytes.Length == 0) {
         text = "";
+
         return true;
       }
 
@@ -145,6 +157,7 @@ public static class ResourceDocument {
 
       text = Encoding.UTF8.GetString(bytes);
       var roundTrip = Encoding.UTF8.GetBytes(text);
+
       return roundTrip.AsSpan().SequenceEqual(bytes) && !text.Contains('\uFFFD');
     }
     catch (FormatException) {

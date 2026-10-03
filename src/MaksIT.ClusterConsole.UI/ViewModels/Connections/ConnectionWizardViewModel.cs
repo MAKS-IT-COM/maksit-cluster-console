@@ -121,6 +121,7 @@ public partial class ConnectionWizardViewModel : ObservableObject {
     OnPropertyChanged(nameof(CanGoBack));
     OnPropertyChanged(nameof(NextLabel));
     OnPropertyChanged(nameof(StepTitle));
+    BackCommand.NotifyCanExecuteChanged();
   }
 
   partial void OnSelectedAuthKindChanged(AuthKindChoice? value) {
@@ -135,10 +136,11 @@ public partial class ConnectionWizardViewModel : ObservableObject {
     OnPropertyChanged(nameof(UserWatermark));
   }
 
-  [RelayCommand]
+  [RelayCommand(CanExecute = nameof(CanGoBack))]
   private void Back() {
     if (Step > 0)
       Step--;
+
     Error = "";
   }
 
@@ -149,13 +151,16 @@ public partial class ConnectionWizardViewModel : ObservableObject {
       1 => null,
       _ => ValidateAuth()
     };
+
     if (invalid is not null) {
       Error = invalid;
+
       return false;
     }
 
     if (Step < 2) {
       Step++;
+
       return false;
     }
 
@@ -192,24 +197,31 @@ public partial class ConnectionWizardViewModel : ObservableObject {
   private string? ValidateIdentity() {
     if (string.IsNullOrWhiteSpace(ContextName))
       return "Context name is required.";
+
     if (string.IsNullOrWhiteSpace(Server))
       return "Server URL is required.";
+
     return null;
   }
 
   private string? ValidateAuth() {
     var id = SelectedAuthKind?.Id;
+
     if (id == "token" && string.IsNullOrWhiteSpace(Token))
       return "Token is required.";
+
     if (id == "cert" && (string.IsNullOrWhiteSpace(ClientCertFile) || string.IsNullOrWhiteSpace(ClientKeyFile)))
       return "Client certificate and key files are required.";
+
     if (id == "k3sdata"
         && (string.IsNullOrWhiteSpace(CaData)
             || string.IsNullOrWhiteSpace(ClientCertData)
             || string.IsNullOrWhiteSpace(ClientKeyData)))
       return "CA, client certificate, and client key data are required.";
+
     if (id == "basic" && (string.IsNullOrWhiteSpace(BasicUser) || string.IsNullOrWhiteSpace(BasicPassword)))
       return "Username and password are required.";
+
     return null;
   }
 

@@ -12,8 +12,10 @@ public static partial class ClusterChatToolMarkup {
       return [];
 
     var calls = new List<OllamaToolCall>();
+
     foreach (Match function in FunctionBlock().Matches(content)) {
       var args = new JsonObject();
+
       foreach (Match parameter in ParameterBlock().Matches(function.Groups[2].Value))
         args[parameter.Groups[1].Value] = parameter.Groups[2].Value.Trim();
 
@@ -34,6 +36,7 @@ public static partial class ClusterChatToolMarkup {
 
     var text = FunctionBlock().Replace(content, "");
     text = ToolCallTag().Replace(text, "");
+
     return text.Trim();
   }
 

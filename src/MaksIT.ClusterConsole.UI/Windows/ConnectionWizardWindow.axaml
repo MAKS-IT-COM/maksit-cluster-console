@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Connections"
         x:Class="MaksIT.ClusterConsole.UI.Windows.ConnectionWizardWindow"
         x:DataType="vm:ConnectionWizardViewModel"
@@ -21,11 +22,9 @@
                Classes="warning"
                Margin="0,8,0,0"
                TextWrapping="Wrap" />
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-      <Button Content="Cancel" Click="OnCancelClick" />
-      <Button Content="Back" Command="{Binding BackCommand}" IsEnabled="{Binding CanGoBack}" />
-      <Button Content="{Binding NextLabel}" Click="OnNextClick" />
-    </StackPanel>
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
 
     <ScrollViewer>
       <StackPanel Spacing="8">

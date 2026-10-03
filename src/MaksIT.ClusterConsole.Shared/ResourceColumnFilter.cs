@@ -12,9 +12,11 @@ public sealed class ResourceColumnFilter {
 
   public bool Matches(ResourceRow row) {
     var cell = row.Cell(Header);
+
     if (!string.IsNullOrWhiteSpace(Text)
         && cell.IndexOf(Text, StringComparison.OrdinalIgnoreCase) < 0)
       return false;
+
     return !Excluded.Contains(cell);
   }
 
@@ -32,6 +34,7 @@ public sealed class ResourceColumnFilter {
       .Where(value => !filter.Excluded.Contains(value) && !string.IsNullOrEmpty(value))
       .Distinct(StringComparer.Ordinal)
       .ToList();
+
     return included.Count == 1 ? included[0] : Configuration.AllNamespaces;
   }
 

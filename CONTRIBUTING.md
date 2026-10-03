@@ -25,7 +25,7 @@ Coverage shields in `README.md` are rewritten by **CoverageBadges**.
 
 ### Release
 
-1. Update [CHANGELOG.md](CHANGELOG.md) and bump `<Version>` in [src/Directory.Build.props](src/Directory.Build.props).
+1. Update [CHANGELOG.md](CHANGELOG.md) and [WHATSNEW.md](WHATSNEW.md), and bump `<Version>` in [src/Directory.Build.props](src/Directory.Build.props). What's New is the short list shown in the app. The changelog keeps Added, Changed, and Fixed, including maintainer notes.
 2. Commit on `main`, tag `v{version}` on HEAD (`v1.2.3` or SemVer prerelease such as `v0.1.0-alpha.1`, `v0.1.0-beta.1`, `v0.1.0-rc.1`). GitHub marks hyphenated versions as prerelease.
 3. Run `utils\Invoke-ReleasePackage.bat`. That run publishes the portable zip (win-x64), Windows setup exe, and Flatpak (Flatpak via WSL Debian on Windows). Publishing the GitHub Release starts [macOS release assets](.github/workflows/macos-release.yml), which attaches unsigned `osx-arm64` and `osx-x64` DMGs.
 

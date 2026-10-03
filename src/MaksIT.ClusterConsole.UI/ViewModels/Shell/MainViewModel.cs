@@ -65,6 +65,7 @@ public partial class NodeUsageViewModel : ObservableObject {
     CpuPercent = usage.Cpu.Allocatable <= 0 ? 0 : Math.Clamp(usage.Cpu.Used / usage.Cpu.Allocatable * 100, 0, 100);
     MemoryPercent = usage.Memory.Allocatable <= 0 ? 0 : Math.Clamp(usage.Memory.Used / usage.Memory.Allocatable * 100, 0, 100);
     PodPercent = usage.Pods.Allocatable <= 0 ? 0 : Math.Clamp(usage.Pods.Used / usage.Pods.Allocatable * 100, 0, 100);
+
     if (!sampleHistory)
       return;
 
@@ -76,6 +77,7 @@ public partial class NodeUsageViewModel : ObservableObject {
 
   private static void Append(List<double> history, double value, int historyPoints) {
     history.Add(value);
+
     if (history.Count > historyPoints)
       history.RemoveAt(0);
   }
@@ -129,6 +131,7 @@ public partial class NavGroupViewModel : ObservableObject {
   public IEnumerable<NavItemViewModel> AllItems() {
     foreach (var item in Items)
       yield return item;
+
     foreach (var group in Groups) {
       foreach (var item in group.AllItems())
         yield return item;
@@ -181,6 +184,7 @@ public partial class DataEntryViewModel : ObservableObject {
         return "";
 
       var end = Value.IndexOfAny(['\r', '\n']);
+
       if (end < 0)
         return Value;
 
@@ -249,7 +253,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public bool IsClusterOpen => ActivePage is not null;
 
-  public bool ShowChat => _configuration.Current.AiEnabled;
+  public bool ShowChat => _configuration.Current.Ai.Enabled;
 
   public string ClusterTitle => ActivePage?.Name ?? "Catalog";
 
@@ -260,6 +264,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   partial void OnActivePageChanged(ClusterPageViewModel? oldValue, ClusterPageViewModel? newValue) {
     if (oldValue is not null)
       oldValue.PropertyChanged -= OnActivePagePropertyChanged;
+
     if (newValue is not null)
       newValue.PropertyChanged += OnActivePagePropertyChanged;
 
@@ -279,12 +284,15 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   [RelayCommand]
   private void LoadCatalog() {
     var listed = _kubeConfig.ListContexts();
+
     if (!listed.IsSuccess) {
       Status = string.Join("; ", listed.Messages);
+
       return;
     }
 
     Catalog.Clear();
+
     foreach (var ctx in listed.Value ?? []) {
       Catalog.Add(new CatalogItemViewModel {
         Context = ctx,
@@ -317,31 +325,41 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
 
-  public Func<DrainPreview, Task<bool>>? ShowDrainPreview { get; set; }
+  public Func<DrainConfirmViewModel, Task<bool>>? ShowDrainPreview { get; set; }
 
   public ConnectionsViewModel CreateConnectionsViewModel() =>
     new(_kubeConfig);
 
   public AiSettingsViewModel CreateAiSettingsViewModel() {
     var cfg = _configuration.Current;
-    return new AiSettingsViewModel(cfg.AiEnabled, cfg.AiAgentEnabled, cfg.OllamaEndpoint, cfg.OllamaModel, ApplyAiSettings);
+
+    return new AiSettingsViewModel(
+      cfg.Ai.Enabled,
+      cfg.Ai.AgentEnabled,
+      cfg.Ai.Endpoint,
+      cfg.Ai.Model,
+      cfg.Ai.TimeoutSeconds,
+      ApplyAiSettings);
   }
 
-  private void ApplyAiSettings(bool enabled, bool agent, string endpoint, string model) {
+  private void ApplyAiSettings(bool enabled, bool agent, string endpoint, string model, int timeoutSeconds) {
     var cfg = _configuration.Current;
-    cfg.AiEnabled = enabled;
-    cfg.AiAgentEnabled = enabled && agent;
-    cfg.OllamaEndpoint = endpoint;
-    cfg.OllamaModel = model;
+    cfg.Ai.Enabled = enabled;
+    cfg.Ai.AgentEnabled = enabled && agent;
+    cfg.Ai.Endpoint = endpoint;
+    cfg.Ai.Model = model;
+    cfg.Ai.TimeoutSeconds = timeoutSeconds;
     cfg.EnsureDefaults();
     _configuration.Save(cfg);
     OnPropertyChanged(nameof(ShowChat));
+
     foreach (var page in _pages.Values)
-      page.NotifyChatSettingsChanged();
+      page.Chat.NotifySettingsChanged();
   }
 
   public Task ConnectNamedAsync(string name) {
     var item = Catalog.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+
     return OpenOrSwitchAsync(item);
   }
 
@@ -351,27 +369,34 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
     if (_pages.TryGetValue(item.Name, out var existing)) {
       ActivatePage(existing);
+
       return;
     }
 
     Status = $"Connecting to {item.Name}…";
     var created = _sessions.Create(item.Name);
+
     if (!created.IsSuccess || created.Value is null) {
       Status = string.Join("; ", created.Messages);
+
       return;
     }
 
     var page = CreatePage(item.Context);
     var started = await page.StartAsync(created.Value);
+
     if (!started.IsSuccess) {
       page.Dispose();
+
       Status = string.Join("; ", started.Messages);
+
       return;
     }
 
     _pages[item.Name] = page;
     ActivatePage(page);
     var restored = await page.RestorePortForwardsAsync();
+
     if (restored.Total > 0)
       Status = restored.Format();
   }
@@ -389,6 +414,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
       return;
 
     var wasActive = ActivePage == page;
+
     if (wasActive)
       page.PausePolling();
 
@@ -398,6 +424,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     if (wasActive) {
       ActivePage = null;
       var next = _pages.Values.FirstOrDefault();
+
       if (next is not null)
         ActivatePage(next);
       else
@@ -414,24 +441,30 @@ public partial class MainViewModel : ObservableObject, IDisposable {
       .Where(n => !string.IsNullOrWhiteSpace(n))
       .Distinct(StringComparer.Ordinal)
       .ToList();
+
     if (names.Count == 0)
       return;
 
     var preferred = _configuration.Current.ActiveContext;
     PortForwardRestoreSummary? restored = null;
+
     foreach (var name in names) {
       var item = Catalog.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.Ordinal));
+
       if (item is null)
         continue;
 
       var created = _sessions.Create(item.Name);
+
       if (!created.IsSuccess || created.Value is null)
         continue;
 
       var page = CreatePage(item.Context);
       var started = await page.StartAsync(created.Value);
+
       if (!started.IsSuccess) {
         page.Dispose();
+
         continue;
       }
 
@@ -443,6 +476,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     var active = _pages.TryGetValue(preferred ?? "", out var preferredPage)
       ? preferredPage
       : _pages.Values.FirstOrDefault();
+
     if (active is not null)
       ActivatePage(active);
     else
@@ -467,13 +501,15 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     var page = new ClusterPageViewModel(context, new ClusterWorkspace(), _configuration, _ollama, text => Status = text);
     page.VolumeFilesRequested += vm => VolumeFilesRequested?.Invoke(vm);
     page.ShowRetainReclaim = viewModel => ShowRetainReclaim?.Invoke(viewModel) ?? Task.CompletedTask;
-    page.ConfirmDrain = preview => ShowDrainPreview?.Invoke(preview) ?? Task.FromResult(false);
+    page.ConfirmDrain = dialog => ShowDrainPreview?.Invoke(dialog) ?? Task.FromResult(false);
+
     return page;
   }
 
   private void ActivatePage(ClusterPageViewModel page) {
     if (ActivePage == page) {
       SyncCatalogFlags();
+
       return;
     }
 
@@ -498,6 +534,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   private void SyncCatalogFlags() {
     var current = _kubeConfig.GetCurrentContext();
     var kubectlCurrent = current.IsSuccess ? current.Value : null;
+
     foreach (var item in Catalog) {
       item.IsConnected = _pages.ContainsKey(item.Name);
       item.IsActive = ActivePage?.Name == item.Name;
@@ -520,6 +557,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   public void Dispose() {
     foreach (var page in _pages.Values)
       page.Dispose();
+
     _pages.Clear();
   }
 }

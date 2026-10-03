@@ -1,4 +1,4 @@
-using MaksIT.ClusterConsole.Shared.Chat;
+using System.Text.Json.Serialization;
 
 
 namespace MaksIT.ClusterConsole.Shared;
@@ -18,19 +18,45 @@ public sealed class Configuration {
 
   public bool OverviewPerNode { get; set; }
 
-  public bool AiEnabled { get; set; }
+  [JsonIgnore]
+  public AiSettings Ai { get; } = new();
 
-  public bool AiAgentEnabled { get; set; }
+  public bool AiEnabled {
+    get => Ai.Enabled;
+    set => Ai.Enabled = value;
+  }
 
-  public string OllamaEndpoint { get; set; } = ClusterChatService.DefaultEndpoint;
+  public bool AiAgentEnabled {
+    get => Ai.AgentEnabled;
+    set => Ai.AgentEnabled = value;
+  }
 
-  public string OllamaModel { get; set; } = ClusterChatService.DefaultModel;
+  public string OllamaEndpoint {
+    get => Ai.Endpoint;
+    set => Ai.Endpoint = value;
+  }
+
+  public string OllamaModel {
+    get => Ai.Model;
+    set => Ai.Model = value;
+  }
+
+  public int OllamaTimeoutSeconds {
+    get => Ai.TimeoutSeconds;
+    set => Ai.TimeoutSeconds = value;
+  }
 
   public LayoutSettings Layout { get; set; } = new();
 
   public string? WhatsNewSeenVersion { get; set; }
 
-  public List<PersistedPortForward> PortForwards { get; set; } = [];
+  [JsonIgnore]
+  public PortForwardDirectory Forwards { get; } = new();
+
+  public List<PersistedPortForward> PortForwards {
+    get => Forwards.Items;
+    set => Forwards.Items = value ?? [];
+  }
 
   public void EnsureDefaults() {
     OpenContexts ??= [];
@@ -38,17 +64,13 @@ public sealed class Configuration {
     NavigatorExpanded ??= new Dictionary<string, bool>(StringComparer.Ordinal);
     Layout ??= new LayoutSettings();
     Layout.Normalize();
-    PortForwards ??= [];
-    if (string.IsNullOrWhiteSpace(OllamaEndpoint))
-      OllamaEndpoint = ClusterChatService.DefaultEndpoint;
-    if (string.IsNullOrWhiteSpace(OllamaModel))
-      OllamaModel = ClusterChatService.DefaultModel;
-    if (!AiEnabled)
-      AiAgentEnabled = false;
+    Forwards.Ensure();
+    Ai.Ensure();
   }
 
   public bool IsNavigatorExpanded(string path) {
     var map = NavigatorExpanded;
+
     return map is not null && map.TryGetValue(path, out var expanded) && expanded;
   }
 
@@ -58,6 +80,7 @@ public sealed class Configuration {
 
   public string NamespaceFor(string? contextName) {
     var map = NamespacesByContext;
+
     if (!string.IsNullOrWhiteSpace(contextName)
         && map is not null
         && map.TryGetValue(contextName, out var ns)
@@ -77,24 +100,6 @@ public sealed class Configuration {
     ActiveContext = contextName;
   }
 
-  public IReadOnlyList<PersistedPortForward> PortForwardsFor(string context) =>
-    (PortForwards ?? [])
-      .Where(p => string.Equals(p.Context, context, StringComparison.Ordinal))
-      .ToList();
-
-  public void UpsertPortForward(PersistedPortForward forward) {
-    ArgumentNullException.ThrowIfNull(forward);
-    PortForwards ??= [];
-    PortForwards.RemoveAll(p => SamePortForward(p, forward.Context, forward.LocalPort));
-    PortForwards.Add(forward);
-  }
-
-  public void RemovePortForward(string context, int localPort) {
-    PortForwards?.RemoveAll(p => SamePortForward(p, context, localPort));
-  }
-
-  private static bool SamePortForward(PersistedPortForward item, string context, int localPort) =>
-    string.Equals(item.Context, context, StringComparison.Ordinal) && item.LocalPort == localPort;
 }
 
 public sealed class PersistedPortForward {

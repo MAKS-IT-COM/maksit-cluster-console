@@ -51,6 +51,7 @@ public partial class ColumnFilterViewModel : ObservableObject {
     get {
       if (string.IsNullOrWhiteSpace(Text))
         return Values;
+
       return Values.Where(value => value.Display.Contains(Text, StringComparison.OrdinalIgnoreCase));
     }
   }
@@ -58,8 +59,10 @@ public partial class ColumnFilterViewModel : ObservableObject {
   public void IncludeOnly(string value) {
     _suppress = true;
     Text = "";
+
     foreach (var item in Values)
       item.IsIncluded = string.Equals(item.Value, value, StringComparison.Ordinal);
+
     SyncModel();
     _suppress = false;
     OnPropertyChanged(nameof(VisibleValues));
@@ -77,8 +80,10 @@ public partial class ColumnFilterViewModel : ObservableObject {
     OnPropertyChanged(nameof(Text));
     Model.Text = text;
     Model.Excluded.Clear();
+
     foreach (var value in saved.Excluded ?? [])
       Model.Excluded.Add(value);
+
     _suppress = false;
     OnPropertyChanged(nameof(VisibleValues));
     OnPropertyChanged(nameof(IsActive));
@@ -94,8 +99,10 @@ public partial class ColumnFilterViewModel : ObservableObject {
     _suppress = true;
     var excluded = new HashSet<string>(Model.Excluded, StringComparer.Ordinal);
     Values.Clear();
+
     foreach (var value in ResourceColumnFilter.DistinctValues(rows, Header))
       Values.Add(new ColumnFilterValueViewModel(value, !excluded.Contains(value), OnValueChanged));
+
     SyncModel();
     _suppress = false;
     OnPropertyChanged(nameof(VisibleValues));
@@ -106,8 +113,10 @@ public partial class ColumnFilterViewModel : ObservableObject {
   private void Clear() {
     Text = "";
     _suppress = true;
+
     foreach (var value in Values)
       value.IsIncluded = true;
+
     _suppress = false;
     SyncModel();
     OnPropertyChanged(nameof(IsActive));
@@ -118,6 +127,7 @@ public partial class ColumnFilterViewModel : ObservableObject {
     SyncModel();
     OnPropertyChanged(nameof(VisibleValues));
     OnPropertyChanged(nameof(IsActive));
+
     if (!_suppress)
       _changed();
   }
@@ -125,6 +135,7 @@ public partial class ColumnFilterViewModel : ObservableObject {
   private void OnValueChanged() {
     if (_suppress)
       return;
+
     SyncModel();
     OnPropertyChanged(nameof(IsActive));
     _changed();
@@ -133,6 +144,7 @@ public partial class ColumnFilterViewModel : ObservableObject {
   private void SyncModel() {
     Model.Text = Text;
     Model.Excluded.Clear();
+
     foreach (var value in Values) {
       if (!value.IsIncluded)
         Model.Excluded.Add(value.Value);

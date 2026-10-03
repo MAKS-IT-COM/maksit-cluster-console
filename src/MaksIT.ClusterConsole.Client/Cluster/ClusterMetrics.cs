@@ -20,6 +20,7 @@ public static class ClusterMetrics {
       .ToDictionary(g => g.Key, g => (IReadOnlyList<V1Pod>)g.ToList(), StringComparer.Ordinal);
 
     var nodeUsages = new List<NodeUsage>();
+
     foreach (var node in nodes) {
       var name = node.Metadata?.Name ?? "";
       byNode.TryGetValue(name, out var scheduled);
@@ -31,6 +32,7 @@ public static class ClusterMetrics {
     double cpuUsed = 0, cpuRequests = 0, cpuLimits = 0, cpuAllocatable = 0, cpuCapacity = 0;
     double memoryUsed = 0, memoryRequests = 0, memoryLimits = 0, memoryAllocatable = 0, memoryCapacity = 0;
     double podUsed = 0, podAllocatable = 0, podCapacity = 0;
+
     foreach (var usage in nodeUsages) {
       cpuUsed += usage.Cpu.Used;
       cpuRequests += usage.Cpu.Requests;
@@ -50,8 +52,10 @@ public static class ClusterMetrics {
     if (byNode.TryGetValue("", out var unscheduled)) {
       foreach (var pod in unscheduled) {
         podUsed++;
+
         if (pod.Status?.Phase is "Succeeded" or "Failed")
           continue;
+
         AddPod(pod, ref cpuRequests, ref cpuLimits, ref memoryRequests, ref memoryLimits);
       }
     }
@@ -76,9 +80,11 @@ public static class ClusterMetrics {
 
     var cpuUsed = metrics is null ? 0 : KubeQuantity.ToCores(metrics.Cpu);
     var memoryUsed = metrics is null ? 0 : KubeQuantity.ToBytes(metrics.Memory);
+
     foreach (var pod in pods) {
       if (pod.Status?.Phase is "Succeeded" or "Failed")
         continue;
+
       AddPod(pod, ref cpuRequests, ref cpuLimits, ref memoryRequests, ref memoryLimits);
     }
 
@@ -116,6 +122,7 @@ public static class ClusterMetrics {
     ref double memory,
     ref double pods) {
     AddCpuMemory(quantities, ref cpu, ref memory);
+
     if (quantities is not null && quantities.TryGetValue("pods", out var podQty))
       pods += KubeQuantity.ToCores(podQty.ToString());
   }
@@ -129,6 +136,7 @@ public static class ClusterMetrics {
 
     if (quantities.TryGetValue("cpu", out var cpuQty))
       cpu += KubeQuantity.ToCores(cpuQty.ToString());
+
     if (quantities.TryGetValue("memory", out var memQty))
       memory += KubeQuantity.ToBytes(memQty.ToString());
   }

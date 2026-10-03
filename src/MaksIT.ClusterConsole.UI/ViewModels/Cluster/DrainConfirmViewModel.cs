@@ -1,14 +1,20 @@
 using Avalonia.Media;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using MaksIT.Results;
 using MaksIT.ClusterConsole.Client.Cluster;
 
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Cluster;
 
-public sealed class DrainConfirmViewModel {
+public sealed partial class DrainConfirmViewModel : ObservableObject {
+  private CancellationTokenSource? _adviceCts;
+
   public DrainConfirmViewModel(DrainPreview preview) {
     Rows = preview.Nodes
       .SelectMany(node => node.Pods.Select(pod => new DrainConfirmRow(node.Node, pod)))
       .ToList();
+
     var moving = Rows.Count(row => row.WillMove);
     MoveSummary = Count(moving, "move");
     RemainSummary = Count(Rows.Count - moving, "remain");
@@ -22,6 +28,51 @@ public sealed class DrainConfirmViewModel {
 
   public string Notice { get; } =
     "Nothing changes until you press Drain. Cancel leaves the node as it is. Drain cordons the node, then moves only the pods marked Will move. Pods marked Will remain stay, including DaemonSets and any pod a PodDisruptionBudget would refuse. Those pods are not deleted.";
+
+  [ObservableProperty]
+  private bool _showAdvice;
+
+  [ObservableProperty]
+  private string _advice = "";
+
+  public async Task LoadAdviceAsync(
+    Func<CancellationToken, Task<Result<string>>> assess,
+    CancellationToken cancellationToken = default) {
+    _adviceCts?.Cancel();
+    _adviceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    var token = _adviceCts.Token;
+    ShowAdvice = true;
+    Advice = "Writing a note about this drain…";
+    string text;
+
+    try {
+      var result = await assess(token).ConfigureAwait(false);
+
+      if (token.IsCancellationRequested)
+        return;
+
+      text = result.IsSuccess && !string.IsNullOrWhiteSpace(result.Value)
+        ? result.Value
+        : string.Join("; ", result.Messages);
+    }
+    catch (OperationCanceledException) {
+      return;
+    }
+    catch (Exception ex) {
+      text = ex.Message;
+    }
+
+    if (string.IsNullOrWhiteSpace(text))
+      text = "The assistant did not write a note.";
+
+    await Dispatcher.UIThread.InvokeAsync(() => {
+      if (!token.IsCancellationRequested)
+        Advice = text;
+    });
+  }
+
+  public void CancelAdvice() =>
+    _adviceCts?.Cancel();
 
   private static string Count(int count, string verb) =>
     count == 1 ? $"1 pod will {verb}." : $"{count} pods will {verb}.";

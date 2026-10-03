@@ -16,8 +16,10 @@ public class KubernetesApiRetryTests {
     var attempts = 0;
     var result = await KubernetesApiRetry.ExecuteAsync(_ => {
       attempts++;
+
       if (attempts < 2)
         throw new HttpRequestException("ResponseEnded");
+
       return Task.FromResult(42);
     }, CancellationToken.None);
 

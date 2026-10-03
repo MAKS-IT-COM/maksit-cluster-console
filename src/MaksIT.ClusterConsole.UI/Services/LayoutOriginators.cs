@@ -55,8 +55,10 @@ internal sealed class WindowLayoutOriginator : ILayoutOriginator {
 
   private bool IsOnScreen(int x, int y) {
     var screens = _window.Screens?.All;
+
     if (screens is null || screens.Count == 0)
       return true;
+
     return screens.Any(screen => screen.WorkingArea.Contains(new PixelPoint(x, y)));
   }
 }
@@ -130,9 +132,11 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
       return;
 
     var length = new GridLength(LayoutRange.Clamp(_read(layout), _min, _max, _fallback));
+
     if (_column) {
       if (_index >= 0 && _index < _grid.ColumnDefinitions.Count)
         _grid.ColumnDefinitions[_index].Width = length;
+
       return;
     }
 
@@ -148,14 +152,17 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
   private double? Measure() {
     if (_prefer is { IsVisible: true }) {
       var extent = _column ? _prefer.Bounds.Width : _prefer.Bounds.Height;
+
       if (extent > 0)
         return extent;
     }
 
     if (_grid is null)
       return null;
+
     if (_minHostExtent > 0) {
       var host = _column ? _grid.Bounds.Width : _grid.Bounds.Height;
+
       if (!_grid.IsVisible || host < _minHostExtent)
         return null;
     }
@@ -163,13 +170,17 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
     if (_column) {
       if (_index < 0 || _index >= _grid.ColumnDefinitions.Count)
         return null;
+
       var definition = _grid.ColumnDefinitions[_index];
+
       return definition.Width.IsAbsolute ? definition.Width.Value : null;
     }
 
     if (_index < 0 || _index >= _grid.RowDefinitions.Count)
       return null;
+
     var row = _grid.RowDefinitions[_index];
+
     return row.Height.IsAbsolute ? row.Height.Value : null;
   }
 }
@@ -195,6 +206,8 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
 
   public bool DeferSave => _restoreSortPending > 0;
 
+  public bool RestoreOnTableChange => true;
+
   public void Attach(Action changed) {
     if (_grid is null)
       return;
@@ -219,29 +232,36 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
       return;
 
     var widths = ReadColumnWidths(_grid);
+
     if (widths.Count > 0)
       layout.SetColumns(_contextName(), _tableKey(), widths);
   }
 
   private void ApplyColumnWidths(DataGrid grid, LayoutSettings layout) {
     var saved = layout.ColumnsFor(_contextName(), _tableKey());
+
     if (saved is null)
       return;
 
     foreach (var column in grid.Columns) {
       var header = ColumnKey(column);
+
       if (header is null || !saved.TryGetValue(header, out var width) || width < 32)
         continue;
+
       column.Width = new DataGridLength(width, DataGridLengthUnitType.Pixel);
     }
   }
 
   private void ApplyColumnSort(DataGrid grid, LayoutSettings layout) {
     var saved = layout.SortFor(_contextName(), _tableKey());
+
     if (saved is null) {
       _pending = null;
+
       return;
     }
+
     if (!Enum.TryParse<ListSortDirection>(saved.Direction, true, out var direction))
       direction = ListSortDirection.Ascending;
 
@@ -254,8 +274,10 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
       return;
 
     var column = FindColumn(_grid, pending.Header);
+
     if (column is null) {
       _pending = null;
+
       return;
     }
 
@@ -275,7 +297,9 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
   private void PersistSort(DataGridColumn column, Action changed) {
     if (_grid is null || DeferSave)
       return;
+
     var header = ColumnKey(column);
+
     if (header is null)
       return;
 
@@ -284,6 +308,7 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
     var tableKey = _tableKey();
     var previous = layout.SortFor(context, tableKey);
     var direction = ListSortDirection.Ascending;
+
     if (previous is not null
         && string.Equals(previous.Header, header, StringComparison.Ordinal)
         && string.Equals(previous.Direction, nameof(ListSortDirection.Ascending), StringComparison.OrdinalIgnoreCase))
@@ -307,11 +332,14 @@ internal sealed class DataGridLayoutOriginator : ILayoutOriginator {
 
   private static Dictionary<string, double> ReadColumnWidths(DataGrid grid) {
     var widths = new Dictionary<string, double>(StringComparer.Ordinal);
+
     foreach (var column in grid.Columns) {
       var header = ColumnKey(column);
       var width = column.ActualWidth > 0 ? column.ActualWidth : column.Width.Value;
+
       if (header is null || width < 32)
         continue;
+
       widths[header] = width;
     }
 

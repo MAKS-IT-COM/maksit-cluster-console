@@ -15,6 +15,7 @@ internal static class KubernetesApiRetry {
         return true;
 
       var message = current.Message;
+
       if (message.Contains("ResponseEnded", StringComparison.Ordinal)
           || message.Contains("prematurely", StringComparison.OrdinalIgnoreCase)
           || message.Contains("connection reset", StringComparison.OrdinalIgnoreCase)
@@ -29,6 +30,7 @@ internal static class KubernetesApiRetry {
     Func<CancellationToken, Task<T>> action,
     CancellationToken cancellationToken) {
     Exception? last = null;
+
     for (var attempt = 1; attempt <= MaxAttempts; attempt++) {
       try {
         return await action(cancellationToken).ConfigureAwait(false);

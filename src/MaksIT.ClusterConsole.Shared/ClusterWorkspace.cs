@@ -32,10 +32,12 @@ public sealed partial class ClusterWorkspace {
     _session = session;
     var builtins = ResourceCatalog.BuiltIns.ToList();
     var crds = await session.ListCustomResourceDefinitionsAsync(cancellationToken).ConfigureAwait(false);
+
     if (crds.IsSuccess && crds.Value is not null)
       builtins.AddRange(crds.Value.Select(ResourceCatalog.FromCustomResourceDefinition).OfType<ResourceDescriptor>());
 
     Navigator = BuildNavigator(builtins);
+
     return Result.Ok();
   }
 
@@ -56,24 +58,25 @@ public sealed partial class ClusterWorkspace {
       return Result<IReadOnlyList<ResourceRow>>.ServiceUnavailable(null, "not connected");
 
     if (itemId == ResourceCatalog.ApplicationsId)
-      return await ListApplicationsAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
+      return await ApplicationCatalog.ListAsync(_session!, GetClusterCpuAllocatableCachedAsync, @namespace, filter, cancellationToken).ConfigureAwait(false);
 
     if (itemId == ResourceCatalog.HelmReleasesId)
-      return await ListHelmAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
+      return await HelmCatalog.ListReleasesAsync(_session!, @namespace, filter, cancellationToken).ConfigureAwait(false);
 
     if (itemId == ResourceCatalog.HelmChartsId)
-      return await ListHelmChartsAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
+      return await HelmCatalog.ListChartsAsync(_session!, @namespace, filter, cancellationToken).ConfigureAwait(false);
 
     if (itemId == ResourceCatalog.DaprSidecarsId)
-      return await ListDaprSidecarsAsync(@namespace, filter, cancellationToken).ConfigureAwait(false);
+      return await DaprCatalog.ListSidecarsAsync(_session!, @namespace, filter, cancellationToken).ConfigureAwait(false);
 
     if (itemId == ResourceCatalog.DaprControlPlaneId)
-      return await ListDaprControlPlaneAsync(filter, cancellationToken).ConfigureAwait(false);
+      return await DaprCatalog.ListControlPlaneAsync(_session!, filter, cancellationToken).ConfigureAwait(false);
 
     if (itemId == "customresourcedefinitions")
       return await ListDefinitionsAsync(filter, cancellationToken).ConfigureAwait(false);
 
     var descriptor = FindDescriptor(itemId);
+
     if (descriptor is null)
       return Result<IReadOnlyList<ResourceRow>>.NotFound(null, $"unknown resource {itemId}");
 
@@ -82,6 +85,7 @@ public sealed partial class ClusterWorkspace {
       : new ResourceListOptions { LabelSelector = labelSelector.Trim() };
     var listed = await _session.ListAsync(descriptor.ToRef(), @namespace, cancellationToken, options).ConfigureAwait(false);
     LastResourceVersion = options.ResourceVersion;
+
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
@@ -90,10 +94,12 @@ public sealed partial class ClusterWorkspace {
         .ConfigureAwait(false);
 
     IReadOnlyDictionary<string, ResourceMetrics>? metrics = null;
+
     if (descriptor.Id is "pods" or "nodes") {
       var metricsResult = descriptor.Id == "pods"
         ? await _session.GetPodMetricsAsync(@namespace, cancellationToken).ConfigureAwait(false)
         : await _session.GetNodeMetricsAsync(cancellationToken).ConfigureAwait(false);
+
       if (metricsResult.IsSuccess)
         metrics = metricsResult.Value;
     }
@@ -101,6 +107,7 @@ public sealed partial class ClusterWorkspace {
     var rows = (listed.Value ?? [])
       .Select(item => {
         ResourceMetrics? m = null;
+
         if (metrics is not null) {
           var key = descriptor.Id == "nodes"
             ? JsonPath.Name(item)
@@ -118,11 +125,13 @@ public sealed partial class ClusterWorkspace {
 
   public ResourceDescriptor? FindDescriptor(string itemId) {
     var nav = Navigator.FirstOrDefault(n => n.Id == itemId);
+
     return nav?.Descriptor ?? ResourceCatalog.Find(itemId);
   }
 
   public ResourceDescriptor? FindByGvk(string? apiVersion, string? kind) {
     var match = ResourceCatalog.FindByGvk(apiVersion, kind);
+
     if (match is not null)
       return match;
 
@@ -144,6 +153,7 @@ public sealed partial class ClusterWorkspace {
     var kind = prepared["kind"]?.GetValue<string>();
     var apiVersion = prepared["apiVersion"]?.GetValue<string>();
     var resource = FindByGvk(apiVersion, kind)?.ToRef();
+
     return await _session.ApplyAsync(prepared, resource, cancellationToken).ConfigureAwait(false);
   }
 
@@ -155,6 +165,7 @@ public sealed partial class ClusterWorkspace {
 
     var pods = ResourceCatalog.Find("pods")!;
     var listed = await _session.ListAsync(pods.ToRef(), owner.Namespace, cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
@@ -162,6 +173,7 @@ public sealed partial class ClusterWorkspace {
       .Where(p => ResourceOwnership.Owns(p, owner.Document))
       .Select(p => ResourceRow.From(p, pods))
       .ToList();
+
     return Result<IReadOnlyList<ResourceRow>>.Ok(related);
   }
 
@@ -173,6 +185,7 @@ public sealed partial class ClusterWorkspace {
 
     var events = ResourceCatalog.Find("events")!;
     var listed = await _session.ListAsync(events.ToRef(), row.Namespace ?? "all", cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
@@ -180,92 +193,31 @@ public sealed partial class ClusterWorkspace {
       .Where(e => EventMatches(e, row))
       .Select(e => ResourceRow.From(e, events))
       .ToList();
+
     return Result<IReadOnlyList<ResourceRow>>.Ok(filtered);
   }
 
-  public async Task<Result<ClusterIssueSet>> GetClusterIssuesAsync(
-    CancellationToken cancellationToken = default) {
-    if (_session is null)
-      return Result<ClusterIssueSet>.ServiceUnavailable(null, "not connected");
+  public Task<Result<ClusterIssueSet>> GetClusterIssuesAsync(
+    CancellationToken cancellationToken = default) =>
+    ClusterIssueReader.LoadAsync(_session, cancellationToken);
 
-    var nodesTask = ListObjectsAsync("nodes", cancellationToken);
-    var eventsTask = ListObjectsAsync("events", cancellationToken);
-    var podsTask = ListObjectsAsync("pods", cancellationToken);
-    var servicesTask = ListObjectsAsync("services", cancellationToken);
-    var claimsTask = ListObjectsAsync("persistentvolumeclaims", cancellationToken);
-    await Task.WhenAll(nodesTask, eventsTask, podsTask, servicesTask, claimsTask).ConfigureAwait(false);
-
-    var nodes = nodesTask.Result;
-    var events = eventsTask.Result;
-    var pods = podsTask.Result;
-    var services = servicesTask.Result;
-    var claims = claimsTask.Result;
-    if (!nodes.IsSuccess && !events.IsSuccess)
-      return new Result<ClusterIssueSet>(
-        null,
-        false,
-        nodes.Messages.Concat(events.Messages).ToList(),
-        nodes.StatusCode);
-
-    return Result<ClusterIssueSet>.Ok(ClusterIssues.Collect(
-      nodes.Value ?? [],
-      events.Value ?? [],
-      pods.Value ?? [],
-      services: services.IsSuccess ? services.Value : [],
-      claims: claims.IsSuccess ? claims.Value : []));
-  }
-
-  public async Task<Result<DrainPreview>> PreviewDrainAsync(
+  public Task<Result<DrainPreview>> PreviewDrainAsync(
     IReadOnlyList<string> nodeNames,
-    CancellationToken cancellationToken = default) {
-    if (_session is null)
-      return Result<DrainPreview>.ServiceUnavailable(null, "not connected");
+    CancellationToken cancellationToken = default) =>
+    DrainPreviewReader.LoadAsync(_session, nodeNames, cancellationToken);
 
-    var pods = await ListObjectsAsync("pods", cancellationToken).ConfigureAwait(false);
-    if (!pods.IsSuccess)
-      return new Result<DrainPreview>(null, false, pods.Messages, pods.StatusCode);
-
-    var budgets = await ListObjectsAsync("poddisruptionbudgets", cancellationToken).ConfigureAwait(false);
-    if (!budgets.IsSuccess)
-      return new Result<DrainPreview>(null, false, budgets.Messages, budgets.StatusCode);
-
-    var plans = nodeNames
-      .Distinct(StringComparer.Ordinal)
-      .Select(name => DrainPlan.ForNode(name, pods.Value ?? [], budgets.Value ?? []))
-      .ToList();
-    return Result<DrainPreview>.Ok(new DrainPreview(plans));
-  }
-
-  public async Task<Result<IReadOnlyList<HelmRevision>>> HelmHistoryAsync(
+  public Task<Result<IReadOnlyList<HelmRevision>>> HelmHistoryAsync(
     string name,
     string? @namespace,
-    CancellationToken cancellationToken = default) {
-    if (_session is null)
-      return Result<IReadOnlyList<HelmRevision>>.ServiceUnavailable(null, "not connected");
-
-    var listed = await _session.ListHelmReleaseDocumentsAsync(@namespace, name, cancellationToken)
-      .ConfigureAwait(false);
-    if (!listed.IsSuccess)
-      return new Result<IReadOnlyList<HelmRevision>>(null, false, listed.Messages, listed.StatusCode);
-
-    return Result<IReadOnlyList<HelmRevision>>.Ok(ReadHelmRevisions(listed.Value));
-  }
-
-  private async Task<Result<IReadOnlyList<JsonObject>>> ListObjectsAsync(
-    string id,
-    CancellationToken cancellationToken) {
-    var descriptor = ResourceCatalog.Find(id);
-    if (descriptor is null)
-      return Result<IReadOnlyList<JsonObject>>.NotFound(null, $"unknown resource {id}");
-    return await _session!.ListAsync(descriptor.ToRef(), Configuration.AllNamespaces, cancellationToken)
-      .ConfigureAwait(false);
-  }
+    CancellationToken cancellationToken = default) =>
+    HelmCatalog.HistoryAsync(_session, name, @namespace, cancellationToken);
 
   private async Task<Result<IReadOnlyList<ResourceRow>>> ListDefinitionsAsync(
     string? filter,
     CancellationToken cancellationToken) {
     var descriptor = ResourceCatalog.Find("customresourcedefinitions")!;
     var listed = await _session!.ListCustomResourceDefinitionsAsync(cancellationToken).ConfigureAwait(false);
+
     if (!listed.IsSuccess)
       return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
 
@@ -273,216 +225,16 @@ public sealed partial class ClusterWorkspace {
       .Select(item => ResourceRow.From(item, descriptor))
       .Where(row => Matches(row, filter))
       .ToList();
-    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private async Task<Result<IReadOnlyList<ResourceRow>>> ListApplicationsAsync(
-    string? @namespace,
-    string? filter,
-    CancellationToken cancellationToken) {
-    var kinds = new[] {
-      ResourceCatalog.Find("deployments")!,
-      ResourceCatalog.Find("statefulsets")!,
-      ResourceCatalog.Find("daemonsets")!
-    };
-    var podsDescriptor = ResourceCatalog.Find("pods")!;
-    var workloadsTask = Task.WhenAll(kinds.Select(kind =>
-      _session!.ListAsync(kind.ToRef(), @namespace, cancellationToken)));
-    var podsTask = _session!.ListAsync(podsDescriptor.ToRef(), @namespace, cancellationToken);
-    var metricsTask = _session.GetPodMetricsAsync(@namespace, cancellationToken);
-    var allocatableTask = GetClusterCpuAllocatableCachedAsync(cancellationToken);
-    var replicaSetsTask = _session.ListAsync(ResourceCatalog.Find("replicasets")!.ToRef(), @namespace, cancellationToken);
-    await Task.WhenAll(workloadsTask, podsTask, metricsTask, allocatableTask, replicaSetsTask).ConfigureAwait(false);
-
-    var listed = await workloadsTask.ConfigureAwait(false);
-    for (var i = 0; i < listed.Length; i++) {
-      if (!listed[i].IsSuccess)
-        return new Result<IReadOnlyList<ResourceRow>>(null, false, listed[i].Messages, listed[i].StatusCode);
-    }
-
-    var podsResult = await podsTask.ConfigureAwait(false);
-    var metricsResult = await metricsTask.ConfigureAwait(false);
-    var allocatableResult = await allocatableTask.ConfigureAwait(false);
-    var replicaSetsResult = await replicaSetsTask.ConfigureAwait(false);
-    var podMetrics = metricsResult.IsSuccess && metricsResult.Value is not null
-      ? metricsResult.Value
-      : (IReadOnlyDictionary<string, ResourceMetrics>)new Dictionary<string, ResourceMetrics>();
-    var metricsAvailable = podMetrics.Count > 0;
-    var clusterCpuAllocatable = allocatableResult;
-    var deploymentByReplicaSet = replicaSetsResult.IsSuccess
-      ? PodMetricsAggregate.DeploymentByReplicaSet(replicaSetsResult.Value ?? [])
-      : (IReadOnlyDictionary<string, string>)new Dictionary<string, string>();
-    var allPods = podsResult.IsSuccess ? podsResult.Value ?? [] : [];
-
-    var members = listed
-      .SelectMany((result, i) => (result.Value ?? []).Select(item => {
-        EnsureApiIdentity(item, kinds[i]);
-        return item;
-      }))
-      .Where(ApplicationManifest.HasManifest)
-      .ToList();
-
-    var rows = ApplicationManifest.Collapse(members)
-      .Select(doc => {
-        var usage = metricsAvailable
-          ? ApplicationManifest.SumUsage(doc, allPods, podMetrics, deploymentByReplicaSet)
-          : (ApplicationUsage?)null;
-        return new ResourceRow {
-          Uid = JsonPath.Uid(doc),
-          Name = JsonPath.Name(doc),
-          Namespace = JsonPath.Namespace(doc),
-          Document = doc,
-          Cells = ApplicationManifest.Cells(doc, usage, clusterCpuAllocatable, metricsAvailable),
-          CellTips = ApplicationManifest.MetricTips(usage, metricsAvailable)
-        };
-      })
-      .Where(row => Matches(row, filter))
-      .OrderBy(row => row.Namespace, StringComparer.OrdinalIgnoreCase)
-      .ThenBy(row => row.Cell("Instance"), StringComparer.OrdinalIgnoreCase)
-      .ToList();
-    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private static void EnsureApiIdentity(JsonObject item, ResourceDescriptor kind) {
-    item["kind"] ??= kind.Kind;
-    if (item["apiVersion"] is not null)
-      return;
-
-    item["apiVersion"] = string.IsNullOrEmpty(kind.Group)
-      ? kind.Version
-      : $"{kind.Group}/{kind.Version}";
-  }
-
-  private async Task<Result<IReadOnlyList<ResourceRow>>> ListHelmAsync(
-    string? @namespace,
-    string? filter,
-    CancellationToken cancellationToken) {
-    var listed = await _session!.ListHelmReleaseDocumentsAsync(@namespace, null, cancellationToken)
-      .ConfigureAwait(false);
-    if (!listed.IsSuccess)
-      return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
-
-    var rows = ReadHelmRevisions(listed.Value)
-      .GroupBy(revision => (revision.Name, revision.Namespace))
-      .Select(group => group.OrderByDescending(revision => revision.Revision).ThenByDescending(revision => revision.Updated).First())
-      .OrderBy(revision => revision.Namespace, StringComparer.OrdinalIgnoreCase)
-      .ThenBy(revision => revision.Name, StringComparer.OrdinalIgnoreCase)
-      .Select(revision => {
-        var doc = new JsonObject {
-          ["metadata"] = new JsonObject { ["name"] = revision.Name, ["namespace"] = revision.Namespace },
-          ["status"] = revision.Status,
-          ["chart"] = revision.Chart,
-          ["appVersion"] = revision.AppVersion
-        };
-        return new ResourceRow {
-          Uid = $"{revision.Namespace}/{revision.Name}",
-          Name = revision.Name,
-          Namespace = revision.Namespace,
-          Document = doc,
-          Cells = new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["Name"] = revision.Name,
-            ["Namespace"] = revision.Namespace,
-            ["Revision"] = revision.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["Status"] = revision.Status,
-            ["Chart"] = revision.Chart,
-            ["App"] = revision.AppVersion,
-            ["Updated"] = revision.UpdatedText
-          }
-        };
-      })
-      .Where(row => Matches(row, filter))
-      .ToList();
 
     return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private async Task<Result<IReadOnlyList<ResourceRow>>> ListHelmChartsAsync(
-    string? @namespace,
-    string? filter,
-    CancellationToken cancellationToken) {
-    var listed = await _session!.ListHelmReleaseDocumentsAsync(@namespace, null, cancellationToken)
-      .ConfigureAwait(false);
-    if (!listed.IsSuccess)
-      return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
-
-    var rows = HelmRelease.Charts(ReadHelmRevisions(listed.Value))
-      .Select(chart => {
-        var doc = new JsonObject {
-          ["metadata"] = new JsonObject { ["name"] = chart.Name },
-          ["releases"] = chart.ReleaseLines
-        };
-        return new ResourceRow {
-          Uid = $"{chart.Name}/{chart.Version}/{chart.AppVersion}",
-          Name = chart.Name,
-          Document = doc,
-          Cells = new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["Chart"] = chart.Name,
-            ["Version"] = chart.Version,
-            ["App"] = chart.AppVersion,
-            ["Status"] = chart.Status,
-            ["Releases"] = chart.Releases.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["Namespaces"] = chart.Namespaces
-          }
-        };
-      })
-      .Where(row => Matches(row, filter))
-      .ToList();
-    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private static List<HelmRevision> ReadHelmRevisions(IReadOnlyList<JsonObject>? documents) =>
-    (documents ?? [])
-      .Select(HelmRelease.Read)
-      .OfType<HelmRevision>()
-      .ToList();
-
-  private async Task<Result<IReadOnlyList<ResourceRow>>> ListDaprSidecarsAsync(
-    string? @namespace,
-    string? filter,
-    CancellationToken cancellationToken) {
-    var pods = ResourceCatalog.Find("pods")!;
-    var listed = await _session!.ListAsync(pods.ToRef(), @namespace, cancellationToken).ConfigureAwait(false);
-    if (!listed.IsSuccess)
-      return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
-
-    var rows = (listed.Value ?? [])
-      .Where(IsDaprSidecar)
-      .Select(p => ResourceRow.From(p, pods))
-      .Where(r => Matches(r, filter))
-      .ToList();
-    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private async Task<Result<IReadOnlyList<ResourceRow>>> ListDaprControlPlaneAsync(
-    string? filter,
-    CancellationToken cancellationToken) {
-    var pods = ResourceCatalog.Find("pods")!;
-    var listed = await _session!.ListAsync(pods.ToRef(), "dapr", cancellationToken).ConfigureAwait(false);
-    if (!listed.IsSuccess)
-      return new Result<IReadOnlyList<ResourceRow>>(null, false, listed.Messages, listed.StatusCode);
-
-    var rows = (listed.Value ?? [])
-      .Select(p => ResourceRow.From(p, pods))
-      .Where(r => Matches(r, filter))
-      .ToList();
-    return Result<IReadOnlyList<ResourceRow>>.Ok(rows);
-  }
-
-  private static bool IsDaprSidecar(JsonObject pod) {
-    var annotations = pod["metadata"]?["annotations"] as JsonObject;
-    var enabled = annotations?["dapr.io/enabled"]?.ToString();
-    var appId = annotations?["dapr.io/app-id"]?.ToString();
-    if (string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrEmpty(appId))
-      return true;
-
-    var containers = pod["spec"]?["containers"] as JsonArray;
-    return containers?.OfType<JsonObject>().Any(c => c["name"]?.ToString() == "daprd") == true;
   }
 
   private static bool EventMatches(JsonObject ev, ResourceRow row) {
     var name = ev["involvedObject"]?["name"]?.GetValue<string>();
+
     if (string.IsNullOrEmpty(name))
       return false;
+
     if (name == row.Name)
       return true;
 
@@ -494,6 +246,7 @@ public sealed partial class ClusterWorkspace {
       return true;
 
     var hay = string.Join(' ', row.Cells.Values) + " " + row.Name + " " + row.Namespace;
+
     return hay.Contains(filter, StringComparison.OrdinalIgnoreCase);
   }
 

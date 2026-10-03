@@ -17,6 +17,7 @@ public sealed record VolumeMountTarget(
   public string Root {
     get {
       var mount = string.IsNullOrWhiteSpace(MountPath) ? "/" : MountPath;
+
       if (string.IsNullOrWhiteSpace(SubPath))
         return mount.TrimEnd('/') is { Length: > 0 } trimmed ? trimmed : "/";
 
@@ -34,6 +35,7 @@ public sealed record VolumeMountTarget(
 public static class VolumeMounts {
   public static IReadOnlyList<VolumeMountTarget> Find(IEnumerable<JsonObject> pods, string pvcName) {
     var matches = new List<VolumeMountTarget>();
+
     foreach (var pod in pods)
       matches.AddRange(FromPod(pod, pvcName));
 
@@ -51,6 +53,7 @@ public static class VolumeMounts {
 
     var spec = pod["spec"] as JsonObject;
     var volumes = spec?["volumes"] as JsonArray;
+
     if (volumes is null)
       return [];
 
@@ -75,15 +78,18 @@ public static class VolumeMounts {
 
     foreach (var container in (spec?["containers"] as JsonArray)?.OfType<JsonObject>() ?? []) {
       var containerName = container["name"]?.GetValue<string>();
+
       if (string.IsNullOrEmpty(containerName))
         continue;
 
       foreach (var mount in (container["volumeMounts"] as JsonArray)?.OfType<JsonObject>() ?? []) {
         var volumeName = mount["name"]?.GetValue<string>();
+
         if (string.IsNullOrEmpty(volumeName) || !volumeNames.Contains(volumeName))
           continue;
 
         var mountPath = mount["mountPath"]?.GetValue<string>();
+
         if (string.IsNullOrEmpty(mountPath))
           continue;
 

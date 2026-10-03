@@ -16,7 +16,7 @@ Short summaries of the product's key features. The Store shows them as a bullete
 - Browse cluster, nodes, workloads, config, network, storage, namespaces, events, Helm, Dapr, access control, and custom resources, including CRDs installed in the cluster.
 - The open table watches the API. A label selector is sent with the list. Column filters and sort stay on this PC, per cluster.
 - View, apply, create, and delete resource YAML, including force delete. If the API server rejects an apply patch, apply falls back to create or replace.
-- Scale and restart workloads. Pause, resume, and undo a Deployment rollout. Trigger a CronJob. Cordon, uncordon, and drain a node after a table of pods that will move or remain.
+- Scale and restart workloads. Pause, resume, and undo a Deployment rollout. Trigger a CronJob. Cordon, uncordon, and drain a node after a table of pods that will move or remain. Cordon and Drain stay hidden unless another Ready node remains. When AI is on, the drain dialog includes a short note.
 - Resize a persistent volume claim. Change reclaim policy on a storage class and its volumes.
 - Approve or deny a certificate signing request. Create a ServiceAccount token and show it once.
 - Custom resource tables use extra columns from the CRD additionalPrinterColumns.

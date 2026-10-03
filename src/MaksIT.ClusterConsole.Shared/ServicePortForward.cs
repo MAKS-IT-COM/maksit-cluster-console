@@ -17,6 +17,7 @@ public static class ServicePortForward {
 
   public static int? DefaultPort(JsonObject? service) {
     var first = (service?["spec"]?["ports"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault();
+
     return first is not null && TryNumber(first["port"], out var port) ? port : null;
   }
 
@@ -47,12 +48,14 @@ public static class ServicePortForward {
     var pool = labels is { Count: > 0 }
       ? pods.Where(p => HasLabels(p.Document, labels)).ToList()
       : pods.ToList();
+
     if (pool.Count == 0)
       return null;
 
     if (!string.IsNullOrWhiteSpace(preferredName)) {
       var preferred = pool.FirstOrDefault(p =>
         string.Equals(p.Name, preferredName, StringComparison.Ordinal) && IsRunning(p));
+
       if (preferred is not null)
         return preferred;
     }
@@ -62,10 +65,12 @@ public static class ServicePortForward {
 
   public static Dictionary<string, string>? StableLabels(JsonObject? document) {
     var selector = ResourceOwnership.SelectorLabels(document);
+
     if (selector is not null && selector.Count > 0)
       return ToLabels(selector, stripVolatile: false);
 
     var labels = document?["metadata"]?["labels"] as JsonObject;
+
     return ToLabels(labels, stripVolatile: true);
   }
 
@@ -74,6 +79,7 @@ public static class ServicePortForward {
       return true;
 
     var labels = document?["metadata"]?["labels"] as JsonObject;
+
     if (labels is null)
       return false;
 
@@ -89,10 +95,12 @@ public static class ServicePortForward {
     var ports = service["spec"]?["ports"] as JsonArray;
     var match = ports?.OfType<JsonObject>().FirstOrDefault(p =>
       TryNumber(p["port"], out var port) && port == remotePort);
+
     if (match is null)
       return Result<int>.Ok(remotePort);
 
     var target = match["targetPort"];
+
     if (target is null)
       return Result<int>.Ok(remotePort);
 
@@ -100,10 +108,12 @@ public static class ServicePortForward {
       return Result<int>.Ok(number);
 
     var name = JsonPath.Text(target);
+
     if (string.IsNullOrWhiteSpace(name))
       return Result<int>.Ok(remotePort);
 
     var containerPort = FindNamedContainerPort(pod, name);
+
     if (containerPort is null)
       return Result<int>.BadRequest(0, $"service targetPort '{name}' was not found on the selected pod");
 
@@ -116,18 +126,22 @@ public static class ServicePortForward {
     ResourceRow? preferred,
     int remotePort) {
     var selector = ResourceOwnership.SelectorLabels(service);
+
     if (selector is null || selector.Count == 0)
       return Result<PortForwardTarget>.BadRequest(null, "Cannot port-forward a Service without a selector.");
 
     var pod = PickForwardPod(pods, preferred, service, remotePort);
+
     if (pod is null)
       return Result<PortForwardTarget>.NotFound(null, "No pods match this Service selector.");
 
     var mapped = MapPort(service, pod.Document, remotePort);
+
     if (!mapped.IsSuccess)
       return new Result<PortForwardTarget>(null, false, mapped.Messages, mapped.StatusCode);
 
     var ns = pod.Namespace ?? JsonPath.Namespace(service) ?? "default";
+
     return Result<PortForwardTarget>.Ok(new PortForwardTarget(pod.Name, ns, mapped.Value, remotePort));
   }
 
@@ -137,6 +151,7 @@ public static class ServicePortForward {
     JsonObject service,
     int remotePort) {
     ResourceRow? mappedFallback = null;
+
     foreach (var candidate in OrderedPods(pods, preferred)) {
       if (!MapPort(service, candidate.Document, remotePort).IsSuccess)
         continue;
@@ -178,10 +193,13 @@ public static class ServicePortForward {
       return null;
 
     var result = new Dictionary<string, string>(StringComparer.Ordinal);
+
     foreach (var pair in labels) {
       if (stripVolatile && VolatileLabelKeys.Contains(pair.Key))
         continue;
+
       var value = JsonPath.Text(pair.Value);
+
       if (!string.IsNullOrEmpty(value))
         result[pair.Key] = value;
     }
@@ -204,6 +222,7 @@ public static class ServicePortForward {
         foreach (var port in ports.OfType<JsonObject>()) {
           if (!string.Equals(JsonPath.Text(port["name"]), name, StringComparison.Ordinal))
             continue;
+
           if (TryNumber(port["containerPort"], out var number))
             return number;
         }
@@ -215,12 +234,16 @@ public static class ServicePortForward {
 
   private static bool TryNumber(JsonNode? node, out int value) {
     value = 0;
+
     if (node is not JsonValue json)
       return false;
+
     if (json.TryGetValue<int>(out value) && value > 0)
       return true;
+
     if (json.TryGetValue<long>(out var longer) && longer > 0 && longer <= 65535) {
       value = (int)longer;
+
       return true;
     }
 

@@ -53,12 +53,31 @@ public class ReleaseNotesTests {
   }
 
   [Fact]
-  public void Shipped_changelog_keeps_unreleased_work_out_of_the_current_version() {
-    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.8.5");
+  public void Shipped_notes_keep_older_work_out_of_the_current_version() {
+    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.8.6");
 
     var note = Assert.Single(notes);
-    Assert.Equal("0.8.5", note.Version);
-    Assert.Contains(note.Added, line => line.Contains("Helm Charts", StringComparison.Ordinal));
-    Assert.DoesNotContain(note.Added, line => line.Contains("Flathub submission", StringComparison.Ordinal));
+    Assert.Equal("0.8.6", note.Version);
+    Assert.Contains(note.Added, line => line.Contains("drain dialog", StringComparison.Ordinal));
+    Assert.DoesNotContain(note.Added, line => line.Contains("Helm Charts", StringComparison.Ordinal));
+    Assert.DoesNotContain(note.Added, line => line.Contains("footer", StringComparison.OrdinalIgnoreCase));
+  }
+
+  [Fact]
+  public void Version_bullets_skip_a_technical_heading() {
+    const string markdown = """
+      ## [0.8.6] - 2026-10-03
+
+      - The drain dialog can show a short AI note.
+
+      ### Changed
+
+      - The window footer is a separate control.
+      """;
+
+    var notes = ReleaseNotes.AddedSince(markdown, seenVersion: null, currentVersion: "0.8.6");
+
+    var note = Assert.Single(notes);
+    Assert.Equal(["The drain dialog can show a short AI note."], note.Added);
   }
 }

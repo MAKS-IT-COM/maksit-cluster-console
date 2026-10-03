@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:details="using:MaksIT.ClusterConsole.UI.Controls.Details"
+             xmlns:terminal="using:SvcSystems.UI.Terminal"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.PodTerminalView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel>
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+      <Button DockPanel.Dock="Right" Content="Reconnect" Command="{Binding ActivePage.Terminal.ReconnectTerminalCommand}" />
+      <Button DockPanel.Dock="Right" Content="Disconnect" Command="{Binding ActivePage.Terminal.DisconnectTerminalCommand}" />
+      <TextBox Text="{Binding ActivePage.Terminal.TerminalCommand}"
+               PlaceholderText="/bin/sh"
+               Margin="0,0,6,0"
+               ToolTip.Tip="Shell started in the container. Try /bin/bash when the image has it." />
+    </DockPanel>
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding ActivePage.Terminal.TerminalStatus}"
+               Classes="hint"
+               TextWrapping="Wrap"
+               Margin="0,6,0,0" />
+    <terminal:TerminalControl details:DetailPane.FocusWhenSelected="True"
+                              Model="{Binding ActivePage.Terminal.TerminalModel}"
+                              FontFamily="Cascadia Mono, Consolas, monospace"
+                              FontSize="13"
+                              Background="#0E1620"
+                              RightClickAction="CopyOrPaste" />
+  </DockPanel>
+</UserControl>

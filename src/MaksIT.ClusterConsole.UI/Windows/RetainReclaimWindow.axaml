@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:client="using:MaksIT.ClusterConsole.Client.Cluster"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
         x:Class="MaksIT.ClusterConsole.UI.Windows.RetainReclaimWindow"
         x:DataType="vm:RetainReclaimViewModel"
@@ -18,10 +19,9 @@
                FontSize="18"
                FontWeight="SemiBold"
                Margin="0,0,0,12" />
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-      <Button Content="Cancel" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}" />
-      <Button Content="Apply" Command="{Binding ApplyCommand}" />
-    </StackPanel>
+    <footer:WindowFooter DockPanel.Dock="Bottom"
+                         Items="{Binding FooterItems}"
+                         Margin="0,12,0,0" />
     <TextBlock DockPanel.Dock="Bottom"
                Text="{Binding Error}"
                Classes="warning"

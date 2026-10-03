@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.YamlEditorView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0" Spacing="6">
+      <Button Content="New" Command="{Binding ActivePage.NewResourceCommand}" IsVisible="{Binding ActivePage.CanCreateResource}" />
+      <Button Content="Reload" Command="{Binding ActivePage.ReloadYamlCommand}" IsVisible="{Binding ActivePage.CanReloadYaml}" />
+      <Button Content="Apply YAML" Command="{Binding ActivePage.ApplyYamlCommand}" IsVisible="{Binding ActivePage.CanApplyYaml}" />
+      <TextBlock Text="Unsaved YAML" Classes="hint" IsVisible="{Binding ActivePage.IsDirty}" VerticalAlignment="Center" />
+    </StackPanel>
+    <editor:SyntaxTextEditor Text="{Binding ActivePage.YamlText}" PreferYaml="True" />
+  </DockPanel>
+</UserControl>

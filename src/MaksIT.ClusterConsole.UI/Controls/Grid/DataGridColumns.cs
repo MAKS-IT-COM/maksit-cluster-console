@@ -20,6 +20,7 @@ public static class DataGridColumns {
 
   private static void OnIndependentResizeChanged(DataGrid grid, AvaloniaPropertyChangedEventArgs e) {
     grid.LayoutUpdated -= OnLayoutUpdated;
+
     if (e.GetNewValue<bool>())
       grid.LayoutUpdated += OnLayoutUpdated;
   }
@@ -31,6 +32,7 @@ public static class DataGridColumns {
     foreach (var column in grid.Columns) {
       if (column.Width.UnitType == DataGridLengthUnitType.Pixel || column.ActualWidth <= 0)
         continue;
+
       column.Width = new DataGridLength(column.ActualWidth, DataGridLengthUnitType.Pixel);
     }
   }

@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:cluster="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterChatView"
+             x:DataType="vm:MainViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+      <TextBlock Text="{Binding ActivePage.Chat.ChatStatus}" Classes="hint" TextWrapping="Wrap" />
+      <DockPanel>
+        <Button DockPanel.Dock="Right"
+                Content="Send"
+                Command="{Binding ActivePage.Chat.SendChatCommand}"
+                Margin="6,0,0,0" />
+        <TextBox Text="{Binding ActivePage.Chat.ChatInput}"
+                 PlaceholderText="Ask about this cluster or the selected resource"
+                 AcceptsReturn="False" />
+      </DockPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="Ask about selection" Command="{Binding ActivePage.Chat.AskAboutSelectionCommand}" IsVisible="{Binding ActivePage.HasSelectedRow}" />
+        <Button Content="Clear" Command="{Binding ActivePage.Chat.ClearChatCommand}" />
+      </StackPanel>
+    </StackPanel>
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding ActivePage.Chat.ChatMessages}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="cluster:ChatMessageViewModel">
+            <Border Classes="chat-bubble"
+                    Classes.user="{Binding IsUser}"
+                    Classes.assistant="{Binding IsAssistant}"
+                    Classes.tool="{Binding IsTool}"
+                    Classes.confirm="{Binding IsConfirm}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                <ScrollViewer IsVisible="{Binding HasChange}"
+                              MaxHeight="220"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                  <TextBlock Text="{Binding Change}"
+                             FontFamily="Consolas, monospace"
+                             TextWrapping="NoWrap" />
+                </ScrollViewer>
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirm}">
+                  <Button Content="Approve" Command="{Binding ApproveCommand}" IsEnabled="{Binding IsPending}" />
+                  <Button Content="Reject" Command="{Binding RejectCommand}" IsEnabled="{Binding IsPending}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

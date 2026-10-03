@@ -5,8 +5,26 @@ using MaksIT.ClusterConsole.Shared;
 
 namespace MaksIT.ClusterConsole.UI.ViewModels.Cluster;
 
-public partial class ClusterPageViewModel {
-  private bool _syncingHelm;
+public partial class HelmDetailsViewModel : ObservableObject {
+  private readonly ClusterWorkspace _workspace;
+  private readonly Func<ResourceRow, bool> _stillCurrent;
+  private readonly Action<string> _setOverview;
+  private readonly Action<string> _setEvents;
+  private readonly Action<string> _setYaml;
+  private bool _syncing;
+
+  public HelmDetailsViewModel(
+    ClusterWorkspace workspace,
+    Func<ResourceRow, bool> stillCurrent,
+    Action<string> setOverview,
+    Action<string> setEvents,
+    Action<string> setYaml) {
+    _workspace = workspace;
+    _stillCurrent = stillCurrent;
+    _setOverview = setOverview;
+    _setEvents = setEvents;
+    _setYaml = setYaml;
+  }
 
   public ObservableCollection<HelmRevision> HelmRevisions { get; } = [];
 
@@ -25,56 +43,62 @@ public partial class ClusterPageViewModel {
   [ObservableProperty]
   private string helmDiffText = "";
 
-  private async Task LoadHelmDetailsAsync(ResourceRow row) {
+  public async Task LoadAsync(ResourceRow row) {
     var history = await _workspace.HelmHistoryAsync(row.Name, row.Namespace);
-    if (!DetailsStillCurrent(row))
+
+    if (!_stillCurrent(row))
       return;
 
     if (!history.IsSuccess || history.Value is null) {
-      ClearHelmDetails();
-      OverviewText = string.Join("; ", history.Messages);
-      EventsText = "";
-      SetYaml("");
+      Clear();
+      _setOverview(string.Join("; ", history.Messages));
+      _setEvents("");
+      _setYaml("");
+
       return;
     }
 
-    _syncingHelm = true;
+    _syncing = true;
     HelmRevisions.Clear();
+
     foreach (var revision in history.Value.OrderByDescending(item => item.Revision).ThenByDescending(item => item.Updated))
       HelmRevisions.Add(revision);
+
     var latest = HelmRevisions.FirstOrDefault();
     HelmDiffFrom = HelmRevisions.Skip(1).FirstOrDefault() ?? latest;
     SelectedHelmRevision = latest;
-    _syncingHelm = false;
-    ApplyHelmSelection();
+    _syncing = false;
+    ApplySelection();
   }
 
-  private void ClearHelmDetails() {
-    _syncingHelm = true;
+  public void Clear() {
+    _syncing = true;
     HelmRevisions.Clear();
     HelmDiffFrom = null;
     SelectedHelmRevision = null;
-    _syncingHelm = false;
+    _syncing = false;
     HelmValuesText = "";
     HelmManifestText = "";
     HelmDiffText = "";
   }
 
   partial void OnSelectedHelmRevisionChanged(HelmRevision? value) =>
-    ApplyHelmSelection();
+    ApplySelection();
 
   partial void OnHelmDiffFromChanged(HelmRevision? value) =>
-    ApplyHelmSelection();
+    ApplySelection();
 
-  private void ApplyHelmSelection() {
-    if (_syncingHelm)
+  private void ApplySelection() {
+    if (_syncing)
       return;
 
     var selected = SelectedHelmRevision;
+
     if (selected is null) {
       HelmValuesText = "";
       HelmManifestText = "";
       HelmDiffText = "";
+
       return;
     }
 
@@ -87,12 +111,15 @@ public partial class ClusterPageViewModel {
         + "\nManifest\n" + HelmRelease.Diff(from.Manifest, selected.Manifest);
 
     var overview = new List<string> { $"{selected.Chart} · {selected.Status}" };
+
     if (!string.IsNullOrWhiteSpace(selected.AppVersion))
       overview.Add("App " + selected.AppVersion);
+
     if (!string.IsNullOrWhiteSpace(selected.Description))
       overview.Add(selected.Description);
-    OverviewText = string.Join('\n', overview);
-    EventsText = "";
-    SetYaml(selected.Manifest);
+
+    _setOverview(string.Join('\n', overview));
+    _setEvents("");
+    _setYaml(selected.Manifest);
   }
 }

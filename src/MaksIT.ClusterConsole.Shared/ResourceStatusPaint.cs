@@ -15,6 +15,7 @@ public static class ResourceStatusPaint {
       return ResourceStatusTone.Neutral;
 
     var value = status.Trim();
+
     if (Matches(value, "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "Failed", "Error",
           "Evicted", "OOMKilled", "CreateContainerError", "Lost"))
       return ResourceStatusTone.Error;

@@ -3,6 +3,7 @@
         xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
         xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         x:Class="MaksIT.ClusterConsole.UI.Windows.VolumeFilesWindow"
         x:DataType="vm:VolumeFilesViewModel"
         Title="{Binding WindowTitle}"
@@ -28,17 +29,9 @@
       <TextBlock Text="{Binding Status}" Classes="hint" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
     </StackPanel>
 
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,12,0,0">
-      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
-      <Button Content="Up" Command="{Binding GoUpCommand}" />
-      <Button Content="Open"
-              Command="{Binding OpenEntryCommand}"
-              CommandParameter="{Binding SelectedEntry}" />
-      <Button Content="Download" Command="{Binding DownloadCommand}" />
-      <Button Content="Upload" Command="{Binding UploadCommand}" />
-      <Button Content="Save" Command="{Binding SaveCommand}" />
-      <TextBlock Text="Unsaved" Classes="hint" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" Margin="8,0,0,0" />
-    </StackPanel>
+    <footer:WindowFooter DockPanel.Dock="Bottom"
+                         Items="{Binding FooterItems}"
+                         Margin="0,12,0,0" />
 
     <Grid ColumnDefinitions="280,12,*">
       <ListBox ItemsSource="{Binding Entries}"
