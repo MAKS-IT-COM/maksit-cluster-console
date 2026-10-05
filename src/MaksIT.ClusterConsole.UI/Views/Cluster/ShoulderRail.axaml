@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ShoulderRail"
+             x:DataType="vm:MainViewModel"
+             IsVisible="{Binding ActivePage.ShoulderCollapsed}"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             Width="36">
+  <Button Classes="shoulder-rail"
+          Command="{Binding ActivePage.ToggleShoulderCommand}"
+          ToolTip.Tip="Show">
+    <StackPanel Spacing="10" HorizontalAlignment="Center">
+      <TextBlock Text="‹" FontSize="16" HorizontalAlignment="Center" />
+      <LayoutTransformControl>
+        <LayoutTransformControl.LayoutTransform>
+          <RotateTransform Angle="90" />
+        </LayoutTransformControl.LayoutTransform>
+        <TextBlock Text="{Binding ActivePage.ShoulderRailText}" />
+      </LayoutTransformControl>
+    </StackPanel>
+  </Button>
+</UserControl>

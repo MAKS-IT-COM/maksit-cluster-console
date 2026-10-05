@@ -10,6 +10,7 @@
   <project_license>Apache-2.0</project_license>
   <description>
     <p>**After installation, point the app at a kubeconfig that can reach a running cluster (KUBECONFIG or ~/.kube/config).**</p>
+    <p>**A login that starts a program on this computer, such as aws, gcloud, or kubelogin, cannot start that program from the sandbox. A certificate or token in the kubeconfig is enough. Localhost on this computer stays reachable, including a local cluster API, local Ollama, and a port-forward opened in the browser.**</p>
     <p>Browse a Kubernetes cluster from the desktop using your kubeconfig. Apply YAML, follow logs, exec into pods, and manage port-forwards without a browser.</p>
     <p>Settings stay on this computer. Cluster access uses the network and files under the home folder (typically ~/.kube).</p>
     <ul>
@@ -35,35 +36,41 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/overview.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/overview.png</image>
       <caption>Cluster overview</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/applications.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/applications.png</image>
       <caption>Applications table</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/pods.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/pods.png</image>
       <caption>Pods table</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/pods-chat.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/pods-chat.png</image>
       <caption>Chat on a selected pod</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/persistentvolumeclaims.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/persistentvolumeclaims.png</image>
       <caption>Persistent volume claims</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/dapr-control-plane.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/dapr-control-plane.png</image>
       <caption>Dapr control plane</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/main/assets/screenshots/port-forwarding.png</image>
+      <image>https://raw.githubusercontent.com/MAKS-IT-COM/maksit-cluster-console/v0.8.6/assets/screenshots/port-forwarding.png</image>
       <caption>Port forwarding</caption>
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.7" date="2026-10-05">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.7/CHANGELOG.md</url>
+      <description>
+        <p>Chat on the cluster overview when AI is on. The details pane can collapse to a rail.</p>
+      </description>
+    </release>
     <release version="0.8.6" date="2026-10-03">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.6/CHANGELOG.md</url>
       <description>

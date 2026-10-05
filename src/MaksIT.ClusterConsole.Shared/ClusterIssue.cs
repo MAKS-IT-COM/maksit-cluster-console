@@ -90,6 +90,23 @@ public static class ClusterIssues {
     return $"{noun}: {active} ({resolved} resolved)";
   }
 
+  public static string Format(ClusterIssueSet issues) {
+    var lines = new List<string>();
+
+    foreach (var error in issues.Errors)
+      lines.Add(Line("ERROR", error));
+
+    foreach (var warning in issues.Warnings)
+      lines.Add(Line("WARN", warning));
+
+    return lines.Count == 0
+      ? "No overview warnings or errors."
+      : string.Join(Environment.NewLine, lines);
+  }
+
+  private static string Line(string severity, ClusterIssue issue) =>
+    $"{severity} {issue.State} {issue.Kind} {issue.ObjectName} ({issue.Age}): {issue.Message}";
+
   private static List<ClusterIssue> Rank(IEnumerable<ClusterIssue> issues) =>
     issues
       .OrderBy(i => i.State == Resolved ? 1 : 0)

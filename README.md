@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-58.7%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-48.1%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-67.5%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-59.2%25-yellowgreen)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-48.7%25-yellowgreen)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-68.1%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
@@ -39,7 +39,7 @@ Click a catalog row to open that context. A green dot is a live session in this 
 
 ![Cluster catalog](assets/screenshots/welcome.png)
 
-Overview shows CPU, memory, and pod counts from metrics-server. **Resource limits** can patch container CPU/MEM against node capacity. **Cluster** and **Nodes** switch those charts. Errors and Warnings list node, pod, and event problems, a LoadBalancer Service that is Pending or Unreachable, and a PersistentVolumeClaim that is Pending.
+Overview shows CPU, memory, and pod counts from metrics-server. **Resource limits** can patch container CPU/MEM against node capacity. **Cluster** and **Nodes** switch those charts. Errors and Warnings list node, pod, and event problems, a LoadBalancer Service that is Pending or Unreachable, and a PersistentVolumeClaim that is Pending. When Settings → AI is on, Chat sits beside those lists and can explain the current warnings and errors.
 
 <!-- microsoft-store 1 -->
 ![Cluster overview](assets/screenshots/overview.png)
@@ -65,7 +65,7 @@ Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per clu
 
 ### Chat
 
-Settings → AI turns Chat on. The endpoint and model are any local [Ollama](https://ollama.com) model you already pulled. The default is `qwen3:8b`. Reading the cluster is enough with that model. Repairs work better with a larger one: `qwen3:14b`, `qwen3:32b`, or `qwen3-coder:30b`. Put that name in the model box after `ollama pull`.
+Settings → AI turns Chat on, on a resource and on the cluster overview. The endpoint and model are any local [Ollama](https://ollama.com) model you already pulled. The default is `qwen3:8b`. Reading the cluster is enough with that model. Repairs work better with a larger one: `qwen3:14b`, `qwen3:32b`, or `qwen3-coder:30b`. Put that name in the model box after `ollama pull`.
 
 ![AI settings](assets/screenshots/ai-settings.png)
 
@@ -244,7 +244,7 @@ The previous id `com.maks_it.ClusterConsole` is replaced by this lowercase id. U
 
 If GNOME or KDE does not show a launcher icon, `flatpak run` may warn that `/var/lib/flatpak/exports/share` and `~/.local/share/flatpak/exports/share` are not on `XDG_DATA_DIRS`. Log out and back in once so the session picks up those paths.
 
-Linux uses X11/XWayland (Avalonia native Wayland still hangs on GNOME). The sandbox grants `--filesystem=home` for kubeconfig (`~/.kube`). AppStream and the desktop file live in [`data/`](data/).
+Linux uses X11/XWayland (Avalonia native Wayland still hangs on GNOME). The sandbox grants `--filesystem=home` for a kubeconfig under the home directory and the certificate files it names. `--share=network` uses this computer's network, including localhost, so a local cluster API, local Ollama, and a port-forward opened in the browser stay reachable. A kubeconfig login that starts a program on this computer (`aws`, `gcloud`, `kubelogin`) cannot start that program from the sandbox. A certificate or token in the kubeconfig is enough. AppStream and the desktop file live in [`data/`](data/).
 
 ## Configuration
 

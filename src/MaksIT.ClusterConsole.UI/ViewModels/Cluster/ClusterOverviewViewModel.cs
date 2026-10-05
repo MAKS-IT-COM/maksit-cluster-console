@@ -94,6 +94,9 @@ public partial class ClusterOverviewViewModel : ObservableObject {
 
   public bool HasOverviewErrors => OverviewErrors.Count > 0;
 
+  public string IssueSummary() =>
+    ClusterIssues.Format(new ClusterIssueSet([.. OverviewWarnings], [.. OverviewErrors]));
+
   public bool HasContainerLimits => LimitRows.Count > 0;
 
   public bool HasSelectedLimit => SelectedLimitRow is not null;

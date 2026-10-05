@@ -249,6 +249,16 @@ public class ClusterIssuesTests {
   }
 
   [Fact]
+  public void Format_lists_severity_state_object_and_message() {
+    var at = DateTimeOffset.Parse("2026-10-04T21:00:00Z");
+    var text = ClusterIssues.Format(new ClusterIssueSet(
+      [Issue("e1", ClusterIssues.Active, at)],
+      []));
+
+    Assert.Contains("WARN Active Event obj (1m): msg", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void Age_formats_hours_and_minutes() {
     var now = DateTimeOffset.Parse("2026-08-19T15:00:00Z");
     var when = now.AddHours(-4).AddMinutes(-30);

@@ -76,6 +76,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       text => EventsText = text,
       SetYaml);
     Chat = new ClusterChatViewModel(_configuration, _chat, ChatSelection);
+    shoulderCollapsed = _configuration.Current.Layout.ShoulderCollapsed;
     Terminal = new PodTerminalViewModel(_workspace, CurrentShellTarget, () => SelectedTab == DetailTab.Terminal);
     Logs = new PodLogsViewModel(_workspace, CurrentLogTarget);
   }
@@ -337,6 +338,32 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public string ShoulderTitle => SelectedNavItem?.Title ?? "";
 
+  public string ShoulderRailText {
+    get {
+      if (IsClusterDashboard)
+        return "Chat";
+
+      return ShoulderTitle.Length > 0 ? ShoulderTitle : "Details";
+    }
+  }
+
+  [ObservableProperty]
+  private bool shoulderCollapsed;
+
+  partial void OnShoulderCollapsedChanged(bool value) {
+    var cfg = _configuration.Current;
+
+    if (cfg.Layout.ShoulderCollapsed == value)
+      return;
+
+    cfg.Layout.ShoulderCollapsed = value;
+    _configuration.Save(cfg);
+  }
+
+  [RelayCommand]
+  private void ToggleShoulder() =>
+    ShoulderCollapsed = !ShoulderCollapsed;
+
   public string ShoulderHint =>
     ShoulderHints.Text(SelectedNavItem?.Id, SelectedDescriptor);
 
@@ -531,6 +558,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(IsWorkloadsDashboard));
     OnPropertyChanged(nameof(IsResourceTable));
     OnPropertyChanged(nameof(ShoulderTitle));
+    OnPropertyChanged(nameof(ShoulderRailText));
     OnPropertyChanged(nameof(ShoulderHint));
     NotifyDetailsUi();
     _listedRows.Clear();
@@ -2207,6 +2235,18 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     || SelectedNavItem?.Id is ResourceCatalog.DaprSidecarsId or ResourceCatalog.DaprControlPlaneId
     || string.Equals(SelectedRow?.Document["kind"]?.GetValue<string>(), "Pod", StringComparison.OrdinalIgnoreCase);
 
+  private string ChatOverview() {
+    if (!IsClusterDashboard)
+      return OverviewText;
+
+    var issues = Overview.IssueSummary();
+
+    if (string.IsNullOrWhiteSpace(OverviewText))
+      return issues;
+
+    return OverviewText + Environment.NewLine + Environment.NewLine + issues;
+  }
+
   private ClusterChatSelection ChatSelection() =>
     new() {
       ContextName = Name,
@@ -2215,7 +2255,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       ResourceName = SelectedRow?.Name,
       PodName = TargetPodName,
       ContainerName = SelectedContainer?.Name,
-      Overview = OverviewText,
+      Overview = ChatOverview(),
       Events = EventsText,
       LogText = Logs.LogsText,
       Targets = ActionTargets,

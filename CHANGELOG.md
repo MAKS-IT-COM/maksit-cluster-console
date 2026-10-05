@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-05
+
+### Added
+
+- When Settings → AI is on, Chat sits on the cluster overview beside Errors and Warnings. Analyze issues asks which objects are still failing and which events are leftover after the pods recovered. Those warnings and errors go with the question.
+
+### Changed
+
+- The details pane, and the overview chat, can collapse to a narrow rail. The rail reads Chat on the overview and the current kind elsewhere. Opening it restores the previous width. The choice is saved with the layout.
+- The Linux Flatpak sandbox no longer requests pulseaudio. The app has no audio. `--share=network` still uses this computer's network, including localhost, so a local cluster API, local Ollama, and a port-forward opened in the browser stay reachable. A kubeconfig login that starts `aws`, `gcloud`, or `kubelogin` cannot start that program from the sandbox. A certificate or token in the kubeconfig is enough. The README and AppStream say so.
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.8.7` release entry points at that version's changelog.
+- Flathub verification uses the token from the developer portal. The well-known file does not list the application id.
+
 ## [0.8.6] - 2026-10-03
 
 ### Added

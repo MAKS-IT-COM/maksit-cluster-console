@@ -145,6 +145,7 @@ public class ConfigurationFileServiceTests {
       cfg.Layout.CatalogWidth = 260;
       cfg.Layout.NavigatorWidth = 200;
       cfg.Layout.DetailsWidth = 420;
+      cfg.Layout.ShoulderCollapsed = true;
       cfg.Layout.HelmHistoryHeight = 280;
       cfg.Layout.SetColumns("resources/pods", new Dictionary<string, double> {
         ["Name"] = 220,
@@ -162,6 +163,7 @@ public class ConfigurationFileServiceTests {
       Assert.Equal(260, reloaded.Current.Layout.CatalogWidth);
       Assert.Equal(200, reloaded.Current.Layout.NavigatorWidth);
       Assert.Equal(420, reloaded.Current.Layout.DetailsWidth);
+      Assert.True(reloaded.Current.Layout.ShoulderCollapsed);
       Assert.Equal(280, reloaded.Current.Layout.HelmHistoryHeight);
       var columns = reloaded.Current.Layout.ColumnsFor("resources/pods");
       Assert.NotNull(columns);

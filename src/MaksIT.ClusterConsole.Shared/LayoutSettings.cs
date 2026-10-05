@@ -49,6 +49,8 @@ public sealed class LayoutSettings {
 
   public double DetailsWidth { get; set; } = 380;
 
+  public bool ShoulderCollapsed { get; set; }
+
   public double HelmHistoryHeight { get; set; } = 220;
 
   public string? SelectedNavId { get; set; }

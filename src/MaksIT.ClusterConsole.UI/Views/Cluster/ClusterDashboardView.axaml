@@ -1,12 +1,13 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
              xmlns:charts="using:MaksIT.ClusterConsole.UI.Controls.Charts"
              xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
              xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
-             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
-             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterDashboardView"
-             x:DataType="vm:MainViewModel">
+             xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+             xmlns:views="using:MaksIT.ClusterConsole.UI.Views.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterDashboardView"
+             x:DataType="vm:MainViewModel">
   <Grid Margin="16" RowDefinitions="Auto,*">
     <StackPanel Spacing="6">
       <TextBlock Text="{Binding ClusterTitle}" FontSize="22" FontWeight="SemiBold" />
@@ -24,7 +25,8 @@
       </StackPanel>
     </StackPanel>
 
-    <Grid Grid.Row="1" Margin="0,16,0,0" RowDefinitions="*,Auto">
+    <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,Auto">
+    <Grid RowDefinitions="*,Auto">
     <Grid IsVisible="{Binding !ActivePage.Overview.OverviewPerNode}"
           ColumnDefinitions="*,*"
           RowDefinitions="Auto,Auto">
@@ -360,5 +362,25 @@
       </Border>
     </StackPanel>
     </Grid>
-  </Grid>
+    <Grid Grid.Column="1" Margin="16,0,0,0" IsVisible="{Binding ShowChat}">
+      <Border Width="380"
+              Padding="12"
+              Background="#25282c"
+              CornerRadius="6"
+              IsVisible="{Binding !ActivePage.ShoulderCollapsed}">
+        <DockPanel>
+          <Button DockPanel.Dock="Top"
+                  Classes="shoulder-toggle"
+                  Content="›"
+                  HorizontalAlignment="Left"
+                  Margin="0,0,0,8"
+                  Command="{Binding ActivePage.ToggleShoulderCommand}"
+                  ToolTip.Tip="Collapse" />
+          <views:ClusterChatView />
+        </DockPanel>
+      </Border>
+      <views:ShoulderRail />
+    </Grid>
+    </Grid>
+  </Grid>
 </UserControl>

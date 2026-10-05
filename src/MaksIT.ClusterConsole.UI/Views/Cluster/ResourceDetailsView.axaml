@@ -13,13 +13,18 @@
       <layout:LayoutBand Slot="DetailsWidth" Min="180" Max="1600" Fallback="380" />
     </layout:LayoutMemento.Band>
     <Border DockPanel.Dock="Top" Classes="details-toolbar">
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding ActivePage.ShoulderTitle}"
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Button Classes="shoulder-toggle"
+                Content="›"
+                Command="{Binding ActivePage.ToggleShoulderCommand}"
+                ToolTip.Tip="Collapse" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding ActivePage.ShoulderTitle}"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center"
                    TextTrimming="CharacterEllipsis"
-                   Margin="0,0,8,0" />
-        <Button Grid.Column="1"
+                   Margin="4,0,8,0" />
+        <Button Grid.Column="2"
                 Content="Hint"
                 ToolTip.Tip="How to read this screen">
           <Button.Flyout>

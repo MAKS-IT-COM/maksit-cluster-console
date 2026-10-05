@@ -1,9 +1,9 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
-             xmlns:cluster="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
-             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterChatView"
-             x:DataType="vm:MainViewModel">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+             xmlns:cluster="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ClusterChatView"
+             x:DataType="vm:MainViewModel">
   <DockPanel>
     <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
       <TextBlock Text="{Binding ActivePage.Chat.ChatStatus}" Classes="hint" TextWrapping="Wrap" />
@@ -17,6 +17,7 @@
                  AcceptsReturn="False" />
       </DockPanel>
       <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="Analyze issues" Command="{Binding ActivePage.Chat.AskAboutIssuesCommand}" IsVisible="{Binding ActivePage.IsClusterDashboard}" />
         <Button Content="Ask about selection" Command="{Binding ActivePage.Chat.AskAboutSelectionCommand}" IsVisible="{Binding ActivePage.HasSelectedRow}" />
         <Button Content="Clear" Command="{Binding ActivePage.Chat.ClearChatCommand}" />
       </StackPanel>
@@ -50,5 +51,5 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </ScrollViewer>
-  </DockPanel>
+  </DockPanel>
 </UserControl>

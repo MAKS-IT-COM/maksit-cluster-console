@@ -1,12 +1,14 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Shell"
              xmlns:grid="using:MaksIT.ClusterConsole.UI.Controls.Grid"
              xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
-             xmlns:views="using:MaksIT.ClusterConsole.UI.Views.Cluster"
-             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ResourceBrowserView"
-             x:DataType="vm:MainViewModel">
-  <Grid Name="ResourceTableGrid" ColumnDefinitions="*,4,420">
+             xmlns:views="using:MaksIT.ClusterConsole.UI.Views.Cluster"
+             x:Class="MaksIT.ClusterConsole.UI.Views.Cluster.ResourceBrowserView"
+             x:DataType="vm:MainViewModel">
+  <Grid Name="ResourceTableGrid"
+        ColumnDefinitions="*,4,420"
+        layout:ShoulderPane.Collapsed="{Binding ActivePage.ShoulderCollapsed}">
     <DataGrid Name="ResourceGrid"
               layout:LayoutMemento.ResourceTable="True"
               grid:ResourceTable.Page="{Binding ActivePage}"
@@ -19,7 +21,13 @@
               CanUserResizeColumns="True"
               CanUserSortColumns="True"
               ClipboardCopyMode="IncludeHeader" />
-    <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
-    <views:ResourceDetailsView Grid.Column="2" />
-  </Grid>
+    <GridSplitter Grid.Column="1"
+                  Classes="shell-split"
+                  ResizeDirection="Columns"
+                  IsVisible="{Binding !ActivePage.ShoulderCollapsed}" />
+    <Grid Grid.Column="2">
+      <views:ResourceDetailsView IsVisible="{Binding !ActivePage.ShoulderCollapsed}" />
+      <views:ShoulderRail />
+    </Grid>
+  </Grid>
 </UserControl>

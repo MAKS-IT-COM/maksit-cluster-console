@@ -2,6 +2,11 @@
 
 Short notes shown in the app after an upgrade. The full history, including maintainer notes, is [CHANGELOG.md](CHANGELOG.md).
 
+## [0.8.7] - 2026-10-05
+
+- When AI is on, Chat sits on the cluster overview. Analyze issues explains the current warnings and errors.
+- The details pane, and the overview chat, can collapse to a rail and open again. The choice is kept.
+
 ## [0.8.6] - 2026-10-03
 
 - The drain dialog can show a short AI note on whether it is safe to continue, which pods will move, and which stay.

@@ -151,6 +151,10 @@ public partial class ClusterChatViewModel : ObservableObject {
   }
 
   [RelayCommand]
+  private void AskAboutIssues() =>
+    ChatInput = "Explain the overview warnings and errors. Which objects are still failing, and which events are leftover after the pods recovered?";
+
+  [RelayCommand]
   private void AskAboutSelection() {
     var selection = _selection();
     var rows = selection.Targets;
