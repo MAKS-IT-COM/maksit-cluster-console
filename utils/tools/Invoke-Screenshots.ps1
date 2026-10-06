@@ -20,8 +20,10 @@
     An empty resource table is skipped.
 
     With no -Views, the tour opens every navigator page except discovered custom resources, then Connections,
-    Settings → AI, volume files, and the YAML, logs, chat, data, images,
-    and Helm detail tabs. -Views limits the run to those navigator ids.
+    Settings → AI, and volume files. Each resource page waits for rows, selects the first one, and saves
+    the window on the Overview tab. It then saves every other visible right-shoulder tab. Chat is omitted.
+    Further omissions are per navigator id. Data, Helm values, secret and ConfigMap YAML, Dapr component
+    YAML, and Helm manifests are blurred in the PNG. -Views limits the run to those navigator ids.
     welcome is the shell before a cluster is opened.
 
     PNGs are 96 DPI device pixels, so a 1600x900 window is a 1600x900 file.

@@ -1593,8 +1593,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     while (true) {
       var details = _detailsLoad;
 
-      if (!_refreshBusy && details.IsCompleted)
+      if (!_refreshBusy && details.IsCompleted) {
+        // Accessing Exception marks a faulted load as observed, so the finalizer does not crash the process.
+        _ = details.Exception;
+
         return;
+      }
 
       if (Environment.TickCount64 - start > timeoutMilliseconds)
         return;

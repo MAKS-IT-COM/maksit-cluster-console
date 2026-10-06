@@ -9,7 +9,7 @@ Values for `com.maks_it.clusterconsole.yml` (or `.json`) at the top of the Flath
 | Homepage | [https://maks-it.com/](https://maks-it.com/) |
 | Project | `src/MaksIT.ClusterConsole.UI/MaksIT.ClusterConsole.UI.csproj` |
 | Target | `net10.0` |
-| Source | Release tag on `https://github.com/MAKS-IT-COM/maksit-cluster-console` (currently `v0.8.7`) |
+| Source | Release tag on `https://github.com/MAKS-IT-COM/maksit-cluster-console` (currently `v0.8.8`) |
 | Runtime | `org.freedesktop.Platform` |
 | SDK | `org.freedesktop.Sdk` |
 | SDK extension | `org.freedesktop.Sdk.Extension.dotnet10` |

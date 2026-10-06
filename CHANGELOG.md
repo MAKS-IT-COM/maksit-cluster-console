@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-06
+
+### Fixed
+
+- A ControllerRevision opens in the details pane. Its data is a snapshot, so each value is shown as text. A ConfigMap or Secret whose values are strings stays as it is.
+
+### Changed
+
+- The screenshot tour saves every visible detail tab: YAML, events, related pods, logs, and terminal. Chat is left out. Data, Helm values, secret and ConfigMap YAML, Dapr component YAML, and Helm manifests are blurred in the PNG. A details load that fails during the tour no longer closes the app.
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.8.8` release entry points at this version's changelog.
+
 ## [0.8.7] - 2026-10-05
 
 ### Added

@@ -2,6 +2,10 @@
 
 Short notes shown in the app after an upgrade. The full history, including maintainer notes, is [CHANGELOG.md](CHANGELOG.md).
 
+## [0.8.8] - 2026-10-06
+
+- A ControllerRevision opens in the details pane. Its data values are shown as text.
+
 ## [0.8.7] - 2026-10-05
 
 - When AI is on, Chat sits on the cluster overview. Analyze issues explains the current warnings and errors.

@@ -282,6 +282,22 @@ public class ResourceCatalogTests {
   }
 
   [Fact]
+  public void ResourceDocument_reads_nested_data_as_text() {
+    var revision = JsonNode.Parse("""
+      {
+        "kind": "ControllerRevision",
+        "data": { "spec": { "replicas": 1 }, "note": "plain" }
+      }
+      """) as JsonObject;
+
+    Assert.NotNull(revision);
+    var entries = ResourceDocument.ReadDataEntries(revision);
+    Assert.Equal(2, entries.Count);
+    Assert.Contains(entries, entry => entry.Key == "note" && entry.Value == "plain");
+    Assert.Contains(entries, entry => entry.Key == "spec" && entry.Value.Contains("replicas", StringComparison.Ordinal));
+  }
+
+  [Fact]
   public void ResourceDocument_prepares_apply_body_without_status() {
     var doc = JsonNode.Parse("""
       {

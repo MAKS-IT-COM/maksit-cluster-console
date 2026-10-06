@@ -111,7 +111,7 @@ public static class ResourceDocument {
       if (entries.Any(e => e.Key == prop.Key))
         continue;
 
-      var raw = prop.Value?.GetValue<string>() ?? prop.Value?.ToJsonString() ?? "";
+      var raw = TextOf(prop.Value);
 
       if (!encoded) {
         entries.Add(new ResourceDataEntry(prop.Key, raw, false));
@@ -124,6 +124,16 @@ public static class ResourceDocument {
       else
         entries.Add(new ResourceDataEntry(prop.Key, raw, true));
     }
+  }
+
+  private static string TextOf(JsonNode? node) {
+    if (node is null)
+      return "";
+
+    if (node is JsonValue value && value.TryGetValue<string>(out var text))
+      return text ?? "";
+
+    return node.ToJsonString();
   }
 
   private static void SetOrRemove(JsonObject document, string name, JsonObject map) {

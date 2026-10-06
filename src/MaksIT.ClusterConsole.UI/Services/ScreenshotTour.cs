@@ -1,8 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using MaksIT.ClusterConsole.Shared;
 using MaksIT.ClusterConsole.UI.Windows;
@@ -78,7 +81,13 @@ internal static class ScreenshotTour {
       return false;
 
     await page.WaitUntilQuietAsync(20_000);
-    await Dispatcher.UIThread.InvokeAsync(page.EnsureRowSelected);
+    await Dispatcher.UIThread.InvokeAsync(() => {
+      if (page.IsResourceTable)
+        page.ShoulderCollapsed = false;
+
+      page.SelectedTab = DetailTab.Overview;
+      page.EnsureRowSelected();
+    });
     await page.WaitUntilQuietAsync(20_000);
     await SettleAsync(settleMilliseconds);
 
@@ -150,36 +159,33 @@ internal static class ScreenshotTour {
     }
 
     manifest.Shots.Add(Capture(window, options, id, manifest, saveCatalog: false));
-    await CaptureFeatureExtrasAsync(window, model, page, options, manifest, id);
+    await CaptureShoulderTabsAsync(window, page, options, manifest, id);
 
     return true;
   }
 
-  private static async Task CaptureFeatureExtrasAsync(
+  private static async Task CaptureShoulderTabsAsync(
     Window window,
-    MainViewModel model,
     ClusterPageViewModel page,
     ScreenshotTourOptions options,
     Manifest manifest,
     string id) {
-    if (id == "pods") {
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Yaml, "pods-yaml");
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Logs, "pods-logs");
+    if (!page.IsResourceTable)
+      return;
 
-      if (model.ShowChat)
-        await CaptureTabAsync(window, page, options, manifest, DetailTab.Chat, "pods-chat");
+    var tabs = await Dispatcher.UIThread.InvokeAsync(() => VisibleShoulderTabs(window));
+
+    if (tabs.Count == 0) {
+      manifest.Skipped.Add(new SkippedRecord { Id = id, Reason = "Shoulder tabs were not found." });
+
+      return;
     }
 
-    if (id == "nodes")
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Images, "nodes-images");
+    foreach (var tab in tabs) {
+      if (ScreenshotShoulder.Skip(id, tab))
+        continue;
 
-    if (id == "configmaps")
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Data, "configmaps-data");
-
-    if (id == ResourceCatalog.HelmReleasesId) {
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.History, "helm-history");
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Values, "helm-values");
-      await CaptureTabAsync(window, page, options, manifest, DetailTab.Manifest, "helm-manifest");
+      await CaptureTabAsync(window, page, options, manifest, id, tab);
     }
 
     if (id is "persistentvolumeclaims" or "persistentvolumes")
@@ -191,16 +197,109 @@ internal static class ScreenshotTour {
     ClusterPageViewModel page,
     ScreenshotTourOptions options,
     Manifest manifest,
-    string tab,
-    string id) {
+    string viewId,
+    string tab) {
     await Dispatcher.UIThread.InvokeAsync(() => {
       page.EnsureRowSelected();
       page.SelectedTab = tab;
     });
+
+    if (tab == DetailTab.Terminal)
+      await WaitForTerminalAsync(page);
+
     await page.WaitUntilQuietAsync(20_000);
     await SettleAsync(options.SettleMilliseconds);
-    manifest.Shots.Add(Capture(window, options, id, manifest, saveCatalog: false));
-    page.SelectedTab = DetailTab.Overview;
+
+    PixelRect? redact = null;
+
+    if (ScreenshotShoulder.Blur(viewId, tab))
+      redact = await Dispatcher.UIThread.InvokeAsync(() => ShoulderBodyRect(window) ?? RightShoulder(window));
+
+    manifest.Shots.Add(Capture(window, options, viewId + "-" + tab.ToLowerInvariant(), manifest, saveCatalog: false, redact));
+    await Dispatcher.UIThread.InvokeAsync(() => {
+      if (tab == DetailTab.Terminal)
+        page.Terminal.Close();
+
+      page.SelectedTab = DetailTab.Overview;
+    });
+  }
+
+  private static async Task WaitForTerminalAsync(ClusterPageViewModel page) {
+    var start = Environment.TickCount64;
+
+    while (Environment.TickCount64 - start < 8_000) {
+      var status = page.Terminal.TerminalStatus;
+
+      if (!status.Contains("Connecting", StringComparison.Ordinal)
+          && !status.StartsWith("Open a pod", StringComparison.Ordinal))
+        return;
+
+      await Task.Delay(100);
+    }
+  }
+
+  private static IReadOnlyList<string> VisibleShoulderTabs(Window window) {
+    var tabs = ShoulderTabs(window);
+
+    if (tabs is null)
+      return [];
+
+    var headers = new List<string>();
+
+    foreach (var item in tabs.Items) {
+      if (item is not TabItem { IsVisible: true, Header: string header })
+        continue;
+
+      headers.Add(header);
+    }
+
+    return headers;
+  }
+
+  private static TabControl? ShoulderTabs(Window window) {
+    foreach (var tabs in window.GetLogicalDescendants().OfType<TabControl>()) {
+      var overview = false;
+      var yaml = false;
+
+      foreach (var item in tabs.Items) {
+        if (item is not TabItem { Header: string header })
+          continue;
+
+        if (header == DetailTab.Overview)
+          overview = true;
+        else if (header == DetailTab.Yaml)
+          yaml = true;
+      }
+
+      if (overview && yaml)
+        return tabs;
+    }
+
+    return null;
+  }
+
+  private static PixelRect? ShoulderBodyRect(Window window) {
+    if (ShoulderTabs(window)?.SelectedItem is not TabItem { Content: Control body })
+      return null;
+
+    var origin = body.TranslatePoint(new Point(0, 0), window);
+
+    if (origin is null || body.Bounds.Width < 2 || body.Bounds.Height < 2)
+      return null;
+
+    return new PixelRect(
+      (int)Math.Floor(origin.Value.X),
+      (int)Math.Floor(origin.Value.Y),
+      Math.Max(1, (int)Math.Ceiling(body.Bounds.Width)),
+      Math.Max(1, (int)Math.Ceiling(body.Bounds.Height)));
+  }
+
+  private static PixelRect RightShoulder(Window window) {
+    var width = Math.Max(1, (int)Math.Ceiling(window.ClientSize.Width));
+    var height = Math.Max(1, (int)Math.Ceiling(window.ClientSize.Height));
+    var pane = Math.Min(width, 480);
+
+    return new PixelRect(width - pane, 0, pane, height);
   }
 
   private static async Task CaptureVolumeFilesAsync(
@@ -272,11 +371,12 @@ internal static class ScreenshotTour {
     ScreenshotTourOptions options,
     string id,
     Manifest manifest,
-    bool saveCatalog) {
+    bool saveCatalog,
+    PixelRect? redact = null) {
     var token = Token(id);
     var shot = new ShotRecord {
       Id = id,
-      Window = Save(window, Path.Combine(options.Directory, token + ".png"))
+      Window = Save(window, Path.Combine(options.Directory, token + ".png"), redact)
     };
 
     if (saveCatalog && manifest.Catalog is null)
@@ -285,7 +385,7 @@ internal static class ScreenshotTour {
     return shot;
   }
 
-  private static string? Save(Control? control, string path) {
+  private static string? Save(Control? control, string path, PixelRect? redact = null) {
     if (control is not { IsEffectivelyVisible: true })
       return null;
 
@@ -308,9 +408,156 @@ internal static class ScreenshotTour {
     using var bitmap = new RenderTargetBitmap(size, new Vector(96, 96));
     bitmap.Render(control);
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-    bitmap.Save(path, new PngBitmapEncoderOptions());
+
+    if (redact is { } region)
+      SaveRedacted(bitmap, size, region, path);
+    else
+      bitmap.Save(path, new PngBitmapEncoderOptions());
 
     return Path.GetFileName(path);
+  }
+
+  private static void SaveRedacted(RenderTargetBitmap bitmap, PixelSize size, PixelRect region, string path) {
+    using var output = new WriteableBitmap(size, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+
+    using (var frame = output.Lock()) {
+      bitmap.CopyPixels(frame);
+      Redact(frame, region);
+    }
+
+    output.Save(path, new PngBitmapEncoderOptions());
+  }
+
+  private static void Redact(ILockedFramebuffer frame, PixelRect region) {
+    var width = frame.Size.Width;
+    var height = frame.Size.Height;
+    var stride = frame.RowBytes;
+    var length = stride * height;
+
+    if (length <= 0 || frame.Address == IntPtr.Zero)
+      return;
+
+    var pixels = new byte[length];
+    Marshal.Copy(frame.Address, pixels, 0, length);
+
+    if (frame.Format.BitsPerPixel == 32 && stride >= width * 4)
+      BlurRegion(pixels, width, height, stride, region);
+    else
+      FillRegion(pixels, stride, region, width, height);
+
+    Marshal.Copy(pixels, 0, frame.Address, length);
+  }
+
+  private static void BlurRegion(byte[] pixels, int width, int height, int stride, PixelRect region) {
+    var left = Math.Clamp(region.X, 0, Math.Max(0, width - 1));
+    var top = Math.Clamp(region.Y, 0, Math.Max(0, height - 1));
+    var right = Math.Clamp(region.X + region.Width, left + 1, width);
+    var bottom = Math.Clamp(region.Y + region.Height, top + 1, height);
+
+    if (right - left < 2 || bottom - top < 2)
+      return;
+
+    const int radius = 16;
+    const int passes = 3;
+    var scratch = new byte[pixels.Length];
+
+    for (var pass = 0; pass < passes; pass++) {
+      BlurHorizontal(pixels, scratch, stride, left, right, top, bottom, radius);
+      BlurVertical(scratch, pixels, stride, left, right, top, bottom, radius);
+    }
+  }
+
+  private static void BlurHorizontal(
+    byte[] source,
+    byte[] dest,
+    int stride,
+    int left,
+    int right,
+    int top,
+    int bottom,
+    int radius) {
+    var span = radius * 2 + 1;
+
+    for (var y = top; y < bottom; y++) {
+      var row = y * stride;
+
+      for (var x = left; x < right; x++) {
+        var b = 0;
+        var g = 0;
+        var r = 0;
+        var a = 0;
+
+        for (var dx = -radius; dx <= radius; dx++) {
+          var sample = row + (Math.Clamp(x + dx, left, right - 1) * 4);
+          b += source[sample];
+          g += source[sample + 1];
+          r += source[sample + 2];
+          a += source[sample + 3];
+        }
+
+        var pixel = row + (x * 4);
+        dest[pixel] = (byte)(b / span);
+        dest[pixel + 1] = (byte)(g / span);
+        dest[pixel + 2] = (byte)(r / span);
+        dest[pixel + 3] = (byte)(a / span);
+      }
+    }
+  }
+
+  private static void BlurVertical(
+    byte[] source,
+    byte[] dest,
+    int stride,
+    int left,
+    int right,
+    int top,
+    int bottom,
+    int radius) {
+    var span = radius * 2 + 1;
+
+    for (var y = top; y < bottom; y++) {
+      for (var x = left; x < right; x++) {
+        var b = 0;
+        var g = 0;
+        var r = 0;
+        var a = 0;
+
+        for (var dy = -radius; dy <= radius; dy++) {
+          var sample = (Math.Clamp(y + dy, top, bottom - 1) * stride) + (x * 4);
+          b += source[sample];
+          g += source[sample + 1];
+          r += source[sample + 2];
+          a += source[sample + 3];
+        }
+
+        var pixel = (y * stride) + (x * 4);
+        dest[pixel] = (byte)(b / span);
+        dest[pixel + 1] = (byte)(g / span);
+        dest[pixel + 2] = (byte)(r / span);
+        dest[pixel + 3] = (byte)(a / span);
+      }
+    }
+  }
+
+  private static void FillRegion(byte[] pixels, int stride, PixelRect region, int width, int height) {
+    var left = Math.Clamp(region.X, 0, width);
+    var top = Math.Clamp(region.Y, 0, height);
+    var right = Math.Clamp(region.X + region.Width, left, width);
+    var bottom = Math.Clamp(region.Y + region.Height, top, height);
+
+    for (var y = top; y < bottom; y++) {
+      for (var x = left; x < right; x++) {
+        var pixel = (y * stride) + (x * 4);
+
+        if (pixel + 3 >= pixels.Length)
+          return;
+
+        pixels[pixel] = 32;
+        pixels[pixel + 1] = 36;
+        pixels[pixel + 2] = 40;
+        pixels[pixel + 3] = 255;
+      }
+    }
   }
 
   private static string Token(string id) {

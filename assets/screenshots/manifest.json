@@ -23,36 +23,140 @@
       "Window": "apiservices.png"
     },
     {
+      "Id": "apiservices-yaml",
+      "Window": "apiservices-yaml.png"
+    },
+    {
+      "Id": "apiservices-events",
+      "Window": "apiservices-events.png"
+    },
+    {
       "Id": "flowschemas",
       "Window": "flowschemas.png"
+    },
+    {
+      "Id": "flowschemas-yaml",
+      "Window": "flowschemas-yaml.png"
+    },
+    {
+      "Id": "flowschemas-events",
+      "Window": "flowschemas-events.png"
     },
     {
       "Id": "prioritylevelconfigurations",
       "Window": "prioritylevelconfigurations.png"
     },
     {
+      "Id": "prioritylevelconfigurations-yaml",
+      "Window": "prioritylevelconfigurations-yaml.png"
+    },
+    {
+      "Id": "prioritylevelconfigurations-events",
+      "Window": "prioritylevelconfigurations-events.png"
+    },
+    {
       "Id": "nodes",
       "Window": "nodes.png"
+    },
+    {
+      "Id": "nodes-yaml",
+      "Window": "nodes-yaml.png"
     },
     {
       "Id": "nodes-images",
       "Window": "nodes-images.png"
     },
     {
+      "Id": "nodes-events",
+      "Window": "nodes-events.png"
+    },
+    {
       "Id": "applications",
       "Window": "applications.png"
+    },
+    {
+      "Id": "applications-yaml",
+      "Window": "applications-yaml.png"
+    },
+    {
+      "Id": "applications-events",
+      "Window": "applications-events.png"
+    },
+    {
+      "Id": "applications-pods",
+      "Window": "applications-pods.png"
+    },
+    {
+      "Id": "applications-logs",
+      "Window": "applications-logs.png"
+    },
+    {
+      "Id": "applications-terminal",
+      "Window": "applications-terminal.png"
     },
     {
       "Id": "workloads-overview",
       "Window": "workloads-overview.png"
     },
     {
+      "Id": "controllerrevisions",
+      "Window": "controllerrevisions.png"
+    },
+    {
+      "Id": "controllerrevisions-yaml",
+      "Window": "controllerrevisions-yaml.png"
+    },
+    {
+      "Id": "controllerrevisions-events",
+      "Window": "controllerrevisions-events.png"
+    },
+    {
       "Id": "daemonsets",
       "Window": "daemonsets.png"
     },
     {
+      "Id": "daemonsets-yaml",
+      "Window": "daemonsets-yaml.png"
+    },
+    {
+      "Id": "daemonsets-events",
+      "Window": "daemonsets-events.png"
+    },
+    {
+      "Id": "daemonsets-pods",
+      "Window": "daemonsets-pods.png"
+    },
+    {
+      "Id": "daemonsets-logs",
+      "Window": "daemonsets-logs.png"
+    },
+    {
+      "Id": "daemonsets-terminal",
+      "Window": "daemonsets-terminal.png"
+    },
+    {
       "Id": "deployments",
       "Window": "deployments.png"
+    },
+    {
+      "Id": "deployments-yaml",
+      "Window": "deployments-yaml.png"
+    },
+    {
+      "Id": "deployments-events",
+      "Window": "deployments-events.png"
+    },
+    {
+      "Id": "deployments-pods",
+      "Window": "deployments-pods.png"
+    },
+    {
+      "Id": "deployments-logs",
+      "Window": "deployments-logs.png"
+    },
+    {
+      "Id": "deployments-terminal",
+      "Window": "deployments-terminal.png"
     },
     {
       "Id": "pods",
@@ -63,164 +167,520 @@
       "Window": "pods-yaml.png"
     },
     {
+      "Id": "pods-events",
+      "Window": "pods-events.png"
+    },
+    {
       "Id": "pods-logs",
       "Window": "pods-logs.png"
     },
     {
-      "Id": "pods-chat",
-      "Window": "pods-chat.png"
+      "Id": "pods-terminal",
+      "Window": "pods-terminal.png"
     },
     {
       "Id": "replicasets",
       "Window": "replicasets.png"
     },
     {
+      "Id": "replicasets-yaml",
+      "Window": "replicasets-yaml.png"
+    },
+    {
+      "Id": "replicasets-events",
+      "Window": "replicasets-events.png"
+    },
+    {
+      "Id": "replicasets-pods",
+      "Window": "replicasets-pods.png"
+    },
+    {
+      "Id": "replicasets-logs",
+      "Window": "replicasets-logs.png"
+    },
+    {
+      "Id": "replicasets-terminal",
+      "Window": "replicasets-terminal.png"
+    },
+    {
       "Id": "statefulsets",
       "Window": "statefulsets.png"
+    },
+    {
+      "Id": "statefulsets-yaml",
+      "Window": "statefulsets-yaml.png"
+    },
+    {
+      "Id": "statefulsets-events",
+      "Window": "statefulsets-events.png"
+    },
+    {
+      "Id": "statefulsets-pods",
+      "Window": "statefulsets-pods.png"
+    },
+    {
+      "Id": "statefulsets-logs",
+      "Window": "statefulsets-logs.png"
+    },
+    {
+      "Id": "statefulsets-terminal",
+      "Window": "statefulsets-terminal.png"
     },
     {
       "Id": "configmaps",
       "Window": "configmaps.png"
     },
     {
+      "Id": "configmaps-yaml",
+      "Window": "configmaps-yaml.png"
+    },
+    {
       "Id": "configmaps-data",
       "Window": "configmaps-data.png"
+    },
+    {
+      "Id": "configmaps-events",
+      "Window": "configmaps-events.png"
     },
     {
       "Id": "leases",
       "Window": "leases.png"
     },
     {
+      "Id": "leases-yaml",
+      "Window": "leases-yaml.png"
+    },
+    {
+      "Id": "leases-events",
+      "Window": "leases-events.png"
+    },
+    {
       "Id": "mutatingwebhookconfigurations",
       "Window": "mutatingwebhookconfigurations.png"
+    },
+    {
+      "Id": "mutatingwebhookconfigurations-yaml",
+      "Window": "mutatingwebhookconfigurations-yaml.png"
+    },
+    {
+      "Id": "mutatingwebhookconfigurations-events",
+      "Window": "mutatingwebhookconfigurations-events.png"
     },
     {
       "Id": "poddisruptionbudgets",
       "Window": "poddisruptionbudgets.png"
     },
     {
+      "Id": "poddisruptionbudgets-yaml",
+      "Window": "poddisruptionbudgets-yaml.png"
+    },
+    {
+      "Id": "poddisruptionbudgets-events",
+      "Window": "poddisruptionbudgets-events.png"
+    },
+    {
       "Id": "priorityclasses",
       "Window": "priorityclasses.png"
+    },
+    {
+      "Id": "priorityclasses-yaml",
+      "Window": "priorityclasses-yaml.png"
+    },
+    {
+      "Id": "priorityclasses-events",
+      "Window": "priorityclasses-events.png"
     },
     {
       "Id": "runtimeclasses",
       "Window": "runtimeclasses.png"
     },
     {
+      "Id": "runtimeclasses-yaml",
+      "Window": "runtimeclasses-yaml.png"
+    },
+    {
+      "Id": "runtimeclasses-events",
+      "Window": "runtimeclasses-events.png"
+    },
+    {
       "Id": "secrets",
       "Window": "secrets.png"
+    },
+    {
+      "Id": "secrets-yaml",
+      "Window": "secrets-yaml.png"
+    },
+    {
+      "Id": "secrets-data",
+      "Window": "secrets-data.png"
+    },
+    {
+      "Id": "secrets-events",
+      "Window": "secrets-events.png"
     },
     {
       "Id": "validatingwebhookconfigurations",
       "Window": "validatingwebhookconfigurations.png"
     },
     {
+      "Id": "validatingwebhookconfigurations-yaml",
+      "Window": "validatingwebhookconfigurations-yaml.png"
+    },
+    {
+      "Id": "validatingwebhookconfigurations-events",
+      "Window": "validatingwebhookconfigurations-events.png"
+    },
+    {
       "Id": "port-forwarding",
       "Window": "port-forwarding.png"
+    },
+    {
+      "Id": "port-forwarding-yaml",
+      "Window": "port-forwarding-yaml.png"
     },
     {
       "Id": "endpointslices",
       "Window": "endpointslices.png"
     },
     {
+      "Id": "endpointslices-yaml",
+      "Window": "endpointslices-yaml.png"
+    },
+    {
+      "Id": "endpointslices-events",
+      "Window": "endpointslices-events.png"
+    },
+    {
       "Id": "endpoints",
       "Window": "endpoints.png"
+    },
+    {
+      "Id": "endpoints-yaml",
+      "Window": "endpoints-yaml.png"
+    },
+    {
+      "Id": "endpoints-events",
+      "Window": "endpoints-events.png"
     },
     {
       "Id": "ipaddresses",
       "Window": "ipaddresses.png"
     },
     {
+      "Id": "ipaddresses-yaml",
+      "Window": "ipaddresses-yaml.png"
+    },
+    {
+      "Id": "ipaddresses-events",
+      "Window": "ipaddresses-events.png"
+    },
+    {
       "Id": "servicecidrs",
       "Window": "servicecidrs.png"
+    },
+    {
+      "Id": "servicecidrs-yaml",
+      "Window": "servicecidrs-yaml.png"
+    },
+    {
+      "Id": "servicecidrs-events",
+      "Window": "servicecidrs-events.png"
     },
     {
       "Id": "services",
       "Window": "services.png"
     },
     {
-      "Id": "csidrivers",
-      "Window": "csidrivers.png"
+      "Id": "services-yaml",
+      "Window": "services-yaml.png"
+    },
+    {
+      "Id": "services-events",
+      "Window": "services-events.png"
+    },
+    {
+      "Id": "services-pods",
+      "Window": "services-pods.png"
     },
     {
       "Id": "csinodes",
       "Window": "csinodes.png"
     },
     {
+      "Id": "csinodes-yaml",
+      "Window": "csinodes-yaml.png"
+    },
+    {
+      "Id": "csinodes-events",
+      "Window": "csinodes-events.png"
+    },
+    {
       "Id": "persistentvolumeclaims",
       "Window": "persistentvolumeclaims.png"
+    },
+    {
+      "Id": "persistentvolumeclaims-yaml",
+      "Window": "persistentvolumeclaims-yaml.png"
+    },
+    {
+      "Id": "persistentvolumeclaims-events",
+      "Window": "persistentvolumeclaims-events.png"
+    },
+    {
+      "Id": "volume-files",
+      "Window": "volume-files.png"
     },
     {
       "Id": "persistentvolumes",
       "Window": "persistentvolumes.png"
     },
     {
+      "Id": "persistentvolumes-yaml",
+      "Window": "persistentvolumes-yaml.png"
+    },
+    {
+      "Id": "persistentvolumes-events",
+      "Window": "persistentvolumes-events.png"
+    },
+    {
       "Id": "storageclasses",
       "Window": "storageclasses.png"
+    },
+    {
+      "Id": "storageclasses-yaml",
+      "Window": "storageclasses-yaml.png"
+    },
+    {
+      "Id": "storageclasses-events",
+      "Window": "storageclasses-events.png"
     },
     {
       "Id": "volumeattachments",
       "Window": "volumeattachments.png"
     },
     {
+      "Id": "volumeattachments-yaml",
+      "Window": "volumeattachments-yaml.png"
+    },
+    {
+      "Id": "volumeattachments-events",
+      "Window": "volumeattachments-events.png"
+    },
+    {
       "Id": "longhorn-nodes",
       "Window": "longhorn-nodes.png"
+    },
+    {
+      "Id": "longhorn-nodes-yaml",
+      "Window": "longhorn-nodes-yaml.png"
+    },
+    {
+      "Id": "longhorn-nodes-events",
+      "Window": "longhorn-nodes-events.png"
     },
     {
       "Id": "longhorn-volumes",
       "Window": "longhorn-volumes.png"
     },
     {
+      "Id": "longhorn-volumes-yaml",
+      "Window": "longhorn-volumes-yaml.png"
+    },
+    {
+      "Id": "longhorn-volumes-events",
+      "Window": "longhorn-volumes-events.png"
+    },
+    {
       "Id": "namespaces",
       "Window": "namespaces.png"
     },
     {
-      "Id": "helm-charts",
-      "Window": "helm-charts.png"
+      "Id": "namespaces-yaml",
+      "Window": "namespaces-yaml.png"
+    },
+    {
+      "Id": "namespaces-events",
+      "Window": "namespaces-events.png"
+    },
+    {
+      "Id": "helm-releases",
+      "Window": "helm-releases.png"
+    },
+    {
+      "Id": "helm-releases-yaml",
+      "Window": "helm-releases-yaml.png"
+    },
+    {
+      "Id": "helm-releases-history",
+      "Window": "helm-releases-history.png"
+    },
+    {
+      "Id": "helm-releases-values",
+      "Window": "helm-releases-values.png"
+    },
+    {
+      "Id": "helm-releases-manifest",
+      "Window": "helm-releases-manifest.png"
     },
     {
       "Id": "dapr-control-plane",
       "Window": "dapr-control-plane.png"
     },
     {
+      "Id": "dapr-control-plane-yaml",
+      "Window": "dapr-control-plane-yaml.png"
+    },
+    {
+      "Id": "dapr-control-plane-events",
+      "Window": "dapr-control-plane-events.png"
+    },
+    {
+      "Id": "dapr-control-plane-logs",
+      "Window": "dapr-control-plane-logs.png"
+    },
+    {
+      "Id": "dapr-control-plane-terminal",
+      "Window": "dapr-control-plane-terminal.png"
+    },
+    {
       "Id": "dapr-sidecars",
       "Window": "dapr-sidecars.png"
+    },
+    {
+      "Id": "dapr-sidecars-yaml",
+      "Window": "dapr-sidecars-yaml.png"
+    },
+    {
+      "Id": "dapr-sidecars-events",
+      "Window": "dapr-sidecars-events.png"
+    },
+    {
+      "Id": "dapr-sidecars-logs",
+      "Window": "dapr-sidecars-logs.png"
+    },
+    {
+      "Id": "dapr-sidecars-terminal",
+      "Window": "dapr-sidecars-terminal.png"
+    },
+    {
+      "Id": "components",
+      "Window": "components.png"
+    },
+    {
+      "Id": "components-yaml",
+      "Window": "components-yaml.png"
+    },
+    {
+      "Id": "components-events",
+      "Window": "components-events.png"
     },
     {
       "Id": "configurations",
       "Window": "configurations.png"
     },
     {
+      "Id": "configurations-yaml",
+      "Window": "configurations-yaml.png"
+    },
+    {
+      "Id": "configurations-events",
+      "Window": "configurations-events.png"
+    },
+    {
       "Id": "subscriptions",
       "Window": "subscriptions.png"
     },
     {
-      "Id": "certificatesigningrequests",
-      "Window": "certificatesigningrequests.png"
+      "Id": "subscriptions-yaml",
+      "Window": "subscriptions-yaml.png"
+    },
+    {
+      "Id": "subscriptions-events",
+      "Window": "subscriptions-events.png"
+    },
+    {
+      "Id": "cnpg-clusters",
+      "Window": "cnpg-clusters.png"
+    },
+    {
+      "Id": "cnpg-clusters-yaml",
+      "Window": "cnpg-clusters-yaml.png"
+    },
+    {
+      "Id": "cnpg-clusters-events",
+      "Window": "cnpg-clusters-events.png"
     },
     {
       "Id": "clusterrolebindings",
       "Window": "clusterrolebindings.png"
     },
     {
+      "Id": "clusterrolebindings-yaml",
+      "Window": "clusterrolebindings-yaml.png"
+    },
+    {
+      "Id": "clusterrolebindings-events",
+      "Window": "clusterrolebindings-events.png"
+    },
+    {
       "Id": "clusterroles",
       "Window": "clusterroles.png"
+    },
+    {
+      "Id": "clusterroles-yaml",
+      "Window": "clusterroles-yaml.png"
+    },
+    {
+      "Id": "clusterroles-events",
+      "Window": "clusterroles-events.png"
     },
     {
       "Id": "rolebindings",
       "Window": "rolebindings.png"
     },
     {
+      "Id": "rolebindings-yaml",
+      "Window": "rolebindings-yaml.png"
+    },
+    {
+      "Id": "rolebindings-events",
+      "Window": "rolebindings-events.png"
+    },
+    {
       "Id": "roles",
       "Window": "roles.png"
+    },
+    {
+      "Id": "roles-yaml",
+      "Window": "roles-yaml.png"
+    },
+    {
+      "Id": "roles-events",
+      "Window": "roles-events.png"
     },
     {
       "Id": "serviceaccounts",
       "Window": "serviceaccounts.png"
     },
     {
+      "Id": "serviceaccounts-yaml",
+      "Window": "serviceaccounts-yaml.png"
+    },
+    {
+      "Id": "serviceaccounts-events",
+      "Window": "serviceaccounts-events.png"
+    },
+    {
       "Id": "customresourcedefinitions",
       "Window": "customresourcedefinitions.png"
+    },
+    {
+      "Id": "customresourcedefinitions-yaml",
+      "Window": "customresourcedefinitions-yaml.png"
+    },
+    {
+      "Id": "customresourcedefinitions-events",
+      "Window": "customresourcedefinitions-events.png"
     }
   ],
   "Skipped": [
@@ -230,10 +690,6 @@
     },
     {
       "Id": "resourceslices",
-      "Reason": "No rows."
-    },
-    {
-      "Id": "controllerrevisions",
       "Reason": "No rows."
     },
     {
@@ -305,6 +761,10 @@
       "Reason": "No rows."
     },
     {
+      "Id": "csidrivers",
+      "Reason": "No rows."
+    },
+    {
       "Id": "csistoragecapacities",
       "Reason": "No rows."
     },
@@ -317,11 +777,7 @@
       "Reason": "No rows."
     },
     {
-      "Id": "helm-releases",
-      "Reason": "No rows."
-    },
-    {
-      "Id": "components",
+      "Id": "helm-charts",
       "Reason": "No rows."
     },
     {
@@ -333,7 +789,7 @@
       "Reason": "No rows."
     },
     {
-      "Id": "cnpg-clusters",
+      "Id": "certificatesigningrequests",
       "Reason": "No rows."
     },
     {
