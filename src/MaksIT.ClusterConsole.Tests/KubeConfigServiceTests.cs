@@ -220,6 +220,116 @@ public class KubeConfigServiceTests {
     Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".bak.*"));
   }
 
+  [Fact]
+  public void UseContext_rejects_blank_missing_and_already_selected() {
+    var service = new KubeConfigService();
+    Assert.False(service.UseContext("  ", CopyFixture()).IsSuccess);
+
+    var missing = service.UseContext("lab", Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+    Assert.False(missing.IsSuccess);
+    Assert.Contains("not found", missing.Messages[0], StringComparison.OrdinalIgnoreCase);
+
+    var path = CopyFixture();
+    var current = service.UseContext("lab", path);
+    Assert.True(current.IsSuccess, string.Join("; ", current.Messages));
+    Assert.Contains("Already using", current.Messages[0], StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Delete_and_current_context_report_missing_files_and_names() {
+    var service = new KubeConfigService();
+    Assert.False(service.DeleteContext("", true, CopyFixture()).IsSuccess);
+
+    var missingFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+    Assert.False(service.DeleteContext("lab", true, missingFile).IsSuccess);
+    Assert.False(service.GetCurrentContext(missingFile).IsSuccess);
+    Assert.False(service.DeleteContext("gone", false, CopyFixture()).IsSuccess);
+
+    var path = Path.Combine(Path.GetTempPath(), "maksit-cluster-console-" + Guid.NewGuid().ToString("N") + ".yaml");
+    File.WriteAllText(path, """
+      apiVersion: v1
+      kind: Config
+      contexts: []
+      """);
+    var current = service.GetCurrentContext(path);
+    Assert.False(current.IsSuccess);
+
+    var broken = Path.Combine(Path.GetTempPath(), "maksit-cluster-console-" + Guid.NewGuid().ToString("N") + ".yaml");
+    File.WriteAllText(broken, ":\n  - [");
+    Assert.False(service.ListContexts(broken).IsSuccess);
+    Assert.False(service.Build("missing", CopyFixture()).IsSuccess);
+  }
+
+  [Fact]
+  public void UpsertConnection_validates_each_auth_kind() {
+    var service = new KubeConfigService();
+    var path = CopyFixture();
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = " ",
+      Server = "https://127.0.0.1:6443"
+    }, path).IsSuccess);
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "bad",
+      Server = " "
+    }, path).IsSuccess);
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "bad",
+      Server = "https://127.0.0.1:6443",
+      CaFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+    }, path).IsSuccess);
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "bad",
+      Server = "https://127.0.0.1:6443",
+      AuthKind = KubeAuthKind.Cert
+    }, path).IsSuccess);
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "bad",
+      Server = "https://127.0.0.1:6443",
+      AuthKind = KubeAuthKind.Basic,
+      BasicUser = "admin"
+    }, path).IsSuccess);
+
+    var cert = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".crt");
+    var key = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".key");
+    File.WriteAllText(cert, "cert");
+    File.WriteAllText(key, "key");
+    var added = service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "cert",
+      ClusterName = "cert-cluster",
+      UserName = "cert-user",
+      Namespace = "ops",
+      Server = "https://10.0.0.3:6443",
+      AuthKind = KubeAuthKind.Cert,
+      ClientCertFile = cert,
+      ClientKeyFile = key,
+      CaFile = cert,
+      EmbedClusterCa = true,
+      EmbedClientCerts = true,
+      UseAfterAdd = false
+    }, path);
+    Assert.True(added.IsSuccess, string.Join("; ", added.Messages));
+    var details = service.ListContextDetails(path).Value!.Single(item => item.Name == "cert");
+    Assert.Equal("ops", details.Namespace);
+    Assert.Equal("CA data: present", details.CaSummary);
+
+    var basic = service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "basic",
+      Server = "https://10.0.0.4:6443",
+      AuthKind = KubeAuthKind.Basic,
+      BasicUser = "admin",
+      BasicPassword = "secret",
+      InsecureSkipTlsVerify = true,
+      UseAfterAdd = false
+    }, path);
+    Assert.True(basic.IsSuccess, string.Join("; ", basic.Messages));
+    Assert.Contains("admin", service.ListContextDetails(path).Value!.Single(item => item.Name == "basic").AuthSummary, StringComparison.Ordinal);
+
+    Assert.False(KubeAuthKind.TryParse("nope", out _));
+    Assert.True(KubeAuthKind.TryParse("TOKEN", out var kind));
+    Assert.Equal(KubeAuthKind.Token, kind);
+    Assert.Equal(path, KubeConfigService.ResolveWritablePath(path));
+  }
+
   private static string CopyFixture() {
     var source = Path.Combine(AppContext.BaseDirectory, "Fixtures", "kubeconfig.yaml");
     var path = Path.Combine(Path.GetTempPath(), "maksit-cluster-console-" + Guid.NewGuid().ToString("N") + ".yaml");

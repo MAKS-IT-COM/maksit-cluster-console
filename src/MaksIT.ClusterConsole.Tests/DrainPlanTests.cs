@@ -44,6 +44,71 @@ public class DrainPlanTests {
     Assert.Contains("not deleted", text);
   }
 
+  [Fact]
+  public void ForNode_skips_mirror_terminating_and_unmanaged_pods() {
+    var pods = new[] {
+      Mirror("static"),
+      Terminating("gone"),
+      Unmanaged("manual"),
+      Pod("keep", "apps", "node-a", "Running", "ReplicaSet", new JsonObject { ["app"] = "api" }),
+      Pod("drop", "apps", "node-a", "Running", "ReplicaSet", new JsonObject { ["app"] = "batch" })
+    };
+    var budgets = new[] {
+      new JsonObject {
+        ["metadata"] = new JsonObject { ["name"] = "api", ["namespace"] = "apps" },
+        ["spec"] = new JsonObject {
+          ["selector"] = new JsonObject {
+            ["matchExpressions"] = new JsonArray {
+              new JsonObject {
+                ["key"] = "app",
+                ["operator"] = "In",
+                ["values"] = new JsonArray("api")
+              }
+            }
+          }
+        },
+        ["status"] = new JsonObject { ["disruptionsAllowed"] = 0 }
+      },
+      new JsonObject {
+        ["metadata"] = new JsonObject { ["name"] = "ignored", ["namespace"] = "apps" },
+        ["spec"] = new JsonObject { ["selector"] = new JsonObject() }
+      }
+    };
+
+    var plan = DrainPlan.ForNode("node-a", pods, budgets);
+
+    Assert.Equal("mirror pod", Reason(plan, "static"));
+    Assert.Equal("terminating", Reason(plan, "gone"));
+    Assert.Equal("no controller", Reason(plan, "manual"));
+    Assert.Equal(DrainPlan.Blocked, Action(plan, "keep"));
+    Assert.Equal(DrainPlan.Evict, Action(plan, "drop"));
+
+    var empty = DrainPlan.Format([new DrainNodePlan("idle", [])]);
+    Assert.Contains("Will move (0)", empty);
+    Assert.Contains("None", empty);
+  }
+
+  private static JsonObject Mirror(string name) {
+    var pod = Pod(name, "kube-system", "node-a", "Running", "Node", []);
+    pod["metadata"]!["annotations"] = new JsonObject { ["kubernetes.io/config.mirror"] = "mirror" };
+
+    return pod;
+  }
+
+  private static JsonObject Terminating(string name) {
+    var pod = Pod(name, "apps", "node-a", "Running", "ReplicaSet", []);
+    pod["metadata"]!["deletionTimestamp"] = "2026-08-19T10:00:00Z";
+
+    return pod;
+  }
+
+  private static JsonObject Unmanaged(string name) =>
+    new() {
+      ["metadata"] = new JsonObject { ["name"] = name, ["namespace"] = "apps" },
+      ["spec"] = new JsonObject { ["nodeName"] = "node-a" },
+      ["status"] = new JsonObject { ["phase"] = "Running" }
+    };
+
   private static string Action(DrainNodePlan plan, string name) =>
     plan.Pods.Single(pod => pod.Name == name).Action;
 

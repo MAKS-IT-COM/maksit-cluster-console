@@ -20,6 +20,7 @@
   <ItemGroup>
     <PackageReference Include="KubernetesClient" Version="19.0.2" />
     <PackageReference Include="MaksIT.Core" Version="1.6.8" />
+    <PackageReference Include="MaksIT.Core.Desktop" Version="0.1.0" />
     <PackageReference Include="MaksIT.Results" Version="2.0.4" />
   </ItemGroup>
 

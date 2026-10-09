@@ -9,9 +9,9 @@ Kubernetes GUI
 kubeconfig
 pod logs
 YAML
-Helm releases
-port forwarding
+Helm
 Dapr
+local Ollama
 ```
 
 The listing description is in [description.md](description.md). Product features are in [product-features.md](product-features.md).

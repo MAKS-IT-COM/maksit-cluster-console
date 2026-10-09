@@ -1,8 +1,8 @@
 # MaksIT.ClusterConsole
 
-![Line Coverage](https://img.shields.io/badge/Line%20Coverage-59.2%25-yellowgreen)
-![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-48.7%25-yellowgreen)
-![Method Coverage](https://img.shields.io/badge/Method%20Coverage-68.1%25-green)
+![Line Coverage](https://img.shields.io/badge/Line%20Coverage-72.4%25-green)
+![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-61.2%25-green)
+![Method Coverage](https://img.shields.io/badge/Method%20Coverage-79.7%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
@@ -55,12 +55,11 @@ One row per `app.kubernetes.io/instance` (or `name`) and namespace. CPU is perce
 
 Ready, Restarts, Status, Node, CPU, and Memory. Filters and sort persist per cluster. The open table follows the API watch. Details: Overview, YAML, Events, Logs, Terminal (interactive shell). **Container** picks which container logs, the shell, Attach, and Debug use. **Attach** follows that container's output. **Debug** adds an ephemeral container beside it; the image box defaults to `busybox:1.36`. Kubernetes leaves that container on the running pod. It is gone when the pod is recreated. **Force delete** uses grace period 0 and strips finalizers.
 
-<!-- microsoft-store 4 -->
+<!-- microsoft-store 3 -->
 ![Pods table](assets/screenshots/pods.png)
 
 **Logs** shows that container's output. **Follow** tails new lines instead of a one-time snapshot.
 
-<!-- microsoft-store 5 -->
 ![Pod logs](assets/screenshots/pods-logs.png)
 
 ### Chat
@@ -71,7 +70,6 @@ Settings → AI turns Chat on, on a resource and on the cluster overview. The en
 
 Read-only tools are cluster issues, object YAML, logs, and events. **Allow the assistant to change the cluster** adds restart, pod delete (not force-delete), scale, and YAML apply. Each of those waits for **Approve** or **Reject** in the chat. Reject leaves the cluster unchanged. No cloud AI API.
 
-<!-- microsoft-store 7 -->
 ![Chat on a selected pod](assets/screenshots/pods-chat.png)
 
 ### Volume files
@@ -88,7 +86,6 @@ The control plane is the system processes in the `dapr` namespace: injector, ope
 
 A Configuration is sidecar settings for apps that reference it: tracing, metrics, and which features are on. It is not a ConfigMap, and it is not a Component.
 
-<!-- microsoft-store 10 -->
 ![Dapr configurations](assets/screenshots/configurations.png)
 
 A Subscription says an app wants messages from a topic. Topic is the name. The sidecar receives them and posts them to the app.
@@ -97,13 +94,14 @@ A Subscription says an app wants messages from a topic. Topic is the name. The s
 
 A sidecar is the `daprd` container in an application pod. This list is those pods. Logs and a terminal are for that pod.
 
+<!-- microsoft-store 8 -->
 ![Dapr sidecars](assets/screenshots/dapr-sidecars.png)
 
 ### Port forwarding
 
 **Network → Port Forwarding**: tunnels persist, restore on reconnect, and retarget a running pod. Double-click **Active** opens `http://127.0.0.1:{port}/`. **Rebind** changes the local port.
 
-<!-- microsoft-store 8 -->
+<!-- microsoft-store 6 -->
 ![Port forwarding](assets/screenshots/port-forwarding.png)
 
 ### Connections
@@ -118,6 +116,7 @@ Cluster, Nodes, Applications, Workloads, Config, Network, Storage, Namespaces, E
 
 Longhorn volumes and nodes appear when that API is installed. **State** is attached or detached. **Robustness** is healthy, degraded, or faulted.
 
+<!-- microsoft-store 9 -->
 ![Longhorn volumes](assets/screenshots/longhorn-volumes.png)
 
 ### Tables
@@ -128,19 +127,19 @@ Longhorn volumes and nodes appear when that API is installed. **State** is attac
 
 View, server-side apply, create, and delete. **New** starts an empty document for a kind you can create. Apply falls back to create or replace when the API server rejects an apply patch. JSON and YAML highlighting follows the document. ConfigMap and Secret values use the key name (`.json`, `.yaml`, `.yml`) or stay plain.
 
-<!-- microsoft-store 6 -->
+<!-- microsoft-store 5 -->
 ![YAML](assets/screenshots/pods-yaml.png)
 
 ### Workloads
 
 The Workloads section opens on counts for Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and ReplicationControllers.
 
-<!-- microsoft-store 3 -->
 ![Workloads overview](assets/screenshots/workloads-overview.png)
 
 A tile opens that table. **Scale** applies to a Deployment, StatefulSet, ReplicaSet, or ReplicationController. **Restart** applies to a Deployment, StatefulSet, or DaemonSet. Pause, resume, history, and undo are on a Deployment. A workload's **Pod** picker chooses which pod Logs and Terminal follow. **Trigger** starts a Job from a CronJob. **Force delete namespace** removes the selected namespace, except `default`, `kube-system`, `kube-public`, and `kube-node-lease`.
 
-![Deployments](assets/screenshots/deployments.png)
+<!-- microsoft-store 4 -->
+![Deployment pods](assets/screenshots/deployments-pods.png)
 
 ### Nodes
 
@@ -150,13 +149,12 @@ A tile opens that table. **Scale** applies to a Deployment, StatefulSet, Replica
 
 The Images tab marks cached images Used or Unused from the pods on that node.
 
+<!-- microsoft-store 10 -->
 ![Node images](assets/screenshots/nodes-images.png)
 
 ### Config
 
 ConfigMaps and Secrets have a **Data** tab: keys, a decoded preview, a binary flag, **Add key**, and **Apply data**. Secret values are saved back as `stringData`. The same tables cover resource quotas, limit ranges, HorizontalPodAutoscalers, PodDisruptionBudgets, leases, runtime classes, webhooks, and admission policies.
-
-![ConfigMap data](assets/screenshots/configmaps-data.png)
 
 ### Network
 
@@ -190,8 +188,10 @@ Extra columns from the CRD `additionalPrinterColumns`.
 
 Charts lists each chart version installed in the cluster, taken from Helm release secrets, with the releases that use it. A release shows every stored revision, the user-supplied values, the rendered manifest, and a diff between two revisions. Chart install and upgrade stay on the Helm CLI.
 
-<!-- microsoft-store 9 -->
 ![Helm charts](assets/screenshots/helm-charts.png)
+
+<!-- microsoft-store 7 -->
+![Helm release history](assets/screenshots/helm-releases-history.png)
 
 ### Metrics
 

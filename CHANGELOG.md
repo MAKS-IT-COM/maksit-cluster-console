@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-10-09
+
+### Changed
+
+- About, What's New, the log window, and the crash dialog come from the MaksIT.Core.UI package. Crash text and the screenshot-tour flags come from MaksIT.Core.Desktop.
+- The README and the Microsoft Store listing use the current screens: deployment pods, Helm history, Dapr sidecars, Longhorn volumes, and node images. The listing text matches Helm history, overview chat, Longhorn, CloudNativePG, and a username-and-password context.
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.8.9` release entry points at this version's changelog.
+
 ## [0.8.8] - 2026-10-06
 
 ### Fixed

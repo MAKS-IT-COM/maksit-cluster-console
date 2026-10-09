@@ -1,3 +1,6 @@
+using MaksIT.Core.Desktop.Snapshots;
+
+
 namespace MaksIT.ClusterConsole.Shared;
 
 
@@ -22,77 +25,35 @@ public sealed class ScreenshotTourOptions {
   /// <summary>
   /// Reads <c>--screenshots</c>, <c>--context</c>, <c>--views</c>, and <c>--settle-ms</c>.
   /// Returns false when a screenshot flag is present but incomplete.
+  /// With no <c>--views</c>, the tour is the welcome screen plus every feature.
   /// </summary>
   public static bool TryParse(IReadOnlyList<string>? args, out ScreenshotTourOptions? options, out string? error) {
     options = null;
-    error = null;
 
-    if (args is null || args.Count == 0)
+    if (!AppViewSnapshotOptions.TryParse(args, out var snapshot, out error))
+      return false;
+
+    if (snapshot is null)
       return true;
 
-    string? directory = null;
     string? context = null;
-    IReadOnlyList<string>? views = null;
-    var settle = 600;
-    var requested = false;
 
-    for (var i = 0; i < args.Count; i++) {
-      switch (args[i]) {
-        case "--screenshots":
-          requested = true;
+    if (args is not null) {
+      for (var i = 0; i < args.Count; i++) {
+        if (args[i] != "--context")
+          continue;
 
-          if (!TryTake(args, ref i, "--screenshots", out directory, out error))
-            return false;
-
-          break;
-        case "--context":
-          if (!TryTake(args, ref i, "--context", out context, out error))
-            return false;
-
-          break;
-        case "--views":
-          if (!TryTake(args, ref i, "--views", out var viewList, out error))
-            return false;
-
-          views = viewList!
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-          if (views.Count == 0) {
-            error = "Pass at least one view id after --views.";
-
-            return false;
-          }
-
-          break;
-        case "--settle-ms":
-          if (!TryTake(args, ref i, "--settle-ms", out var settleText, out error))
-            return false;
-
-          if (!int.TryParse(settleText, out settle) || settle < 0) {
-            error = "Pass a non-negative number of milliseconds after --settle-ms.";
-
-            return false;
-          }
-
-          break;
+        if (!TryTake(args, ref i, "--context", out context, out error))
+          return false;
       }
     }
 
-    if (!requested)
-      return true;
-
-    if (string.IsNullOrWhiteSpace(directory)) {
-      error = "Pass a directory after --screenshots.";
-
-      return false;
-    }
-
     options = new ScreenshotTourOptions {
-      Directory = directory,
+      Directory = snapshot.Directory,
       Context = string.IsNullOrWhiteSpace(context) ? null : context,
-      Views = views ?? DefaultViews,
-      AllFeatures = views is null,
-      SettleMilliseconds = settle
+      Views = snapshot.Views.Count == 0 ? DefaultViews : snapshot.Views,
+      AllFeatures = snapshot.Views.Count == 0,
+      SettleMilliseconds = snapshot.SettleMilliseconds
     };
 
     return true;

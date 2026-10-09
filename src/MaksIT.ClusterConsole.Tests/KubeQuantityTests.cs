@@ -11,7 +11,13 @@ public class KubeQuantityTests {
   [InlineData("1", 1)]
   [InlineData("1000n", 0.000001)]
   [InlineData("4", 4)]
-  public void ToCores_parses_cpu(string raw, double expected) {
+  [InlineData("2u", 0.000002)]
+  [InlineData("2k", 2000)]
+  [InlineData("2K", 2000)]
+  [InlineData("nope", 0)]
+  [InlineData("-", 0)]
+  [InlineData(null, 0)]
+  public void ToCores_parses_cpu(string? raw, double expected) {
     Assert.Equal(expected, KubeQuantity.ToCores(raw), 9);
   }
 
@@ -19,11 +25,40 @@ public class KubeQuantityTests {
   [InlineData("512Mi", 536870912)]
   [InlineData("1Gi", 1073741824)]
   [InlineData("1000Ki", 1024000)]
+  [InlineData("1KiB", 1024)]
   [InlineData("256.0MiB", 268435456)]
+  [InlineData("1Ti", 1099511627776)]
+  [InlineData("1M", 1000000)]
+  [InlineData("1G", 1000000000)]
+  [InlineData("1000m", 1)]
   [InlineData("100", 100)]
+  [InlineData("nope", 0)]
   public void ToBytes_parses_memory(string raw, long expected) {
     Assert.Equal(expected, KubeQuantity.ToBytes(raw));
   }
+
+  [Theory]
+  [InlineData(0.25, "250m")]
+  [InlineData(2.5, "2.5")]
+  public void FormatCores_uses_millicores_below_one(double cores, string expected) =>
+    Assert.Equal(expected, KubeQuantity.FormatCores(cores));
+
+  [Fact]
+  public void FormatBytes_uses_binary_units() {
+    Assert.Equal("1 GiB", KubeQuantity.FormatBytes(1024L * 1024 * 1024));
+    Assert.Equal("1 MiB", KubeQuantity.FormatBytes(1024 * 1024));
+    Assert.Equal("100 B", KubeQuantity.FormatBytes(100));
+    Assert.Equal("1.0GiB", KubeQuantity.FormatBytesCompact(1024L * 1024 * 1024));
+    Assert.Equal("100B", KubeQuantity.FormatBytesCompact(100));
+  }
+
+  [Theory]
+  [InlineData(0, "0")]
+  [InlineData(100, "100")]
+  [InlineData(1536, "1.5Ki")]
+  [InlineData(2L * 1024 * 1024 * 1024, "2Gi")]
+  public void FormatMemoryQuantity_picks_the_largest_exact_unit(long bytes, string expected) =>
+    Assert.Equal(expected, KubeQuantity.FormatMemoryQuantity(bytes));
 
   [Theory]
   [InlineData(536_870_912, "512Mi")]
@@ -74,6 +109,25 @@ public class KubeQuantityTests {
     Assert.Equal("Usage: 1.00", usage.Cpu.UsageLine);
     Assert.Equal("Limits: 17.10", usage.Cpu.LimitsLine);
     Assert.Equal("Specified limits are higher than node capacity!", usage.Cpu.LimitsWarning);
+
+    var empty = ResourceSlice.Empty("pods");
+    Assert.Equal(1, empty.Scale);
+    Assert.Equal("0", empty.Caption.Split('/')[0].Trim());
+    Assert.Equal("", empty.LimitsWarning);
+    var zero = new ClusterUsage("v1", "linux", 0, empty, empty, empty, [], [], false, "metrics down");
+    Assert.Equal(0, zero.CpuPercent);
+    Assert.Equal("metrics down", zero.MetricsMessage);
+
+    var memory = new ResourceSlice(1024d * 1024 * 1024, 0, 0, 2d * 1024 * 1024 * 1024, 2d * 1024 * 1024 * 1024, "memory");
+    Assert.Equal("1.0GiB / 2.0GiB", memory.Caption);
+    var closed = 0;
+    var handle = new PortForwardHandle("web", "apps", 8080, 18080, new MemoryStream(), () => closed++, 80);
+    Assert.Equal(80, handle.RequestedPort);
+    handle.Retarget("web-2", "apps", 9090);
+    Assert.Equal("web-2", handle.PodName);
+    Assert.Equal(9090, handle.ContainerPort);
+    handle.Dispose();
+    Assert.Equal(1, closed);
   }
 
   [Fact]

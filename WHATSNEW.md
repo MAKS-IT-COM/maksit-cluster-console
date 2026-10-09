@@ -2,14 +2,12 @@
 
 Short notes shown in the app after an upgrade. The full history, including maintainer notes, is [CHANGELOG.md](CHANGELOG.md).
 
-## [0.8.8] - 2026-10-06
-
-- A ControllerRevision opens in the details pane. Its data values are shown as text.
-
-## [0.8.7] - 2026-10-05
+## [0.8.9] - 2026-10-09
 
 - When AI is on, Chat sits on the cluster overview. Analyze issues explains the current warnings and errors.
 - The details pane, and the overview chat, can collapse to a rail and open again. The choice is kept.
+- A ControllerRevision opens in the details pane. Its data values are shown as text.
+- Help → About, What's New, and Logs open in the shared windows. A crash still shows the details and keeps a copy under Help → Logs.
 
 ## [0.8.6] - 2026-10-03
 

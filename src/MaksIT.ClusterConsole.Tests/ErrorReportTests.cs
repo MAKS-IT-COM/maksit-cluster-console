@@ -40,4 +40,20 @@ public class ErrorReportTests {
 
     Assert.False(ErrorReport.IsAbandonedTransportRead(aggregate));
   }
+
+  [Fact]
+  public void Format_includes_the_product_and_the_exception_message() {
+    var text = ErrorReport.Format(new InvalidOperationException("boom"));
+
+    Assert.Contains("boom", text, StringComparison.Ordinal);
+    Assert.Contains(AppInfo.ProductName, text, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Repeated_inner_exceptions_are_walked_once() {
+    var inner = new InvalidOperationException("inner");
+    var aggregate = new AggregateException(inner, inner);
+
+    Assert.False(ErrorReport.IsAbandonedTransportRead(aggregate));
+  }
 }

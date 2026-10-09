@@ -65,6 +65,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.9" date="2026-10-09">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.9/CHANGELOG.md</url>
+      <description>
+        <p>About, What's New, logs, and crash reports use the shared desktop windows.</p>
+      </description>
+    </release>
     <release version="0.8.8" date="2026-10-06">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.8.8/CHANGELOG.md</url>
       <description>

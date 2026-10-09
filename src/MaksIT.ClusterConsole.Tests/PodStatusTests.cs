@@ -142,6 +142,105 @@ public class PodStatusTests {
   }
 
   [Fact]
+  public void Init_progress_scheduling_and_termination_have_their_own_reasons() {
+    Assert.Equal("", PodStatus.Of(null));
+
+    var gated = Pod("""
+      {
+        "status": {
+          "phase": "Pending",
+          "conditions": [{ "type": "PodScheduled", "status": "False", "reason": "SchedulingGated" }]
+        }
+      }
+      """);
+    Assert.Equal("SchedulingGated", PodStatus.Of(gated));
+
+    var initDone = Pod("""
+      {
+        "spec": {
+          "initContainers": [
+            { "name": "setup" },
+            { "name": "sidecar", "restartPolicy": "Always" }
+          ]
+        },
+        "status": {
+          "phase": "Running",
+          "conditions": [{ "type": "Ready", "status": true }],
+          "initContainerStatuses": [
+            { "name": "setup", "started": true, "state": { "terminated": { "exitCode": 0, "reason": "Completed" } } },
+            { "name": "sidecar", "started": true, "state": { "running": {} } }
+          ],
+          "containerStatuses": [{ "name": "app", "ready": true, "state": { "running": {} } }]
+        }
+      }
+      """);
+    Assert.Equal("Running", PodStatus.Of(initDone));
+
+    var initializing = Pod("""
+      {
+        "spec": { "initContainers": [{ "name": "setup" }] },
+        "status": {
+          "phase": "Pending",
+          "initContainerStatuses": [{ "name": "setup", "state": { "waiting": { "reason": "PodInitializing" } } }]
+        }
+      }
+      """);
+    Assert.Equal("Init:0/1", PodStatus.Of(initializing));
+
+    var signaled = Pod("""
+      {
+        "status": {
+          "phase": "Failed",
+          "containerStatuses": [{ "name": "app", "state": { "terminated": { "exitCode": 0, "signal": 9 } } }]
+        }
+      }
+      """);
+    Assert.Equal("Signal:9", PodStatus.Of(signaled));
+
+    var completed = Pod("""
+      {
+        "status": {
+          "phase": "Succeeded",
+          "reason": "Completed",
+          "conditions": [{ "type": "Ready", "status": "False" }],
+          "containerStatuses": [
+            { "name": "job", "ready": false, "state": { "terminated": { "exitCode": 0, "reason": "Completed" } } },
+            { "name": "app", "ready": false, "state": { "terminated": { "exitCode": 1, "reason": "Error" } } }
+          ]
+        }
+      }
+      """);
+    Assert.Equal("Error", PodStatus.Of(completed));
+
+    var lost = Pod("""
+      {
+        "metadata": { "deletionTimestamp": "2026-08-19T10:00:00Z" },
+        "status": { "phase": "Running", "reason": "NodeLost" }
+      }
+      """);
+    Assert.Equal("Unknown", PodStatus.Of(lost));
+
+    var finished = Pod("""
+      {
+        "metadata": { "deletionTimestamp": "2026-08-19T10:00:00Z" },
+        "status": { "phase": "Succeeded" }
+      }
+      """);
+    Assert.Equal("Succeeded", PodStatus.Of(finished));
+
+    var notReady = Pod("""
+      {
+        "status": {
+          "phase": "Running",
+          "conditions": [{ "type": "Ready", "status": "False" }],
+          "containerStatuses": [{ "name": "app", "ready": true, "restartCount": 0, "state": { "running": {} } }]
+        }
+      }
+      """);
+    Assert.Equal("NotReady", PodStatus.Of(notReady));
+  }
+
+  [Fact]
   public void Deleting_pod_is_terminating() {
     var pod = Pod("""
       {

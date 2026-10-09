@@ -53,13 +53,14 @@ public class ReleaseNotesTests {
   }
 
   [Fact]
-  public void Shipped_notes_keep_older_work_out_of_the_current_version() {
-    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.8.8");
+  public void Current_release_lists_notes_from_0_8_7_through_0_8_9() {
+    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.8.9");
 
     var note = Assert.Single(notes);
-    Assert.Equal("0.8.8", note.Version);
+    Assert.Equal("0.8.9", note.Version);
+    Assert.Contains(note.Added, line => line.Contains("Analyze issues", StringComparison.Ordinal));
     Assert.Contains(note.Added, line => line.Contains("ControllerRevision", StringComparison.Ordinal));
-    Assert.DoesNotContain(note.Added, line => line.Contains("Analyze issues", StringComparison.Ordinal));
+    Assert.Contains(note.Added, line => line.Contains("shared windows", StringComparison.Ordinal));
     Assert.DoesNotContain(note.Added, line => line.Contains("drain dialog", StringComparison.Ordinal));
     Assert.DoesNotContain(note.Added, line => line.Contains("Helm Charts", StringComparison.Ordinal));
     Assert.DoesNotContain(note.Added, line => line.Contains("footer", StringComparison.OrdinalIgnoreCase));
