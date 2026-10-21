@@ -36,6 +36,21 @@ public static class ErrorReport {
     return false;
   }
 
+  /// <summary>
+  /// <c>AddJsonFile</c> reloads on a thread-pool callback. A truncated settings file throws there,
+  /// and nothing observes that task, so the finalizer reports it as a crash.
+  /// </summary>
+  public static bool IsConfigurationReloadFailure(Exception exception) {
+    ArgumentNullException.ThrowIfNull(exception);
+
+    foreach (var current in Walk(exception)) {
+      if (current.Message.Contains("Failed to load configuration from file", StringComparison.Ordinal))
+        return true;
+    }
+
+    return false;
+  }
+
   private static string Version() {
     var version = Assembly.GetEntryAssembly()?.GetName().Version;
 

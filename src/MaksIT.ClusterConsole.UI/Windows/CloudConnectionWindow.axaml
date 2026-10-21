@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:kube="using:MaksIT.ClusterConsole.Client.KubeConfig"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Connections"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.CloudConnectionWindow"
+        x:DataType="vm:CloudConnectionViewModel"
+        Title="Cloud cluster"
+        Icon="/Assets/icon.ico"
+        Width="520"
+        Height="520"
+        MinWidth="440"
+        MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="Cloud cluster"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding Error}"
+               Classes="warning"
+               Margin="0,8,0,0"
+               TextWrapping="Wrap" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+        <TextBlock Text="Provider" />
+        <ComboBox ItemsSource="{Binding Providers}"
+                  SelectedItem="{Binding SelectedProvider}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="kube:CloudExecPreset">
+              <TextBlock Text="{Binding Title}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{Binding ClusterLabel}" />
+        <TextBox Text="{Binding Cluster}" />
+        <TextBlock Text="{Binding LocationLabel}" IsVisible="{Binding ShowLocation}" />
+        <TextBox Text="{Binding Location}" IsVisible="{Binding ShowLocation}" />
+        <TextBlock Text="{Binding ProjectLabel}" IsVisible="{Binding ShowProject}" />
+        <TextBox Text="{Binding Project}" IsVisible="{Binding ShowProject}" />
+        <TextBlock Classes="hint"
+                   Text="{Binding Hint}"
+                   TextWrapping="Wrap" />
+        <TextBlock Classes="hint"
+                   TextWrapping="Wrap"
+                   Text="Sign in with that CLI first. It writes the API server, certificate, and login. A login already saved in your home directory is reused. On Linux, Download CLI installs gcloud, az, aws, oci, doctl, ibmcloud, or kubelogin into this app so the sandbox can start them. A CLI installed on the host still cannot be started from Flatpak." />
+        <TextBlock Classes="hint"
+                   Text="{Binding CliStatus}"
+                   IsVisible="{Binding HasCliStatus}"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

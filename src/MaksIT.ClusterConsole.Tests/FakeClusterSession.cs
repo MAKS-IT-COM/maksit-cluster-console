@@ -89,6 +89,9 @@ internal sealed class FakeClusterSession : IClusterSession {
 
   public bool DeleteFails { get; set; }
 
+  public void SetRef(ResourceRef resource, params JsonObject[] items) =>
+    _lists[Key(resource)] = items;
+
   public void Set(string id, params JsonObject[] items) {
     var descriptor = ResourceCatalog.Find(id) ?? throw new InvalidOperationException(id);
     _lists[Key(descriptor.ToRef())] = items;
@@ -416,6 +419,28 @@ internal sealed class FakeClusterSession : IClusterSession {
     string policy,
     CancellationToken cancellationToken = default) =>
     Task.FromResult(Result<StorageReclaimOutcome>.NotFound(null, "unused"));
+
+  public Task<Result> AttachLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    string nodeId,
+    bool disableFrontend,
+    CancellationToken cancellationToken = default) =>
+    Task.FromResult(Result.NotFound("unused"));
+
+  public Task<Result> DetachLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    bool force,
+    CancellationToken cancellationToken = default) =>
+    Task.FromResult(Result.NotFound("unused"));
+
+  public Task<Result> PatchLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    string mergePatchJson,
+    CancellationToken cancellationToken = default) =>
+    Task.FromResult(Result.NotFound("unused"));
 
   private static string Key(ResourceRef resource) =>
     resource.Group + "/" + resource.Plural;

@@ -19,18 +19,6 @@
       "Window": "overview.png"
     },
     {
-      "Id": "apiservices",
-      "Window": "apiservices.png"
-    },
-    {
-      "Id": "apiservices-yaml",
-      "Window": "apiservices-yaml.png"
-    },
-    {
-      "Id": "apiservices-events",
-      "Window": "apiservices-events.png"
-    },
-    {
       "Id": "flowschemas",
       "Window": "flowschemas.png"
     },
@@ -43,32 +31,16 @@
       "Window": "flowschemas-events.png"
     },
     {
-      "Id": "prioritylevelconfigurations",
-      "Window": "prioritylevelconfigurations.png"
+      "Id": "resourceslices",
+      "Window": "resourceslices.png"
     },
     {
-      "Id": "prioritylevelconfigurations-yaml",
-      "Window": "prioritylevelconfigurations-yaml.png"
+      "Id": "resourceslices-yaml",
+      "Window": "resourceslices-yaml.png"
     },
     {
-      "Id": "prioritylevelconfigurations-events",
-      "Window": "prioritylevelconfigurations-events.png"
-    },
-    {
-      "Id": "nodes",
-      "Window": "nodes.png"
-    },
-    {
-      "Id": "nodes-yaml",
-      "Window": "nodes-yaml.png"
-    },
-    {
-      "Id": "nodes-images",
-      "Window": "nodes-images.png"
-    },
-    {
-      "Id": "nodes-events",
-      "Window": "nodes-events.png"
+      "Id": "resourceslices-events",
+      "Window": "resourceslices-events.png"
     },
     {
       "Id": "applications",
@@ -99,16 +71,16 @@
       "Window": "workloads-overview.png"
     },
     {
-      "Id": "controllerrevisions",
-      "Window": "controllerrevisions.png"
+      "Id": "cronjobs",
+      "Window": "cronjobs.png"
     },
     {
-      "Id": "controllerrevisions-yaml",
-      "Window": "controllerrevisions-yaml.png"
+      "Id": "cronjobs-yaml",
+      "Window": "cronjobs-yaml.png"
     },
     {
-      "Id": "controllerrevisions-events",
-      "Window": "controllerrevisions-events.png"
+      "Id": "cronjobs-events",
+      "Window": "cronjobs-events.png"
     },
     {
       "Id": "daemonsets",
@@ -157,6 +129,30 @@
     {
       "Id": "deployments-terminal",
       "Window": "deployments-terminal.png"
+    },
+    {
+      "Id": "jobs",
+      "Window": "jobs.png"
+    },
+    {
+      "Id": "jobs-yaml",
+      "Window": "jobs-yaml.png"
+    },
+    {
+      "Id": "jobs-events",
+      "Window": "jobs-events.png"
+    },
+    {
+      "Id": "jobs-pods",
+      "Window": "jobs-pods.png"
+    },
+    {
+      "Id": "jobs-logs",
+      "Window": "jobs-logs.png"
+    },
+    {
+      "Id": "jobs-terminal",
+      "Window": "jobs-terminal.png"
     },
     {
       "Id": "pods",
@@ -243,16 +239,16 @@
       "Window": "configmaps-events.png"
     },
     {
-      "Id": "leases",
-      "Window": "leases.png"
+      "Id": "limitranges",
+      "Window": "limitranges.png"
     },
     {
-      "Id": "leases-yaml",
-      "Window": "leases-yaml.png"
+      "Id": "limitranges-yaml",
+      "Window": "limitranges-yaml.png"
     },
     {
-      "Id": "leases-events",
-      "Window": "leases-events.png"
+      "Id": "limitranges-events",
+      "Window": "limitranges-events.png"
     },
     {
       "Id": "mutatingwebhookconfigurations",
@@ -303,20 +299,16 @@
       "Window": "runtimeclasses-events.png"
     },
     {
-      "Id": "secrets",
-      "Window": "secrets.png"
+      "Id": "storageversionmigrations",
+      "Window": "storageversionmigrations.png"
     },
     {
-      "Id": "secrets-yaml",
-      "Window": "secrets-yaml.png"
+      "Id": "storageversionmigrations-yaml",
+      "Window": "storageversionmigrations-yaml.png"
     },
     {
-      "Id": "secrets-data",
-      "Window": "secrets-data.png"
-    },
-    {
-      "Id": "secrets-events",
-      "Window": "secrets-events.png"
+      "Id": "storageversionmigrations-events",
+      "Window": "storageversionmigrations-events.png"
     },
     {
       "Id": "validatingwebhookconfigurations",
@@ -403,6 +395,18 @@
       "Window": "services-pods.png"
     },
     {
+      "Id": "csidrivers",
+      "Window": "csidrivers.png"
+    },
+    {
+      "Id": "csidrivers-yaml",
+      "Window": "csidrivers-yaml.png"
+    },
+    {
+      "Id": "csidrivers-events",
+      "Window": "csidrivers-events.png"
+    },
+    {
       "Id": "csinodes",
       "Window": "csinodes.png"
     },
@@ -467,16 +471,20 @@
       "Window": "volumeattachments-events.png"
     },
     {
-      "Id": "longhorn-nodes",
-      "Window": "longhorn-nodes.png"
+      "Id": "s3-browser",
+      "Window": "s3-browser.png"
     },
     {
-      "Id": "longhorn-nodes-yaml",
-      "Window": "longhorn-nodes-yaml.png"
+      "Id": "longhorn-backup-jobs",
+      "Window": "longhorn-backup-jobs.png"
     },
     {
-      "Id": "longhorn-nodes-events",
-      "Window": "longhorn-nodes-events.png"
+      "Id": "longhorn-backup-jobs-yaml",
+      "Window": "longhorn-backup-jobs-yaml.png"
+    },
+    {
+      "Id": "longhorn-backup-jobs-events",
+      "Window": "longhorn-backup-jobs-events.png"
     },
     {
       "Id": "longhorn-volumes",
@@ -501,6 +509,14 @@
     {
       "Id": "namespaces-events",
       "Window": "namespaces-events.png"
+    },
+    {
+      "Id": "events",
+      "Window": "events.png"
+    },
+    {
+      "Id": "events-yaml",
+      "Window": "events-yaml.png"
     },
     {
       "Id": "helm-releases",
@@ -585,18 +601,6 @@
     {
       "Id": "configurations-events",
       "Window": "configurations-events.png"
-    },
-    {
-      "Id": "subscriptions",
-      "Window": "subscriptions.png"
-    },
-    {
-      "Id": "subscriptions-yaml",
-      "Window": "subscriptions-yaml.png"
-    },
-    {
-      "Id": "subscriptions-events",
-      "Window": "subscriptions-events.png"
     },
     {
       "Id": "cnpg-clusters",
@@ -685,19 +689,23 @@
   ],
   "Skipped": [
     {
+      "Id": "apiservices",
+      "Reason": "No rows."
+    },
+    {
       "Id": "deviceclasses",
       "Reason": "No rows."
     },
     {
-      "Id": "resourceslices",
+      "Id": "prioritylevelconfigurations",
       "Reason": "No rows."
     },
     {
-      "Id": "cronjobs",
+      "Id": "nodes",
       "Reason": "No rows."
     },
     {
-      "Id": "jobs",
+      "Id": "controllerrevisions",
       "Reason": "No rows."
     },
     {
@@ -717,7 +725,7 @@
       "Reason": "No rows."
     },
     {
-      "Id": "limitranges",
+      "Id": "leases",
       "Reason": "No rows."
     },
     {
@@ -737,7 +745,7 @@
       "Reason": "No rows."
     },
     {
-      "Id": "storageversionmigrations",
+      "Id": "secrets",
       "Reason": "No rows."
     },
     {
@@ -761,10 +769,6 @@
       "Reason": "No rows."
     },
     {
-      "Id": "csidrivers",
-      "Reason": "No rows."
-    },
-    {
       "Id": "csistoragecapacities",
       "Reason": "No rows."
     },
@@ -773,7 +777,11 @@
       "Reason": "No rows."
     },
     {
-      "Id": "events",
+      "Id": "longhorn-backups",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "longhorn-nodes",
       "Reason": "No rows."
     },
     {
@@ -786,6 +794,10 @@
     },
     {
       "Id": "resiliencies",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "subscriptions",
       "Reason": "No rows."
     },
     {

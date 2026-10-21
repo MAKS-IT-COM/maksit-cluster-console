@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.LonghornAttachWindow"
+        x:DataType="vm:LonghornAttachViewModel"
+        Title="Attach volume"
+        Icon="/Assets/icon.ico"
+        Width="560"
+        Height="420"
+        MinWidth="480"
+        MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="Attach to node"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding VolumeNames}"
+               TextWrapping="Wrap"
+               Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Notice}"
+               Classes="warning"
+               TextWrapping="Wrap"
+               IsVisible="{Binding ShowNotice}"
+               Margin="0,0,0,12" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <StackPanel Spacing="8">
+      <TextBlock Text="Node" />
+      <ComboBox ItemsSource="{Binding Nodes}"
+                SelectedItem="{Binding SelectedNode}"
+                HorizontalAlignment="Stretch" />
+      <CheckBox Content="Disable frontend (maintenance)"
+                IsChecked="{Binding DisableFrontend}" />
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 Text="Only Ready Longhorn nodes are listed. ReadWriteMany volumes attach with the frontend disabled." />
+    </StackPanel>
+  </DockPanel>
+</Window>

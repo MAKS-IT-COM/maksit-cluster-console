@@ -1,0 +1,39 @@
+using Avalonia.Input;
+using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Input;
+using MaksIT.ClusterConsole.UI.Controls.Footer;
+using MaksIT.ClusterConsole.UI.ViewModels.Cluster;
+
+
+namespace MaksIT.ClusterConsole.UI.Windows;
+
+public partial class LonghornAttachWindow : Window {
+  public LonghornAttachWindow() {
+    InitializeComponent();
+  }
+
+  public LonghornAttachWindow(LonghornAttachViewModel model) : this() {
+    DataContext = model;
+    Actions.Items = [
+      new FooterButton("Cancel", new RelayCommand(() => Close(false))) { Edge = FooterEdge.Trailing },
+      new FooterButton("Attach", new RelayCommand(() => Close(true))) { Edge = FooterEdge.Trailing }
+    ];
+  }
+
+  public static Task<bool> ShowAsync(Window owner, LonghornAttachViewModel model) {
+    var window = new LonghornAttachWindow(model);
+
+    return window.ShowDialog<bool>(owner);
+  }
+
+  protected override void OnKeyDown(KeyEventArgs e) {
+    if (e.Key == Key.Escape) {
+      Close(false);
+      e.Handled = true;
+
+      return;
+    }
+
+    base.OnKeyDown(e);
+  }
+}

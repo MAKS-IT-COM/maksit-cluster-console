@@ -47,7 +47,7 @@ internal static class Program {
   private static void OnUnobservedTask(object? sender, UnobservedTaskExceptionEventArgs e) {
     e.SetObserved();
 
-    if (ErrorReport.IsAbandonedTransportRead(e.Exception))
+    if (ErrorReport.IsAbandonedTransportRead(e.Exception) || ErrorReport.IsConfigurationReloadFailure(e.Exception))
       return;
 
     ErrorDialog.Report(e.Exception);

@@ -9,6 +9,7 @@ public sealed class KubeAuthKind : Enumeration {
   public static readonly KubeAuthKind Cert = new(2, "cert");
   public static readonly KubeAuthKind K3sData = new(3, "k3sdata");
   public static readonly KubeAuthKind Basic = new(4, "basic");
+  public static readonly KubeAuthKind Exec = new(5, "exec");
 
   private KubeAuthKind(int id, string name) : base(id, name) { }
 

@@ -42,6 +42,7 @@ public partial class ConnectionsViewModel : ObservableObject {
     };
     FooterItems = [
       new FooterButton("Add…", AddCommand),
+      new FooterButton("Cloud…", CloudCommand),
       new FooterButton("Connect", ConnectCommand),
       new FooterButton("Delete", DeleteCommand),
       cleanup,
@@ -88,6 +89,8 @@ public partial class ConnectionsViewModel : ObservableObject {
   public event Action<string?>? CloseRequested;
 
   public event Func<Task>? AddRequested;
+
+  public event Func<Task>? CloudRequested;
 
   partial void OnSelectedChanged(ConnectionItemViewModel? value) {
     OnPropertyChanged(nameof(DetailsText));
@@ -177,5 +180,11 @@ public partial class ConnectionsViewModel : ObservableObject {
   private async Task Add() {
     if (AddRequested is not null)
       await AddRequested();
+  }
+
+  [RelayCommand]
+  private async Task Cloud() {
+    if (CloudRequested is not null)
+      await CloudRequested();
   }
 }

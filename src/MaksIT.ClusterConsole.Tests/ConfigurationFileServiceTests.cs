@@ -22,6 +22,24 @@ public class ConfigurationFileServiceTests {
   }
 
   [Fact]
+  public void Corrupt_settings_are_moved_aside_and_defaults_load() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    File.WriteAllText(path, """{ "Configuration": { """);
+
+    try {
+      var service = new ConfigurationFileService(path);
+
+      Assert.Equal(Configuration.AllNamespaces, service.Current.SelectedNamespace);
+      Assert.False(File.Exists(path));
+      Assert.NotEmpty(Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".corrupt-*"));
+    }
+    finally {
+      foreach (var file in Directory.GetFiles(Path.GetTempPath(), Path.GetFileName(path) + "*"))
+        File.Delete(file);
+    }
+  }
+
+  [Fact]
   public void Save_round_trips_selected_namespace_and_keeps_logging() {
     var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
     File.WriteAllText(path, """

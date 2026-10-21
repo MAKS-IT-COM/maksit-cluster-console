@@ -354,6 +354,12 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public Func<DrainConfirmViewModel, Task<bool>>? ShowDrainPreview { get; set; }
 
+  public Func<LonghornAttachViewModel, Task<bool>>? ConfirmLonghornAttach { get; set; }
+
+  public Func<LonghornDetachViewModel, Task<bool>>? ConfirmLonghornDetach { get; set; }
+
+  public Func<LonghornBackupJobViewModel, Task<bool>>? ConfirmLonghornBackupJob { get; set; }
+
   public ConnectionsViewModel CreateConnectionsViewModel() =>
     new(_kubeConfig);
 
@@ -529,6 +535,9 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     page.VolumeFilesRequested += vm => VolumeFilesRequested?.Invoke(vm);
     page.ShowRetainReclaim = viewModel => ShowRetainReclaim?.Invoke(viewModel) ?? Task.CompletedTask;
     page.ConfirmDrain = dialog => ShowDrainPreview?.Invoke(dialog) ?? Task.FromResult(false);
+    page.ConfirmLonghornAttach = dialog => ConfirmLonghornAttach?.Invoke(dialog) ?? Task.FromResult(false);
+    page.ConfirmLonghornDetach = dialog => ConfirmLonghornDetach?.Invoke(dialog) ?? Task.FromResult(false);
+    page.ConfirmLonghornBackupJob = dialog => ConfirmLonghornBackupJob?.Invoke(dialog) ?? Task.FromResult(false);
 
     return page;
   }

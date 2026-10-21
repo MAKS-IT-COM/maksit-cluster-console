@@ -1,3 +1,4 @@
+using k8s;
 using MaksIT.ClusterConsole.Client.KubeConfig;
 
 
@@ -323,6 +324,31 @@ public class KubeConfigServiceTests {
     }, path);
     Assert.True(basic.IsSuccess, string.Join("; ", basic.Messages));
     Assert.Contains("admin", service.ListContextDetails(path).Value!.Single(item => item.Name == "basic").AuthSummary, StringComparison.Ordinal);
+
+    var eks = service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "eks",
+      Server = "https://eks.example:443",
+      AuthKind = KubeAuthKind.Exec,
+      ExecPreset = CloudExecPreset.Amazon.Id,
+      ExecCommand = CloudExecPreset.Amazon.Command,
+      ExecArgument = "prod",
+      ExecInstallHint = CloudExecPreset.Amazon.InstallHint,
+      UseAfterAdd = false
+    }, path);
+    Assert.True(eks.IsSuccess, string.Join("; ", eks.Messages));
+    var loaded = KubernetesClientConfiguration.LoadKubeConfig(path);
+    var exec = loaded.Users!.Single(user => user.Name == "eks").UserCredentials!.ExternalExecution!;
+    Assert.Equal("aws", exec.Command);
+    Assert.Equal(["eks", "get-token", "--cluster-name", "prod"], exec.Arguments);
+    Assert.Contains("exec aws", service.ListContextDetails(path).Value!.Single(item => item.Name == "eks").AuthSummary, StringComparison.Ordinal);
+
+    Assert.False(service.UpsertConnection(new KubeConnectionRequest {
+      ContextName = "eks-missing",
+      Server = "https://eks.example:443",
+      AuthKind = KubeAuthKind.Exec,
+      ExecPreset = CloudExecPreset.Amazon.Id,
+      ExecCommand = "aws"
+    }, path).IsSuccess);
 
     Assert.False(KubeAuthKind.TryParse("nope", out _));
     Assert.True(KubeAuthKind.TryParse("TOKEN", out var kind));

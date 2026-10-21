@@ -14,7 +14,8 @@ public partial class ConnectionWizardViewModel : ObservableObject {
     new("token", "Bearer token"),
     new("cert", "Client certificate + key"),
     new("k3sdata", "Paste k3s certificate data"),
-    new("basic", "Username and password")
+    new("basic", "Username and password"),
+    new("exec", "Exec plugin")
   ];
 
   [ObservableProperty]
@@ -75,6 +76,15 @@ public partial class ConnectionWizardViewModel : ObservableObject {
   private string basicPassword = "";
 
   [ObservableProperty]
+  private string execCommand = "";
+
+  [ObservableProperty]
+  private string execArguments = "";
+
+  [ObservableProperty]
+  private bool execProvideClusterInfo;
+
+  [ObservableProperty]
   private bool useAfterAdd = true;
 
   [ObservableProperty]
@@ -108,6 +118,8 @@ public partial class ConnectionWizardViewModel : ObservableObject {
 
   public bool IsBasicAuth => SelectedAuthKind?.Id == "basic";
 
+  public bool IsExecAuth => SelectedAuthKind?.Id == "exec";
+
   public string ClusterWatermark =>
     string.IsNullOrWhiteSpace(ContextName) ? "blank → same as context" : ContextName.Trim();
 
@@ -129,6 +141,7 @@ public partial class ConnectionWizardViewModel : ObservableObject {
     OnPropertyChanged(nameof(IsCertAuth));
     OnPropertyChanged(nameof(IsK3sDataAuth));
     OnPropertyChanged(nameof(IsBasicAuth));
+    OnPropertyChanged(nameof(IsExecAuth));
   }
 
   partial void OnContextNameChanged(string value) {
@@ -190,6 +203,11 @@ public partial class ConnectionWizardViewModel : ObservableObject {
       EmbedClientCerts = EmbedClientCerts,
       BasicUser = kind == KubeAuthKind.Basic ? BlankToNull(BasicUser) : null,
       BasicPassword = kind == KubeAuthKind.Basic ? BlankToNull(BasicPassword) : null,
+      ExecPreset = kind == KubeAuthKind.Exec ? CloudExecPreset.CustomId : null,
+      ExecCommand = kind == KubeAuthKind.Exec ? BlankToNull(ExecCommand) : null,
+      ExecArgument = kind == KubeAuthKind.Exec ? BlankToNull(ExecArguments) : null,
+      ExecProvideClusterInfo = kind == KubeAuthKind.Exec && ExecProvideClusterInfo,
+      ExecInstallHint = kind == KubeAuthKind.Exec ? CloudExecPreset.Custom.InstallHint : null,
       UseAfterAdd = UseAfterAdd
     };
   }
@@ -221,6 +239,9 @@ public partial class ConnectionWizardViewModel : ObservableObject {
 
     if (id == "basic" && (string.IsNullOrWhiteSpace(BasicUser) || string.IsNullOrWhiteSpace(BasicPassword)))
       return "Username and password are required.";
+
+    if (id == "exec" && string.IsNullOrWhiteSpace(ExecCommand))
+      return "Command is required.";
 
     return null;
   }

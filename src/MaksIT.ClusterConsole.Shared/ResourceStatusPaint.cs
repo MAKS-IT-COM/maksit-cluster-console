@@ -20,8 +20,11 @@ public static class ResourceStatusPaint {
           "Evicted", "OOMKilled", "CreateContainerError", "Lost"))
       return ResourceStatusTone.Error;
 
-    if (Contains(value, "fail", "error", "backoff", "unhealthy", "denied"))
+    if (Contains(value, "fail", "error", "backoff", "unhealthy", "denied", "faulted"))
       return ResourceStatusTone.Error;
+
+    if (Contains(value, "degraded"))
+      return ResourceStatusTone.Warning;
 
     if (Matches(value, "Pending", "Unreachable", "ContainerCreating", "PodInitializing", "Terminating",
           "Released", "Progressing", "Waiting", "Unknown", "Stopped", "NotReady",
@@ -43,8 +46,11 @@ public static class ResourceStatusPaint {
     if (Contains(value, "running", "ready", "active", "deployed", "succeed", "complete", "bound"))
       return ResourceStatusTone.Healthy;
 
-    if (Matches(value, "Unused"))
+    if (Matches(value, "Unused") || value.Equals("detached", StringComparison.OrdinalIgnoreCase))
       return ResourceStatusTone.Muted;
+
+    if (value.Contains("attached", StringComparison.OrdinalIgnoreCase))
+      return ResourceStatusTone.Healthy;
 
     return ResourceStatusTone.Neutral;
   }

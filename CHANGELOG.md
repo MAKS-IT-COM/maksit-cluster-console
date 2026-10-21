@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The Linux Flatpak no longer ships kubelogin. Download CLI installs kubelogin into the app the same way as gcloud, az, aws, oci, doctl, and ibmcloud.
+
+### Fixed
+
+- The Cloud window no longer says the Flatpak bundle includes doctl and kubelogin. Download CLI installs both.
+
+## [0.9.0] - 2026-10-21
+
+### Added
+
+- S3 Browser, under Longhorn, opens the default backup target and any other S3 targets. The bucket list shows every bucket those credentials can see, and the backup bucket opens first. New bucket creates one. Delete bucket removes a bucket and everything in it. A bucket used by a Longhorn backup target cannot be deleted. Add a target to write the Longhorn backup target and its credential secret. The browser opens folders, uploads and downloads files and folders, creates a folder, renames, copies, deletes, and edits a small text object in its own window.
+- Longhorn volumes use the same columns as the Longhorn UI, with attachment shown as Volume and Node. Name stays the technical Longhorn name. Volume is the PersistentVolumeClaim name. Columns: State, Name, Size, Actual Size, Created, Data Engine, PV/PVC, Namespace, Volume, Node, Schedule, and Last Backup At. State is colored by health. PV/PVC shows Bound, Available, or Released, and the tip names the PV and PVC. Actual size prefers the running controller. Schedule includes recurring-job labels. The Node tip lists pods using the volume. Attach and Detach are in the footer. Attach picks a Ready Longhorn node. Detach can force a leftover ticket off the volume. Schedule backup creates a periodic backup job for the selected volumes. Backups lists each volume in the backup target, matching the Longhorn UI, because Longhorn does not keep a Backup object per copy. Delete removes that volume's backups. Recurring jobs lists every Longhorn schedule, and the hint explains when to use Backup, Snapshot, Snapshot Delete, Snapshot Cleanup, Filesystem Trim, and System Backup. State is Running while a run is in progress, Failed when the latest run failed, and Idle when nothing is running. Last Successful Run is when the job last finished without error. Run now starts the selected job immediately, and does not start another while a run of that job is still in progress. Edit can rename a job.
+- Overview and chat call out a degraded or faulted Longhorn volume that is still attached, including a failed or stopped replica of it, beside a detached volume for the same PVC or one restored from that volume's backup. That is usually a leftover from backup or a reinstall. Detach the leftover, then attach the new volume. Do not delete the new volume. If detach leaves it attached, detach again with force. Chat can do those two steps after you approve them.
+- Connections can add Google Kubernetes Engine, Azure Kubernetes Service, Amazon EKS, Oracle Kubernetes, DigitalOcean Kubernetes, and IBM Cloud Kubernetes from a separate Cloud window. Sign in with that provider's CLI first. The window runs the CLI, which writes the API server, certificate, and login. Add still writes a token, certificate, username and password, or an exec plugin when you already know the API server. The CLI must be on PATH. The Linux Flatpak ships kubelogin inside the bundle. On Linux, Download CLI installs gcloud and gke-gcloud-auth-plugin, az, aws, oci, doctl, or ibmcloud into the app and puts them on PATH, so a token refresh runs inside the sandbox. Published checksums are checked. The AWS CLI zip is checked with the AWS CLI public key. IBM publishes no checksum, so that archive is taken only from download.clis.cloud.ibm.com. A CLI installed on the host still cannot be started from Flatpak.
+
+### Fixed
+
+- A System Backup job shows Volume backup policy in the creation window: If not present, Always, or Disabled. The choice is no longer applied as If not present without being on the form. The task list is on that window too, including when the job is created from a volume.
+- A truncated `settings.json` no longer crashes the app when the file changes. The unreadable file is kept beside it as `settings.json.corrupt-*`, and the app continues. Settings are replaced as a whole file so a save is not a partial write.
+
+### Changed
+
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.9.0` release entry points at this version's changelog.
+
 ## [0.8.9] - 2026-10-09
 
 ### Changed

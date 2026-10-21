@@ -104,6 +104,18 @@
             <TextBox Text="{Binding BasicPassword}" PasswordChar="●" />
           </StackPanel>
 
+          <StackPanel IsVisible="{Binding IsExecAuth}" Spacing="8">
+            <TextBlock Text="Command" />
+            <TextBox Text="{Binding ExecCommand}" PlaceholderText="executable on PATH" />
+            <TextBlock Text="Arguments" />
+            <TextBox Text="{Binding ExecArguments}" PlaceholderText="optional, split on spaces" />
+            <CheckBox Content="Provide cluster info to the plugin"
+                      IsChecked="{Binding ExecProvideClusterInfo}" />
+            <TextBlock Classes="hint"
+                       TextWrapping="Wrap"
+                       Text="For a kubeconfig user.exec entry when you already know the API server. Google, Azure, Amazon, Oracle, DigitalOcean, and IBM use Cloud instead. The program must be on PATH. The Linux Flatpak sandbox cannot start it." />
+          </StackPanel>
+
           <CheckBox Content="Use this context for kubectl after adding"
                     IsChecked="{Binding UseAfterAdd}"
                     Margin="0,8,0,0" />

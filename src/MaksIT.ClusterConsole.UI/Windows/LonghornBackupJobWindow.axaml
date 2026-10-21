@@ -1,0 +1,237 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:converters="using:MaksIT.ClusterConsole.UI.Converters"
+        xmlns:shared="using:MaksIT.ClusterConsole.Shared"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.LonghornBackupJobWindow"
+        x:DataType="vm:LonghornBackupJobViewModel"
+        Title="Backup job"
+        Icon="/Assets/icon.ico"
+        Width="1180"
+        Height="860"
+        MinWidth="900"
+        MinHeight="640"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Heading}"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding Error}"
+               Classes="warning"
+               TextWrapping="Wrap"
+               Margin="0,8,0,0" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <ScrollViewer DockPanel.Dock="Top" MaxHeight="340">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Job" IsVisible="{Binding ChooseJob}" />
+        <ComboBox ItemsSource="{Binding JobChoices}"
+                  SelectedItem="{Binding SelectedJob}"
+                  IsVisible="{Binding ChooseJob}"
+                  HorizontalAlignment="Stretch" />
+        <TextBlock Text="Name" />
+        <TextBox Text="{Binding Name}" />
+        <TextBlock Text="Task" />
+        <ComboBox ItemsSource="{Binding Tasks}"
+                  SelectedItem="{Binding SelectedTask}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="shared:RecurringTask">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="Volume backup policy" IsVisible="{Binding ShowPolicy}" />
+        <ComboBox ItemsSource="{Binding Policies}"
+                  SelectedItem="{Binding SelectedPolicy}"
+                  IsVisible="{Binding ShowPolicy}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="shared:BackupPolicy">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{Binding PolicyHint}"
+                   Classes="hint"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ShowPolicy}" />
+        <CheckBox Content="Force create"
+                  IsChecked="{Binding ForceCreate}"
+                  IsVisible="{Binding ShowForce}" />
+        <TextBlock Text="{Binding TaskHint}"
+                   Classes="hint"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Sentence}"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+        <TextBox Text="{Binding CronText}" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Hourly" Command="{Binding UseHourlyCommand}" />
+          <Button Content="Daily at 02:00" Command="{Binding UseDailyCommand}" />
+          <Button Content="Weekly Sunday at 02:00" Command="{Binding UseWeeklyCommand}" />
+        </StackPanel>
+        <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="8">
+          <StackPanel Grid.Column="0" Spacing="4">
+            <TextBlock Text="Minute" />
+            <ComboBox ItemsSource="{Binding MinuteChoices}"
+                      SelectedItem="{Binding SelectedMinute}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="shared:CronChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="4">
+            <TextBlock Text="Hour" />
+            <ComboBox ItemsSource="{Binding HourChoices}"
+                      SelectedItem="{Binding SelectedHour}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="shared:CronChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="4">
+            <TextBlock Text="Day" />
+            <ComboBox ItemsSource="{Binding DayChoices}"
+                      SelectedItem="{Binding SelectedDay}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="shared:CronChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Grid.Column="3" Spacing="4">
+            <TextBlock Text="Month" />
+            <ComboBox ItemsSource="{Binding MonthChoices}"
+                      SelectedItem="{Binding SelectedMonth}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="shared:CronChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Grid.Column="4" Spacing="4">
+            <TextBlock Text="Weekday" />
+            <ComboBox ItemsSource="{Binding WeekdayChoices}"
+                      SelectedItem="{Binding SelectedWeekday}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="shared:CronChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="Keep" />
+        <NumericUpDown Minimum="0"
+                       Maximum="100"
+                       Increment="1"
+                       FormatString="0"
+                       IsEnabled="{Binding UsesRetain}"
+                       Value="{Binding Retain}" />
+        <TextBlock Text="Concurrency" IsVisible="{Binding ShowConcurrency}" />
+        <NumericUpDown Minimum="1"
+                       Maximum="100"
+                       Increment="1"
+                       FormatString="0"
+                       IsVisible="{Binding ShowConcurrency}"
+                       Value="{Binding Concurrency}" />
+        <TextBlock Text="Full backup interval" IsVisible="{Binding ShowFullBackup}" />
+        <NumericUpDown Minimum="0"
+                       Maximum="100"
+                       Increment="1"
+                       FormatString="0"
+                       IsVisible="{Binding ShowFullBackup}"
+                       Value="{Binding FullBackupInterval}" />
+        <TextBlock Classes="hint"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ShowFullBackup}"
+                   Text="How many incremental backups to take between full backups. 0 keeps every backup incremental." />
+        <CheckBox Content="Default group"
+                  IsChecked="{Binding DefaultGroup}"
+                  IsVisible="{Binding ShowVolumes}" />
+        <TextBlock Text="Other groups" IsVisible="{Binding ShowVolumes}" />
+        <TextBox Text="{Binding GroupsText}"
+                 IsVisible="{Binding ShowVolumes}"
+                 PlaceholderText="group names, separated by commas" />
+        <TextBlock Classes="hint"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ShowVolumes}"
+                   Text="The default group runs on volumes that have no other recurring job. Checked volumes below are labeled with this job." />
+      </StackPanel>
+    </ScrollViewer>
+    <TextBlock DockPanel.Dock="Top"
+               Text="Volumes"
+               IsVisible="{Binding ShowVolumes}"
+               Margin="0,8,0,4" />
+    <DataGrid ItemsSource="{Binding Volumes}"
+              IsVisible="{Binding ShowVolumes}"
+              x:CompileBindings="False"
+              AutoGenerateColumns="False"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True"
+              GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridCheckBoxColumn Header="" Binding="{Binding Selected}" Width="36" />
+        <DataGridTemplateColumn Header="State" Width="110" SortMemberPath="State">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding State}"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         Margin="6,0"
+                         ToolTip.Tip="{Binding StateTip}"
+                         Foreground="{Binding State, Converter={x:Static converters:StatusBrushConverter.Instance}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" IsReadOnly="True" Width="220" />
+        <DataGridTextColumn Header="Size" Binding="{Binding Size}" IsReadOnly="True" Width="90" />
+        <DataGridTextColumn Header="Actual Size" Binding="{Binding ActualSize}" IsReadOnly="True" Width="110" />
+        <DataGridTextColumn Header="Created" Binding="{Binding Created}" IsReadOnly="True" Width="140" />
+        <DataGridTextColumn Header="Data Engine" Binding="{Binding DataEngine}" IsReadOnly="True" Width="110" />
+        <DataGridTemplateColumn Header="PV/PVC" Width="100" SortMemberPath="Pv">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Pv}"
+                         VerticalAlignment="Center"
+                         Margin="6,0"
+                         ToolTip.Tip="{Binding PvTip}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Namespace" Binding="{Binding WorkloadNamespace}" IsReadOnly="True" Width="120" />
+        <DataGridTextColumn Header="Volume" Binding="{Binding Claim}" IsReadOnly="True" Width="160" />
+        <DataGridTemplateColumn Header="Node" Width="120" SortMemberPath="Node">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Node}"
+                         VerticalAlignment="Center"
+                         Margin="6,0"
+                         ToolTip.Tip="{Binding NodeTip}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Schedule" Binding="{Binding Schedule}" IsReadOnly="True" Width="140" />
+        <DataGridTextColumn Header="Last Backup At" Binding="{Binding LastBackupAt}" IsReadOnly="True" Width="150" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>

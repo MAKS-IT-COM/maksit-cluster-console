@@ -12,6 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.102.1" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
     <PackageReference Include="KubernetesClient" Version="19.0.2" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
     <PackageReference Include="MaksIT.Core" Version="1.6.8" />

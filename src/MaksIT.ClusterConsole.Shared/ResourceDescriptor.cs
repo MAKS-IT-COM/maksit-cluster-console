@@ -19,7 +19,9 @@ public sealed record ResourceActions(
   bool CanToken = false,
   bool CanAttach = false,
   bool CanDebug = false,
-  bool CanRetain = false);
+  bool CanRetain = false,
+  bool CanVolumeAttach = false,
+  bool CanVolumeDetach = false);
 
 public sealed record ResourceDescriptor(
   string Id,

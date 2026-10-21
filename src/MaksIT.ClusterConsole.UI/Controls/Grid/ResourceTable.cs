@@ -172,6 +172,19 @@ public static class ResourceTable {
       };
     }
 
+    if (header == "State") {
+      return new DataGridTemplateColumn {
+        Header = columnHeader,
+        Tag = header,
+        CanUserSort = true,
+        CustomSortComparer = comparer,
+        CellTemplate = StateCellTemplate(),
+        ClipboardContentBinding = CellsBinding(header),
+        Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+        MinWidth = 72
+      };
+    }
+
     return new DataGridTemplateColumn {
       Header = columnHeader,
       Tag = header,
@@ -212,6 +225,26 @@ public static class ResourceTable {
       return text;
     }, true);
 
+  private static FuncDataTemplate<ResourceRow> StateCellTemplate() =>
+    new((_, _) => {
+      var text = new TextBlock {
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(6, 0),
+        FontWeight = FontWeight.SemiBold
+      };
+      text.Bind(TextBlock.TextProperty, CellsBinding("State"));
+      text.Bind(TextBlock.ForegroundProperty, new Binding(nameof(ResourceRow.Cells)) {
+        Mode = BindingMode.OneWay,
+        Converter = new DictionaryKeyBrushConverter("State")
+      });
+      text.Bind(ToolTip.TipProperty, new Binding(nameof(ResourceRow.CellTips)) {
+        Mode = BindingMode.OneWay,
+        Converter = new DictionaryKeyConverter("State")
+      });
+
+      return text;
+    }, true);
+
   private static FuncDataTemplate<ResourceRow> StatusCellTemplate() =>
     new((_, _) => {
       var text = new TextBlock {
@@ -245,6 +278,20 @@ public static class ResourceTable {
         return text;
 
       return "";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+      BindingOperations.DoNothing;
+  }
+
+  private sealed class DictionaryKeyBrushConverter(string key) : IValueConverter {
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
+      var text = "";
+
+      if (value is IReadOnlyDictionary<string, string> cells && cells.TryGetValue(key, out var cell))
+        text = cell;
+
+      return StatusBrushConverter.Instance.Convert(text, targetType, parameter, culture);
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

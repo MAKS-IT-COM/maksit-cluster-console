@@ -102,6 +102,8 @@ public class ClusterChatTests {
     Assert.DoesNotContain("You can only read the cluster", prompt, StringComparison.Ordinal);
     Assert.Contains("restart_workload", prompt, StringComparison.Ordinal);
     Assert.Contains("apply_manifest", prompt, StringComparison.Ordinal);
+    Assert.Contains("detach_longhorn_volume", prompt, StringComparison.Ordinal);
+    Assert.Contains("attach the new volume", prompt, StringComparison.Ordinal);
     Assert.Contains("continue and answer the original question", prompt, StringComparison.Ordinal);
   }
 
@@ -544,6 +546,28 @@ public class ClusterChatTests {
       string policy,
       CancellationToken cancellationToken = default) =>
       Unused<Result<StorageReclaimOutcome>>();
+
+    public Task<Result> AttachLonghornVolumeAsync(
+      string name,
+      string @namespace,
+      string nodeId,
+      bool disableFrontend,
+      CancellationToken cancellationToken = default) =>
+      Unused<Result>();
+
+    public Task<Result> DetachLonghornVolumeAsync(
+      string name,
+      string @namespace,
+      bool force,
+      CancellationToken cancellationToken = default) =>
+      Unused<Result>();
+
+    public Task<Result> PatchLonghornVolumeAsync(
+      string name,
+      string @namespace,
+      string mergePatchJson,
+      CancellationToken cancellationToken = default) =>
+      Unused<Result>();
 
     private static Task<T> Unused<T>() =>
       Task.FromException<T>(new NotSupportedException());

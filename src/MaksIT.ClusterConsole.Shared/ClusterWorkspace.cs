@@ -275,7 +275,8 @@ public sealed partial class ClusterWorkspace {
         ResourceCatalog.Helm,
         ResourceCatalog.HelmReleasesDescriptor),
       Special(ResourceCatalog.DaprSidecarsId, "Sidecars", ResourceCatalog.Dapr),
-      Special(ResourceCatalog.DaprControlPlaneId, "Control plane", ResourceCatalog.Dapr)
+      Special(ResourceCatalog.DaprControlPlaneId, "Control plane", ResourceCatalog.Dapr),
+      Special(ResourceCatalog.S3BrowserId, "S3 Browser", ResourceCatalog.Longhorn)
     };
 
     items.AddRange(descriptors.Select(d => new NavigatorItem {

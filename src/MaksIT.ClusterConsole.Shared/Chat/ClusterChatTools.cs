@@ -64,11 +64,27 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       "apply_manifest",
       "Apply one YAML manifest. Status and server metadata are stripped before apply.",
       ObjectSchema(
-        ("yaml", "Full YAML document for one object", true)))
+        ("yaml", "Full YAML document for one object", true))),
+    Tool(
+      "detach_longhorn_volume",
+      "Detach a Longhorn volume. Use this on a degraded or faulted leftover, including one left by a backup, before attaching the new volume. namespace is the Longhorn volume namespace, usually longhorn-system. Set force to true when a normal detach leaves the volume attached.",
+      ObjectSchema(
+        ("name", "Longhorn volume name", true),
+        ("namespace", "Longhorn volume namespace. Defaults to longhorn-system.", false),
+        ("force", "true to drop every attachment ticket, including a CSI ticket. Default false.", false))),
+    Tool(
+      "attach_longhorn_volume",
+      "Attach a detached Longhorn volume to a Ready Longhorn node. Detach a degraded leftover for the same PVC, or the volume this one was restored from, first. Do not delete the new volume.",
+      ObjectSchema(
+        ("name", "Longhorn volume name", true),
+        ("node", "Ready Longhorn node name", true),
+        ("namespace", "Longhorn volume namespace. Defaults to longhorn-system.", false),
+        ("disableFrontend", "true for maintenance attach. Required for ReadWriteMany. Default false.", false)))
   ];
 
   public static bool IsMutating(string name) =>
-    name is "restart_workload" or "delete_pod" or "scale_workload" or "apply_manifest";
+    name is "restart_workload" or "delete_pod" or "scale_workload" or "apply_manifest"
+      or "attach_longhorn_volume" or "detach_longhorn_volume";
 
   public static JsonObject? PrepareManifest(string yaml) {
     var document = YamlFormatter.ToJsonObject(yaml);
@@ -87,6 +103,8 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       "delete_pod" => $"Delete Pod/{resourceName}{where}. The controller can recreate it.",
       "scale_workload" => $"Scale {kind}/{resourceName}{where} to {Arg(args, "replicas") ?? "?"} replicas.",
       "apply_manifest" => DescribeManifest(args),
+      "detach_longhorn_volume" => $"Detach Longhorn volume {resourceName}{where}.",
+      "attach_longhorn_volume" => $"Attach Longhorn volume {resourceName}{where} to {Arg(args, "node") ?? "?"}.",
       _ => name
     };
   }
@@ -94,6 +112,12 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
   public string ChangePreview(string name, JsonObject args) {
     if (name == "scale_workload" && TryReplicas(args, out var replicas, out _))
       return $"replicas: {replicas}";
+
+    if (name == "attach_longhorn_volume")
+      return "node: " + (Arg(args, "node") ?? "");
+
+    if (name == "detach_longhorn_volume")
+      return "force: " + (Arg(args, "force") ?? "false");
 
     if (name != "apply_manifest")
       return "";
@@ -134,6 +158,8 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
       "delete_pod" => await DeletePodAsync(args, context, cancellationToken).ConfigureAwait(false),
       "scale_workload" => await ScaleWorkloadAsync(args, context, cancellationToken).ConfigureAwait(false),
       "apply_manifest" => await ApplyManifestAsync(args, cancellationToken).ConfigureAwait(false),
+      "detach_longhorn_volume" => await DetachLonghornAsync(args, cancellationToken).ConfigureAwait(false),
+      "attach_longhorn_volume" => await AttachLonghornAsync(args, cancellationToken).ConfigureAwait(false),
       _ => $"Unknown tool '{name}'."
     };
 
@@ -396,6 +422,53 @@ public sealed class ClusterChatTools(ClusterWorkspace workspace) {
     var where = string.IsNullOrWhiteSpace(ns) ? "" : $" in {ns}";
 
     return $"Apply {kind}/{name}{where}.";
+  }
+
+  private async Task<string> DetachLonghornAsync(JsonObject args, CancellationToken cancellationToken) {
+    if (workspace.Session is null)
+      return "Not connected.";
+
+    var name = Arg(args, "name");
+
+    if (string.IsNullOrWhiteSpace(name))
+      return "name is required.";
+
+    var ns = Arg(args, "namespace");
+
+    if (string.IsNullOrWhiteSpace(ns))
+      ns = "longhorn-system";
+
+    var force = string.Equals(Arg(args, "force"), "true", StringComparison.OrdinalIgnoreCase);
+    var result = await workspace.Session.DetachLonghornVolumeAsync(name, ns, force, cancellationToken)
+      .ConfigureAwait(false);
+
+    return result.IsSuccess
+      ? $"Detached Longhorn volume {name}."
+      : string.Join("; ", result.Messages);
+  }
+
+  private async Task<string> AttachLonghornAsync(JsonObject args, CancellationToken cancellationToken) {
+    if (workspace.Session is null)
+      return "Not connected.";
+
+    var name = Arg(args, "name");
+    var node = Arg(args, "node");
+
+    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(node))
+      return "name and node are required. node must be a Ready Longhorn node.";
+
+    var ns = Arg(args, "namespace");
+
+    if (string.IsNullOrWhiteSpace(ns))
+      ns = "longhorn-system";
+
+    var disable = string.Equals(Arg(args, "disableFrontend"), "true", StringComparison.OrdinalIgnoreCase);
+    var result = await workspace.Session.AttachLonghornVolumeAsync(name, ns, node, disable, cancellationToken)
+      .ConfigureAwait(false);
+
+    return result.IsSuccess
+      ? $"Attached Longhorn volume {name} to {node}."
+      : string.Join("; ", result.Messages);
   }
 
   private static bool TryReplicas(JsonObject args, out int replicas, out string error) {

@@ -12,6 +12,7 @@ YAML
 Helm
 Dapr
 local Ollama
+Longhorn
 ```
 
 The listing description is in [description.md](description.md). Product features are in [product-features.md](product-features.md).

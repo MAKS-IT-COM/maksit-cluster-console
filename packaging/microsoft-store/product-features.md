@@ -12,12 +12,13 @@ Short summaries of the product's key features. The Store shows them as a bullete
 - Browse, edit, download, and upload files on a persistent volume or claim. Double-click a PV or PVC row to open the file browser.
 - Open Dapr from the navigator: components, configurations, subscriptions, resiliency, HTTP endpoints, sidecars, and the control plane.
 - Save port forwards, restore them on reconnect, and retarget a running pod. Double-click an active forward to open it in the browser. Rebind changes the local port.
-- Add a kubeconfig context with a token, client certificate, pasted k3s data, or a username and password. Several clusters can stay connected here while kubectl keeps one current-context.
+- Cloud adds Google, Azure, Amazon, Oracle, DigitalOcean, or IBM by running that CLI. Add takes a token or certificate. Several clusters stay connected. kubectl keeps one current-context.
 - Browse cluster, nodes, workloads, config, network, storage, namespaces, events, Helm, Dapr, access control, and custom resources. Longhorn and CloudNativePG appear when those APIs are installed.
 - The open table watches the API. A label selector is sent with the list. Search filters loaded rows. Filters and sort stay per cluster. Shift or Ctrl selection runs a footer action on the selection.
 - View, apply, create, and delete resource YAML, including force delete. If the API server rejects an apply patch, apply falls back to create or replace. JSON and YAML highlighting follows the document.
 - Scale and restart workloads. Pause, resume, and undo a Deployment. Trigger a CronJob. Cordon and Drain stay hidden unless another Ready node remains. When AI is on, drain adds a short note.
 - Resize a persistent volume claim. Change reclaim policy on a storage class and its volumes. The Images tab marks cached node images Used or Unused.
+- Longhorn S3 Browser opens the backup target and other S3 targets. List buckets, upload and download, rename, copy, delete, and edit a small text file. A backup bucket cannot be deleted.
 - ConfigMaps and Secrets have a Data tab with keys, a decoded preview, and apply. A Service status is Active, Pending, or Unreachable.
 - Approve or deny a certificate signing request. Create a ServiceAccount token and show it once.
 - Custom resource tables use extra columns from the CRD additionalPrinterColumns. Hint explains the kind on screen.

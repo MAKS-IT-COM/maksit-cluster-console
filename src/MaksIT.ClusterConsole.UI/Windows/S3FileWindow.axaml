@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:editor="using:MaksIT.ClusterConsole.UI.Controls.Editor"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.S3FileWindow"
+        x:DataType="vm:S3FileViewModel"
+        Title="{Binding Key}"
+        Icon="/Assets/icon.ico"
+        Width="840"
+        Height="640"
+        MinWidth="520"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Key}"
+               FontSize="18"
+               FontWeight="SemiBold"
+               TextTrimming="CharacterEllipsis"
+               Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding Status}"
+               Classes="hint"
+               TextWrapping="Wrap"
+               Margin="0,8,0,0" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <editor:SyntaxTextEditor Text="{Binding Text}"
+                             FileName="{Binding FileName}" />
+  </DockPanel>
+</Window>

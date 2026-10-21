@@ -25,8 +25,12 @@ public static class JsonPath {
     if (path == "pv.claim")
       return VolumeClaim(root as JsonObject);
 
-    if (path == "longhorn.size")
-      return LonghornSize(root as JsonObject);
+    if (path.StartsWith("longhorn.backup.", StringComparison.Ordinal))
+      return LonghornBackup.Column(root as JsonObject, path);
+
+    if (path.StartsWith("longhorn.", StringComparison.Ordinal)
+        && path is not "longhorn.scheduling" and not "longhorn.disks")
+      return LonghornVolume.Column(root as JsonObject, path);
 
     if (path == "longhorn.scheduling")
       return LonghornScheduling(root as JsonObject);
@@ -416,12 +420,6 @@ public static class JsonPath {
       .ToList();
 
     return roles.Count == 0 ? "worker" : string.Join(",", roles);
-  }
-
-  private static string LonghornSize(JsonObject? item) {
-    var bytes = ReadBytes(item?["spec"]?["size"]);
-
-    return bytes <= 0 ? "" : KubeQuantity.FormatBytesCompact(bytes);
   }
 
   private static string LonghornScheduling(JsonObject? item) {

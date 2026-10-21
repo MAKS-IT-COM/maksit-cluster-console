@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.S3TargetWindow"
+        x:DataType="vm:S3TargetViewModel"
+        Title="{Binding Heading}"
+        Icon="/Assets/icon.ico"
+        Width="560"
+        Height="720"
+        MinWidth="480"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Heading}"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding SecretHint}"
+               Classes="hint"
+               TextWrapping="Wrap"
+               Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Bottom"
+               Text="{Binding Error}"
+               Classes="warning"
+               TextWrapping="Wrap"
+               Margin="0,8,0,0" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+        <TextBlock Text="Name" />
+        <TextBox Text="{Binding Name}" IsEnabled="{Binding NameEnabled}" />
+        <TextBlock Text="Bucket" />
+        <TextBox Text="{Binding Bucket}" />
+        <TextBlock Text="Region" />
+        <TextBox Text="{Binding Region}" />
+        <TextBlock Text="Path in the bucket" />
+        <TextBox Text="{Binding Prefix}" PlaceholderText="Optional folder, such as longhorn" />
+        <TextBlock Text="Endpoint" />
+        <TextBox Text="{Binding Endpoint}" PlaceholderText="Empty for Amazon S3. http://s3.example:9000 for MinIO or MaksIT S3" />
+        <CheckBox Content="Path-style URLs"
+                  IsChecked="{Binding PathStyle}" />
+        <TextBlock Classes="hint"
+                   TextWrapping="Wrap"
+                   Text="Turn path-style on for MinIO and MaksIT S3. Leave it off for Amazon S3. Several endpoints are separated by commas, and the browser uses the first." />
+        <TextBlock Text="Access key" />
+        <TextBox Text="{Binding AccessKey}" />
+        <TextBlock Text="Secret key" />
+        <TextBox Text="{Binding SecretKey}" PasswordChar="*" />
+        <TextBlock Text="Certificate" />
+        <TextBox Text="{Binding Certificate}"
+                 AcceptsReturn="True"
+                 Height="90"
+                 TextWrapping="Wrap"
+                 PlaceholderText="Optional PEM for a private HTTPS endpoint" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

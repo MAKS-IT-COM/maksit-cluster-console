@@ -9,6 +9,7 @@ using MaksIT.Core.UI.Snapshots;
 using MaksIT.ClusterConsole.UI.Windows;
 using MaksIT.ClusterConsole.UI.ViewModels.Shell;
 using MaksIT.ClusterConsole.UI.ViewModels.Cluster;
+using MaksIT.ClusterConsole.UI.ViewModels.Connections;
 using MaksIT.ClusterConsole.UI.ViewModels.Storage;
 
 
@@ -32,6 +33,12 @@ internal static class ScreenshotTour {
         if (string.Equals(view, ScreenshotTourOptions.WelcomeView, StringComparison.OrdinalIgnoreCase)) {
           await AppViewSnapshot.SettleAsync(options.SettleMilliseconds);
           manifest.Shots.Add(Capture(window, options, ScreenshotTourOptions.WelcomeView, manifest, saveCatalog: !connected));
+
+          continue;
+        }
+
+        if (string.Equals(view, "cloud", StringComparison.OrdinalIgnoreCase)) {
+          await CaptureCloudAsync(window, model, options, manifest);
 
           continue;
         }
@@ -123,6 +130,7 @@ internal static class ScreenshotTour {
     ScreenshotTourOptions options,
     Manifest manifest) {
     await CaptureToolWindowAsync(window, options, manifest, "connections", new ConnectionsWindow(model.CreateConnectionsViewModel()));
+    await CaptureCloudAsync(window, model, options, manifest);
     await CaptureToolWindowAsync(window, options, manifest, "ai-settings", new AiSettingsWindow(model.CreateAiSettingsViewModel()));
 
     var page = model.ActivePage;
@@ -323,6 +331,21 @@ internal static class ScreenshotTour {
 
     manifest.Shots.Add(CaptureWindow(files, options, "volume-files"));
     files.Close();
+  }
+
+  private static Task CaptureCloudAsync(
+    Window window,
+    MainViewModel model,
+    ScreenshotTourOptions options,
+    Manifest manifest) {
+    var connections = model.CreateConnectionsViewModel();
+
+    return CaptureToolWindowAsync(
+      window,
+      options,
+      manifest,
+      "cloud",
+      new CloudConnectionWindow(new CloudConnectionViewModel(connections.KubeConfigPath)));
   }
 
   private static async Task CaptureToolWindowAsync(

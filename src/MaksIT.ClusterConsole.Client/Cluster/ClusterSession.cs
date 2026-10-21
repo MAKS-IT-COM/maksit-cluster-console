@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.IO.Compression;
 using System.Text.Json.Nodes;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using k8s;
 using k8s.Models;
@@ -13,6 +14,8 @@ using MaksIT.ClusterConsole.Client.KubeConfig;
 namespace MaksIT.ClusterConsole.Client.Cluster;
 
 public sealed partial class ClusterSession : IClusterSession {
+  private static readonly ConcurrentDictionary<string, SemaphoreSlim> _triggerGates = new(StringComparer.Ordinal);
+
   private readonly Kubernetes _client;
 
   public ClusterSession(string contextName, KubernetesClientConfiguration configuration) {
@@ -737,8 +740,16 @@ public sealed partial class ClusterSession : IClusterSession {
   }
 
   public async Task<Result> TriggerCronJobAsync(string name, string @namespace, CancellationToken cancellationToken = default) {
+    var gate = TriggerGate(ContextName, @namespace, name);
+    await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
     try {
       var cron = await _client.BatchV1.ReadNamespacedCronJobAsync(name, @namespace, cancellationToken: cancellationToken).ConfigureAwait(false);
+      var jobs = await _client.BatchV1.ListNamespacedJobAsync(@namespace, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+      if (jobs.Items is not null && jobs.Items.Any(job => CronJobRun.IsInProgress(job, name)))
+        return Result.Conflict("A run is already in progress.");
+
       var job = new V1Job {
         Metadata = new V1ObjectMeta {
           Name = $"{name}-manual-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
@@ -761,7 +772,13 @@ public sealed partial class ClusterSession : IClusterSession {
     catch (Exception ex) {
       return KubernetesResult.Map(ex);
     }
+    finally {
+      gate.Release();
+    }
   }
+
+  private static SemaphoreSlim TriggerGate(string context, string ns, string name) =>
+    _triggerGates.GetOrAdd(context + "\n" + ns + "\n" + name, static _ => new SemaphoreSlim(1, 1));
 
   public void Dispose() => _client.Dispose();
 

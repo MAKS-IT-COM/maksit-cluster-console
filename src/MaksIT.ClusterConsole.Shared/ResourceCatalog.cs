@@ -27,7 +27,10 @@ public static class ResourceCatalog {
   public const string HelmChartsId = "helm-charts";
   public const string HelmReleasesId = "helm-releases";
   public const string LonghornVolumesId = "longhorn-volumes";
+  public const string LonghornBackupsId = "longhorn-backups";
+  public const string LonghornBackupJobsId = "longhorn-backup-jobs";
   public const string LonghornNodesId = "longhorn-nodes";
+  public const string S3BrowserId = "s3-browser";
   public const string CnpgClustersId = "cnpg-clusters";
   public const string DaprSidecarsId = "dapr-sidecars";
   public const string DaprControlPlaneId = "dapr-control-plane";
@@ -365,14 +368,41 @@ public static class ResourceCatalog {
       D("volumeattributesclasses", "Volume Attributes Classes", Storage, "storage.k8s.io", "v1", "volumeattributesclasses", "VolumeAttributesClass", false, named, crud, yamlTabs),
       D(LonghornVolumesId, "Volumes", Longhorn, "longhorn.io", "v1beta2", "volumes", "Volume", true,
         [
+          new("State", "longhorn.state"),
           new("Name", "metadata.name"),
-          new("Namespace", "metadata.namespace"),
-          new("State", "status.state"),
-          new("Robustness", "status.robustness"),
-          new("Replicas", "spec.numberOfReplicas"),
-          new("Node", "status.currentNodeID"),
           new("Size", "longhorn.size"),
-          new("Age", "metadata.creationTimestamp")
+          new("Actual Size", "longhorn.actualSize"),
+          new("Created", "longhorn.created"),
+          new("Data Engine", "longhorn.dataEngine"),
+          new("PV/PVC", "longhorn.pv"),
+          new("Namespace", "longhorn.workloadNamespace"),
+          new("Volume", "longhorn.volumeName"),
+          new("Node", "longhorn.node"),
+          new("Schedule", "longhorn.schedule"),
+          new("Last Backup At", "longhorn.lastBackupAt")
+        ],
+        new ResourceActions(CanVolumeAttach: true, CanVolumeDetach: true),
+        yamlTabs),
+      D(LonghornBackupsId, "Backups", Longhorn, "longhorn.io", "v1beta2", "backupvolumes", "BackupVolume", true,
+        [
+          new("State", "longhorn.backup.state"),
+          new("Volume", "longhorn.backup.volume"),
+          new("Last Backup", "longhorn.backup.last"),
+          new("Last Backup At", "longhorn.backup.lastAt"),
+          new("Created", "longhorn.backup.created"),
+          new("Size", "longhorn.backup.size"),
+          new("Target", "longhorn.backup.target")
+        ],
+        crud, yamlTabs),
+      D(LonghornBackupJobsId, "Recurring jobs", Longhorn, "longhorn.io", "v1beta2", "recurringjobs", "RecurringJob", true,
+        [
+          new("State", "longhorn.backup.runState"),
+          new("Name", "metadata.name"),
+          new("Task", "longhorn.backup.task"),
+          new("Schedule", "longhorn.backup.schedule"),
+          new("Last Successful Run", "longhorn.backup.lastSuccess"),
+          new("Retain", "longhorn.backup.retain"),
+          new("Groups", "longhorn.backup.groups")
         ],
         crud, yamlTabs),
       D(LonghornNodesId, "Nodes", Longhorn, "longhorn.io", "v1beta2", "nodes", "Node", true,

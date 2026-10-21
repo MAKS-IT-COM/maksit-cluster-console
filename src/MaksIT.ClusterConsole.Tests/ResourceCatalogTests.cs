@@ -84,6 +84,18 @@ public class ResourceCatalogTests {
   }
 
   [Fact]
+  public void S3_browser_is_a_longhorn_navigator_page() {
+    var workspace = new ClusterWorkspace();
+    var item = Assert.Single(workspace.Navigator, n => n.Id == ResourceCatalog.S3BrowserId);
+
+    Assert.Equal("S3 Browser", item.Title);
+    Assert.Equal(ResourceCatalog.Longhorn, item.Section);
+    Assert.True(item.IsSpecial);
+    Assert.Null(item.Descriptor);
+    Assert.Null(ResourceCatalog.Find(ResourceCatalog.S3BrowserId));
+  }
+
+  [Fact]
   public void PortForwardRow_maps_handle_into_table_cells() {
     using var handle = new PortForwardHandle("web-1", "apps", 8080, 18080, Stream.Null);
     var row = PortForwardRow.From(handle, "pf-1");

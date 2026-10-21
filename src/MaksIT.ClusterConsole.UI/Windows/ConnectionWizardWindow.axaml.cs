@@ -80,4 +80,6 @@ public partial class ConnectionWizardWindow : Window {
     ];
 }
 
-public sealed record KubeConnectionRequestResult(MaksIT.ClusterConsole.Client.KubeConfig.KubeConnectionRequest Request);
+public sealed record KubeConnectionRequestResult(
+  MaksIT.ClusterConsole.Client.KubeConfig.KubeConnectionRequest? Request,
+  string? Note = null);

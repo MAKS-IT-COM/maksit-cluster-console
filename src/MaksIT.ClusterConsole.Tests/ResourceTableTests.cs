@@ -22,6 +22,10 @@ public class ResourceTableTests {
   [InlineData("Succeeded", ResourceStatusTone.Info)]
   [InlineData("Bound", ResourceStatusTone.Info)]
   [InlineData("Resolved", ResourceStatusTone.Info)]
+  [InlineData("attached", ResourceStatusTone.Healthy)]
+  [InlineData("attached · degraded", ResourceStatusTone.Warning)]
+  [InlineData("attached · faulted", ResourceStatusTone.Error)]
+  [InlineData("detached", ResourceStatusTone.Muted)]
   public void Status_tone_matches_kubernetes_phase(string status, ResourceStatusTone tone) =>
     Assert.Equal(tone, ResourceStatusPaint.Tone(status));
 

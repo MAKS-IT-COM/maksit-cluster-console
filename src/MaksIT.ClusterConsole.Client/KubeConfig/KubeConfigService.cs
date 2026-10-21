@@ -255,6 +255,18 @@ public sealed class KubeConfigService : IKubeConfigService {
       return null;
     }
 
+    if (request.AuthKind == KubeAuthKind.Exec) {
+      if (string.IsNullOrWhiteSpace(request.ExecCommand))
+        return "Exec command is required.";
+
+      var preset = CloudExecPreset.Find(request.ExecPreset);
+
+      if (preset?.ArgumentRequired == true && string.IsNullOrWhiteSpace(request.ExecArgument))
+        return preset.ArgumentLabel + " is required.";
+
+      return null;
+    }
+
     return "Unknown auth type.";
   }
 }

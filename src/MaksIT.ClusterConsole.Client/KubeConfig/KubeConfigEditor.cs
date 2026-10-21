@@ -277,6 +277,8 @@ internal static class KubeConfigEditor {
   }
 
   private static void ApplyCredentials(UserCredentials creds, KubeConnectionRequest request) {
+    ClearCredentials(creds);
+
     if (request.AuthKind == KubeAuthKind.Cert) {
       ApplyClientCert(creds, request);
 
@@ -286,9 +288,6 @@ internal static class KubeConfigEditor {
     if (request.AuthKind == KubeAuthKind.K3sData) {
       creds.ClientCertificateData = NormalizeData(request.ClientCertData ?? "");
       creds.ClientKeyData = NormalizeData(request.ClientKeyData ?? "");
-      creds.ClientCertificate = null;
-      creds.ClientKey = null;
-      creds.Token = null;
 
       return;
     }
@@ -296,12 +295,36 @@ internal static class KubeConfigEditor {
     if (request.AuthKind == KubeAuthKind.Basic) {
       creds.UserName = request.BasicUser;
       creds.Password = request.BasicPassword;
-      creds.Token = null;
+
+      return;
+    }
+
+    if (request.AuthKind == KubeAuthKind.Exec) {
+      var preset = CloudExecPreset.Find(request.ExecPreset) ?? CloudExecPreset.Custom;
+      creds.ExternalExecution = new ExternalExecution {
+        ApiVersion = "client.authentication.k8s.io/v1beta1",
+        Command = request.ExecCommand,
+        Arguments = preset.Arguments(request.ExecArgument),
+        ProvideClusterInfo = request.ExecProvideClusterInfo,
+        InstallHint = request.ExecInstallHint ?? ""
+      };
 
       return;
     }
 
     creds.Token = request.Token;
+  }
+
+  private static void ClearCredentials(UserCredentials creds) {
+    creds.Token = null;
+    creds.UserName = null;
+    creds.Password = null;
+    creds.ClientCertificate = null;
+    creds.ClientCertificateData = null;
+    creds.ClientKey = null;
+    creds.ClientKeyData = null;
+    creds.AuthProvider = null;
+    creds.ExternalExecution = null;
   }
 
   private static void ApplyClientCert(UserCredentials creds, KubeConnectionRequest request) {
@@ -380,6 +403,9 @@ internal static class KubeConfigEditor {
 
     if (!string.IsNullOrWhiteSpace(creds.UserName))
       return "Auth: basic (username: " + creds.UserName + ")";
+
+    if (creds.ExternalExecution is { } exec && !string.IsNullOrWhiteSpace(exec.Command))
+      return "Auth: exec " + exec.Command;
 
     if (creds.ExternalExecution is not null)
       return "Auth: exec plugin";

@@ -74,7 +74,7 @@ public partial class ClusterPageViewModel {
       items.Add(Action("Drain", DrainCommand));
 
     if (CanTrigger)
-      items.Add(Action("Trigger", TriggerCronCommand));
+      items.Add(Action("Trigger", TriggerCronCommand, "Create a job from this schedule. A run already in progress is left as it is."));
 
     if (CanResize)
       items.Add(ResizeGroup());
@@ -99,6 +99,24 @@ public partial class ClusterPageViewModel {
 
     if (CanAttach)
       items.Add(Action("Attach", AttachCommand));
+
+    if (CanAttachVolume)
+      items.Add(Action("Attach", AttachVolumeCommand, "Attach the volume to a Longhorn node"));
+
+    if (CanDetachVolume)
+      items.Add(Action("Detach", DetachVolumeCommand, "Detach the volume from its node"));
+
+    if (CanScheduleBackup)
+      items.Add(Action("Schedule backup…", ScheduleBackupCommand, "Create or assign a periodic backup job"));
+
+    if (CanCreateBackupJob)
+      items.Add(Action("New job…", CreateBackupJobCommand, "Define a recurring job"));
+
+    if (CanEditBackupJob)
+      items.Add(Action("Edit…", EditBackupJobCommand, "Change the task, schedule, or how many copies to keep"));
+
+    if (CanRunBackupJob)
+      items.Add(Action("Run now", RunBackupJobCommand, "Start this recurring job immediately. A run already in progress is left as it is."));
 
     if (CanDebug)
       items.Add(DebugGroup());

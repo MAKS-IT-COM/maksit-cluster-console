@@ -191,4 +191,23 @@ public interface IClusterSession : IDisposable {
     IReadOnlyList<string> names,
     string policy,
     CancellationToken cancellationToken = default);
+
+  Task<Result> AttachLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    string nodeId,
+    bool disableFrontend,
+    CancellationToken cancellationToken = default);
+
+  Task<Result> DetachLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    bool force,
+    CancellationToken cancellationToken = default);
+
+  Task<Result> PatchLonghornVolumeAsync(
+    string name,
+    string @namespace,
+    string mergePatchJson,
+    CancellationToken cancellationToken = default);
 }

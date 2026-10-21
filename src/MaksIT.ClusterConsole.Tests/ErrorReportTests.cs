@@ -35,6 +35,20 @@ public class ErrorReportTests {
   }
 
   [Fact]
+  public void Truncated_settings_reload_is_not_a_crash() {
+    var parse = new FormatException("Could not parse the JSON file.");
+    var invalid = new InvalidDataException(
+      "Failed to load configuration from file 'C:\\Users\\maksym\\AppData\\Roaming\\MaksIT\\Cluster Console\\settings.json'.",
+      parse);
+    var aggregate = new AggregateException(
+      "A Task's exception(s) were not observed either by Waiting on the Task or accessing its Exception property.",
+      invalid);
+
+    Assert.True(ErrorReport.IsConfigurationReloadFailure(aggregate));
+    Assert.False(ErrorReport.IsConfigurationReloadFailure(new InvalidOperationException("boom")));
+  }
+
+  [Fact]
   public void Other_unobserved_exceptions_stay_reportable() {
     var aggregate = new AggregateException(new InvalidOperationException("boom"));
 

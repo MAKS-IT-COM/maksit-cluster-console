@@ -33,6 +33,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private bool _syncingNamespace;
   private bool _syncingLayout;
   private readonly List<ResourceRow> _listedRows = [];
+  private readonly Dictionary<string, RecurringRun> _recurringRuns = new(StringComparer.Ordinal);
   private readonly Dictionary<string, ColumnFilterViewModel> _columnFilters = new(StringComparer.Ordinal);
   private JsonObject? _editDocument;
   private string? _detailsUid;
@@ -43,6 +44,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private IReadOnlyList<ResourceRow> _selectedRows = [];
   private bool _syncingSelection;
   private Task _detailsLoad = Task.CompletedTask;
+  private S3BrowserViewModel? _s3Browser;
+  private bool _s3Ready;
 
   public ClusterPageViewModel(
     KubeContextInfo context,
@@ -210,6 +213,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public event Action<VolumeFilesViewModel>? VolumeFilesRequested;
 
+  public S3BrowserViewModel? S3Browser =>
+    _s3Browser;
+
   public bool CanLogs => HasDetailTab(DetailTab.Logs);
 
   public bool CanExec => HasDetailTab(DetailTab.Terminal);
@@ -247,6 +253,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public Func<DrainConfirmViewModel, Task<bool>>? ConfirmDrain { get; set; }
 
+  public Func<LonghornAttachViewModel, Task<bool>>? ConfirmLonghornAttach { get; set; }
+
+  public Func<LonghornDetachViewModel, Task<bool>>? ConfirmLonghornDetach { get; set; }
+
+  public Func<LonghornBackupJobViewModel, Task<bool>>? ConfirmLonghornBackupJob { get; set; }
+
   public bool CanRollout =>
     HasSelectedRow && SelectedDescriptor?.Actions.CanRollout == true;
 
@@ -258,6 +270,28 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   public bool CanAttach =>
     HasSelectedRow && (SelectedDescriptor?.Actions.CanAttach == true || IsPodSelection);
+
+  public bool CanAttachVolume =>
+    HasSelectedRow
+    && SelectedDescriptor?.Actions.CanVolumeAttach == true
+    && ActionTargets.Any(row => LonghornVolume.CanAttach(row.Document));
+
+  public bool CanDetachVolume =>
+    HasSelectedRow
+    && SelectedDescriptor?.Actions.CanVolumeDetach == true
+    && ActionTargets.Any(row => LonghornVolume.CanDetach(row.Document));
+
+  public bool CanScheduleBackup =>
+    SelectedDescriptor?.Id == ResourceCatalog.LonghornVolumesId && ActionTargets.Count > 0;
+
+  public bool CanCreateBackupJob =>
+    SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId;
+
+  public bool CanEditBackupJob =>
+    SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId && ActionTargets.Count == 1;
+
+  public bool CanRunBackupJob =>
+    SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId && ActionTargets.Count > 0;
 
   public bool CanDebug =>
     HasSelectedRow && (SelectedDescriptor?.Actions.CanDebug == true || IsPodSelection);
@@ -333,8 +367,14 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   public bool IsWorkloadsDashboard =>
     SelectedNavItem?.Id == ResourceCatalog.WorkloadsOverviewId;
 
+  public bool IsS3Browser =>
+    SelectedNavItem?.Id == ResourceCatalog.S3BrowserId;
+
+  public bool ShowsResourceSearch =>
+    !IsClusterDashboard && !IsS3Browser;
+
   public bool IsResourceTable =>
-    SelectedNavItem is not null && !IsClusterDashboard && !IsWorkloadsDashboard;
+    SelectedNavItem is not null && !IsClusterDashboard && !IsWorkloadsDashboard && !IsS3Browser;
 
   public string ShoulderTitle => SelectedNavItem?.Title ?? "";
 
@@ -448,6 +488,7 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     Logs.Cancel();
     Terminal.Close();
     Chat.Cancel();
+    _s3Browser?.Cancel();
     Overview.Detach();
 
     foreach (var pf in PortForwards.ToList())
@@ -556,6 +597,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     NotifyActionFlags();
     OnPropertyChanged(nameof(IsClusterDashboard));
     OnPropertyChanged(nameof(IsWorkloadsDashboard));
+    OnPropertyChanged(nameof(IsS3Browser));
+    OnPropertyChanged(nameof(ShowsResourceSearch));
     OnPropertyChanged(nameof(IsResourceTable));
     OnPropertyChanged(nameof(ShoulderTitle));
     OnPropertyChanged(nameof(ShoulderRailText));
@@ -662,6 +705,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     StopWatch();
 
     try {
+      if (SelectedNavItem.Id == ResourceCatalog.S3BrowserId) {
+        await OpenS3BrowserAsync();
+        _setStatus($"S3 Browser · {Name}");
+
+        return;
+      }
+
       await Overview.SampleAsync();
 
       if (SelectedNavItem.Id == ResourceCatalog.OverviewId) {
@@ -703,6 +753,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
       _listedRows.AddRange(listed.Value ?? []);
 
+      if (SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId)
+        await StampRecurringRunsAsync();
+
       foreach (var column in SelectedDescriptor?.Columns ?? [])
         FilterFor(column.Header).LoadValues(_listedRows);
 
@@ -715,6 +768,8 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       OnPropertyChanged(nameof(IsDataEditor));
       OnPropertyChanged(nameof(IsClusterDashboard));
       OnPropertyChanged(nameof(IsWorkloadsDashboard));
+      OnPropertyChanged(nameof(IsS3Browser));
+      OnPropertyChanged(nameof(ShowsResourceSearch));
       OnPropertyChanged(nameof(IsResourceTable));
     }
     finally {
@@ -814,6 +869,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private async Task DeleteAsync() {
+    if (SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId) {
+      await DeleteBackupJobsAsync(force: false);
+
+      return;
+    }
+
     var resource = SelectedResourceRef();
 
     if (resource is null || resource.Actions.CanDelete == false)
@@ -837,6 +898,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   [RelayCommand]
   private async Task ForceDeleteAsync() {
+    if (SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId) {
+      await DeleteBackupJobsAsync(force: true);
+
+      return;
+    }
+
     var resource = SelectedResourceRef();
 
     if (resource is null || resource.Actions.CanDelete == false)
@@ -1069,6 +1136,355 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     SelectedTab = DetailTab.Overview;
     _setStatus("Service account token created. It is shown once in the details pane.");
     OverviewText = "Token (shown once):\n" + token.Value;
+  }
+
+  [RelayCommand]
+  private async Task AttachVolumeAsync() {
+    if (_workspace.Session is null)
+      return;
+
+    var targets = ActionTargets.Where(row => LonghornVolume.CanAttach(row.Document)).ToList();
+
+    if (targets.Count == 0) {
+      _setStatus("The selected volume is already attached.");
+
+      return;
+    }
+
+    var listed = await _workspace.Session.ListAsync(
+      ResourceCatalog.Find(ResourceCatalog.LonghornNodesId)!.ToRef(),
+      Configuration.AllNamespaces);
+
+    if (!listed.IsSuccess || listed.Value is null) {
+      _setStatus(string.Join("; ", listed.Messages));
+
+      return;
+    }
+
+    var nodes = LonghornVolume.ReadyNodes(listed.Value);
+
+    if (nodes.Count == 0) {
+      _setStatus("No Ready Longhorn node to attach to.");
+
+      return;
+    }
+
+    var maintenance = targets.Any(row => LonghornVolume.MaintenanceAttach(row.Document));
+    var notice = maintenance
+      ? "A ReadWriteMany volume can only be attached manually with the frontend disabled."
+      : "";
+    var dialog = new LonghornAttachViewModel(targets.Select(row => row.Name).ToList(), nodes, maintenance, notice);
+
+    if (ConfirmLonghornAttach is null || !await ConfirmLonghornAttach(dialog)) {
+      _setStatus("Attach cancelled.");
+
+      return;
+    }
+
+    if (string.IsNullOrWhiteSpace(dialog.SelectedNode)) {
+      _setStatus("Select a node.");
+
+      return;
+    }
+
+    var node = dialog.SelectedNode;
+    var disable = dialog.DisableFrontend;
+    var outcome = await ResourceActionBatch.RunAsync(
+      targets,
+      row => _workspace.Session.AttachLonghornVolumeAsync(row.Name, row.Namespace ?? "longhorn-system", node, disable));
+
+    _setStatus(outcome.Format($"Attached to {node}.", $"Attached {outcome.Total} volumes to {node}."));
+    await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task DetachVolumeAsync() {
+    if (_workspace.Session is null)
+      return;
+
+    var targets = ActionTargets.Where(row => LonghornVolume.CanDetach(row.Document)).ToList();
+
+    if (targets.Count == 0) {
+      _setStatus("The selected volume is already detached.");
+
+      return;
+    }
+
+    var warnings = targets
+      .Select(row => LonghornVolume.PodDetachWarning(row.Document))
+      .Where(warning => !string.IsNullOrWhiteSpace(warning))
+      .ToList();
+    var dialog = new LonghornDetachViewModel(targets.Select(row => row.Name).ToList(), string.Join(Environment.NewLine, warnings));
+
+    if (ConfirmLonghornDetach is null || !await ConfirmLonghornDetach(dialog)) {
+      _setStatus("Detach cancelled.");
+
+      return;
+    }
+
+    var force = dialog.ForceDetach;
+    var outcome = await ResourceActionBatch.RunAsync(
+      targets,
+      row => _workspace.Session.DetachLonghornVolumeAsync(row.Name, row.Namespace ?? "longhorn-system", force));
+
+    _setStatus(outcome.Format("Detached.", $"Detached {outcome.Total} volumes."));
+    await RefreshRowsAsync();
+  }
+
+  [RelayCommand]
+  private async Task ScheduleBackupAsync() =>
+    await OpenBackupJobAsync(edit: false);
+
+  [RelayCommand]
+  private async Task CreateBackupJobAsync() =>
+    await OpenBackupJobAsync(edit: false);
+
+  [RelayCommand]
+  private async Task EditBackupJobAsync() =>
+    await OpenBackupJobAsync(edit: true);
+
+  [RelayCommand]
+  private async Task RunBackupJobAsync() {
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.TriggerCronJobAsync(row.Name, row.Namespace ?? "longhorn-system")) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format("Job started.", $"Started {outcome.Total} jobs."));
+    await StampRecurringRunsAsync();
+  }
+
+  private async Task OpenBackupJobAsync(bool edit) {
+    if (_workspace.Session is null)
+      return;
+
+    var jobsListed = await _workspace.Session.ListAsync(
+      ResourceCatalog.Find(ResourceCatalog.LonghornBackupJobsId)!.ToRef(),
+      Configuration.AllNamespaces);
+    var volumesListed = await _workspace.Session.ListAsync(
+      ResourceCatalog.Find(ResourceCatalog.LonghornVolumesId)!.ToRef(),
+      Configuration.AllNamespaces);
+
+    if (!jobsListed.IsSuccess || jobsListed.Value is null || !volumesListed.IsSuccess || volumesListed.Value is null) {
+      _setStatus(string.Join("; ", jobsListed.IsSuccess ? volumesListed.Messages : jobsListed.Messages));
+
+      return;
+    }
+
+    var jobs = jobsListed.Value
+      .GroupBy(JsonPath.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+    var editing = edit ? ActionTargets.FirstOrDefault() : null;
+
+    if (edit && (editing is null || !jobs.ContainsKey(editing.Name))) {
+      _setStatus("Select one recurring job.");
+
+      return;
+    }
+
+    var preselected = edit
+      ? new HashSet<string>(StringComparer.Ordinal)
+      : ActionTargets.Select(row => row.Name).ToHashSet(StringComparer.Ordinal);
+    var volumes = volumesListed.Value
+      .Select(volume => new LonghornBackupVolumeChoice(volume, preselected.Contains(JsonPath.Name(volume))))
+      .OrderBy(volume => volume.Name, StringComparer.Ordinal)
+      .ToList();
+
+    if (editing is not null) {
+      foreach (var volume in volumes)
+        volume.Selected = LonghornBackup.VolumeHasJob(volume.Document, editing.Name);
+    }
+
+    var job = editing is null ? null : jobs[editing.Name];
+    var dialog = new LonghornBackupJobViewModel(
+      chooseJob: editing is null && SelectedDescriptor?.Id == ResourceCatalog.LonghornVolumesId,
+      jobName: editing?.Name,
+      task: job is null ? "backup" : JsonPath.Text(job["spec"]?["task"]),
+      cron: job is null ? LonghornBackup.Daily.Text : JsonPath.Text(job["spec"]?["cron"]),
+      retain: job is null ? 7 : LonghornBackup.RetainOf(job),
+      groups: job is null ? [] : LonghornBackup.GroupsOf(job),
+      concurrency: job is null ? 1 : LonghornBackup.ConcurrencyOf(job),
+      labels: job is null ? new Dictionary<string, string>() : LonghornBackup.MapOf(job, "labels"),
+      parameters: job is null ? new Dictionary<string, string>() : LonghornBackup.MapOf(job, "parameters"),
+      ns: editing?.Namespace ?? "",
+      jobs: jobs,
+      volumes: volumes);
+
+    if (ConfirmLonghornBackupJob is null || !await ConfirmLonghornBackupJob(dialog)) {
+      _setStatus("Recurring job cancelled.");
+
+      return;
+    }
+
+    var saved = await SaveBackupJobAsync(dialog);
+
+    if (!saved)
+      return;
+
+    await RefreshRowsAsync();
+  }
+
+  private async Task<bool> SaveBackupJobAsync(LonghornBackupJobViewModel dialog) {
+    var session = _workspace.Session;
+
+    if (session is null)
+      return false;
+
+    var name = dialog.Name.Trim();
+    var original = dialog.OriginalName;
+    var ns = dialog.JobNamespace();
+    var task = dialog.SelectedTask;
+    var document = LonghornBackup.JobDocument(
+      name,
+      ns,
+      dialog.CronText.Trim(),
+      task?.UsesRetain == false ? 0 : dialog.Retain,
+      LonghornBackup.StoredTask(task?.Id ?? "backup", dialog.ForceCreate),
+      dialog.Groups,
+      task?.UsesConcurrency == false ? 1 : dialog.Concurrency,
+      dialog.Labels,
+      dialog.Parameters());
+    var applied = await session.ApplyAsync(document, ResourceCatalog.Find(ResourceCatalog.LonghornBackupJobsId)!.ToRef());
+
+    if (!applied.IsSuccess) {
+      _setStatus(string.Join("; ", applied.Messages));
+
+      return false;
+    }
+
+    var renaming = original.Length > 0 && !string.Equals(original, name, StringComparison.Ordinal);
+
+    foreach (var volume in dialog.Volumes) {
+      var hasNew = LonghornBackup.VolumeHasJob(volume.Document, name);
+      var hasOld = renaming && LonghornBackup.VolumeHasJob(volume.Document, original);
+
+      if (dialog.AssignsVolumes && volume.Selected && !hasNew) {
+        var enabled = await session.PatchLonghornVolumeAsync(
+          volume.Name,
+          volume.Namespace,
+          LonghornBackup.LabelPatch(hasOld ? original : null, name));
+
+        if (!enabled.IsSuccess) {
+          _setStatus(string.Join("; ", enabled.Messages));
+
+          return false;
+        }
+
+        continue;
+      }
+
+      if (hasOld) {
+        var cleared = await session.PatchLonghornVolumeAsync(volume.Name, volume.Namespace, LonghornBackup.LabelPatch(original, null));
+
+        if (!cleared.IsSuccess) {
+          _setStatus(string.Join("; ", cleared.Messages));
+
+          return false;
+        }
+      }
+
+      if ((!dialog.AssignsVolumes || !volume.Selected) && hasNew) {
+        var cleared = await session.PatchLonghornVolumeAsync(volume.Name, volume.Namespace, LonghornBackup.LabelPatch(name, null));
+
+        if (!cleared.IsSuccess) {
+          _setStatus(string.Join("; ", cleared.Messages));
+
+          return false;
+        }
+      }
+    }
+
+    if (!renaming) {
+      _setStatus("Recurring job saved.");
+
+      return true;
+    }
+
+    var removed = await session.DeleteAsync(
+      ResourceCatalog.Find(ResourceCatalog.LonghornBackupJobsId)!.ToRef(),
+      original,
+      ns);
+
+    if (!removed.IsSuccess) {
+      _setStatus(string.Join("; ", removed.Messages));
+
+      return false;
+    }
+
+    _setStatus("Recurring job renamed.");
+
+    return true;
+  }
+
+  private async Task DeleteBackupJobsAsync(bool force) {
+    if (_workspace.Session is null)
+      return;
+
+    var volumesListed = await _workspace.Session.ListAsync(
+      ResourceCatalog.Find(ResourceCatalog.LonghornVolumesId)!.ToRef(),
+      Configuration.AllNamespaces);
+
+    if (!volumesListed.IsSuccess || volumesListed.Value is null) {
+      _setStatus(string.Join("; ", volumesListed.Messages));
+
+      return;
+    }
+
+    foreach (var job in ActionTargets) {
+      foreach (var volume in volumesListed.Value.Where(volume => LonghornBackup.VolumeHasJob(volume, job.Name))) {
+        var cleared = await _workspace.Session.PatchLonghornVolumeAsync(
+          JsonPath.Name(volume),
+          JsonPath.Namespace(volume) ?? "longhorn-system",
+          LonghornBackup.LabelPatch(job.Name, null));
+
+        if (!cleared.IsSuccess) {
+          _setStatus(string.Join("; ", cleared.Messages));
+
+          return;
+        }
+      }
+    }
+
+    var resource = SelectedResourceRef();
+
+    if (resource is null)
+      return;
+
+    if (await RunOnSelectedAsync(row =>
+          _workspace.Session!.DeleteAsync(resource.ToRef(), row.Name, row.Namespace, force)) is not { } outcome)
+      return;
+
+    _setStatus(outcome.Format("Deleted.", $"Deleted {outcome.Total}."));
+    await RefreshRowsAsync();
+  }
+
+  private async Task StampRecurringRunsAsync() {
+    if (_workspace.Session is null || SelectedDescriptor?.Id != ResourceCatalog.LonghornBackupJobsId)
+      return;
+
+    var cronJobs = await _workspace.Session.ListAsync(ResourceCatalog.Find("cronjobs")!.ToRef(), "longhorn-system");
+    var jobs = await _workspace.Session.ListAsync(ResourceCatalog.Find("jobs")!.ToRef(), "longhorn-system");
+
+    if (!cronJobs.IsSuccess || !jobs.IsSuccess || cronJobs.Value is null || jobs.Value is null)
+      return;
+
+    _recurringRuns.Clear();
+
+    foreach (var pair in LonghornBackup.Runs(cronJobs.Value, jobs.Value))
+      _recurringRuns[pair.Key] = pair.Value;
+
+    foreach (var row in _listedRows)
+      ApplyRecurringRun(row);
+  }
+
+  private void ApplyRecurringRun(ResourceRow row) {
+    if (SelectedDescriptor?.Id != ResourceCatalog.LonghornBackupJobsId)
+      return;
+
+    var run = _recurringRuns.TryGetValue(LonghornBackup.RunKey(row.Namespace, row.Name), out var value)
+      ? value
+      : new RecurringRun("Idle", "", "");
+    row.SetCell("State", run.State, run.Detail);
+    row.SetCell("Last Successful Run", run.LastSuccess);
   }
 
   [RelayCommand]
@@ -1379,6 +1795,22 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
       return;
 
     VolumeFilesRequested?.Invoke(new VolumeFilesViewModel(_workspace, SelectedRow, SelectedDescriptor?.Kind));
+  }
+
+  private async Task OpenS3BrowserAsync() {
+    if (_workspace.Session is null)
+      return;
+
+    if (_s3Browser is null) {
+      _s3Browser = new S3BrowserViewModel(_workspace.Session, "longhorn-system");
+      OnPropertyChanged(nameof(S3Browser));
+    }
+
+    if (_s3Ready)
+      return;
+
+    _s3Ready = true;
+    await _s3Browser.LoadCommand.ExecuteAsync(null);
   }
 
   private void SeedNamespaceColumnFromSelection() {
@@ -2379,6 +2811,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     OnPropertyChanged(nameof(CanApprove));
     OnPropertyChanged(nameof(CanToken));
     OnPropertyChanged(nameof(CanAttach));
+    OnPropertyChanged(nameof(CanAttachVolume));
+    OnPropertyChanged(nameof(CanDetachVolume));
+    OnPropertyChanged(nameof(CanScheduleBackup));
+    OnPropertyChanged(nameof(CanCreateBackupJob));
+    OnPropertyChanged(nameof(CanEditBackupJob));
+    OnPropertyChanged(nameof(CanRunBackupJob));
     OnPropertyChanged(nameof(CanDebug));
     OnPropertyChanged(nameof(CanApply));
     OnPropertyChanged(nameof(CanCreateResource));
@@ -2429,6 +2867,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
 
   private async Task RefreshFromTimerAsync() {
     try {
+      if (!_refreshBusy && SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId)
+        await StampRecurringRunsAsync();
+
       if (_watchHealthy && IsWatchable(SelectedDescriptor)) {
         await Overview.SampleAsync();
 
@@ -2527,10 +2968,12 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         _listedRows.RemoveAt(index);
     }
     else if (index < 0) {
+      ApplyRecurringRun(row);
       _listedRows.Add(row);
     }
     else {
       _listedRows[index].CopyFrom(row);
+      ApplyRecurringRun(_listedRows[index]);
     }
 
     ApplyColumnFilters();

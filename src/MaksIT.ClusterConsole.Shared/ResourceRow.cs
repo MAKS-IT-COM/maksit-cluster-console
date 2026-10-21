@@ -33,6 +33,40 @@ public sealed class ResourceRow : INotifyPropertyChanged {
   public string CellTip(string header) =>
     CellTips.TryGetValue(header, out var value) ? value : string.Empty;
 
+  public void SetCell(string header, string value, string? tip = null) {
+    var cells = new Dictionary<string, string>(Cells, StringComparer.Ordinal) {
+      [header] = value
+    };
+    var cellsChanged = !CellsEqual(Cells, cells);
+    Dictionary<string, string>? tips = null;
+
+    if (tip is not null) {
+      tips = new Dictionary<string, string>(CellTips, StringComparer.Ordinal);
+
+      if (tip.Length == 0)
+        tips.Remove(header);
+      else
+        tips[header] = tip;
+    }
+
+    var tipsChanged = tips is not null && !CellsEqual(CellTips, tips);
+
+    if (!cellsChanged && !tipsChanged)
+      return;
+
+    if (cellsChanged) {
+      Cells = cells;
+      OnPropertyChanged(nameof(Cells));
+      OnPropertyChanged(nameof(Status));
+    }
+
+    if (!tipsChanged || tips is null)
+      return;
+
+    CellTips = tips;
+    OnPropertyChanged(nameof(CellTips));
+  }
+
   public string FormatOverview(IEnumerable<PodContainer>? containers = null) {
     var lines = Cells.Select(kv => $"{kv.Key}: {kv.Value}").ToList();
     var workloads = ApplicationManifest.Workloads(Document);
@@ -115,7 +149,12 @@ public sealed class ResourceRow : INotifyPropertyChanged {
       Name = JsonPath.Name(item),
       Namespace = JsonPath.Namespace(item),
       Document = item,
-      Cells = cells
+      Cells = cells,
+      CellTips = descriptor.Id switch {
+        ResourceCatalog.LonghornVolumesId => LonghornVolume.Tips(item),
+        ResourceCatalog.LonghornBackupsId => LonghornBackup.Tips(item),
+        _ => EmptyCellTips
+      }
     };
   }
 

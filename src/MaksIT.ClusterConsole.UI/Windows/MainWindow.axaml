@@ -184,7 +184,7 @@
                  IsVisible="{Binding !IsClusterOpen}" />
 
       <Grid Name="ContentPane" Grid.Column="4" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsClusterOpen}">
-        <StackPanel Orientation="Horizontal" Margin="10,8" Spacing="8" IsVisible="{Binding !ActivePage.IsClusterDashboard}">
+        <StackPanel Orientation="Horizontal" Margin="10,8" Spacing="8" IsVisible="{Binding ActivePage.ShowsResourceSearch}">
           <TextBox PlaceholderText="Search" Text="{Binding ActivePage.Filter}" MinWidth="180" />
           <TextBox PlaceholderText="Label selector" Text="{Binding ActivePage.LabelSelector}" MinWidth="160" />
           <Button Content="Refresh" Command="{Binding ActivePage.RefreshRowsCommand}" />
@@ -196,7 +196,12 @@
 
         <views:ResourceBrowserView Grid.Row="1" IsVisible="{Binding ActivePage.IsResourceTable}" />
 
+        <Panel Grid.Row="1" IsVisible="{Binding ActivePage.IsS3Browser}">
+          <views:S3BrowserView DataContext="{Binding ActivePage.S3Browser}" />
+        </Panel>
+
         <footer:WindowFooter Grid.Row="2"
+                             IsVisible="{Binding !ActivePage.IsS3Browser}"
                              Items="{Binding ActivePage.FooterItems}"
                              Margin="10,8"
                              Spacing="4" />

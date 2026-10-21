@@ -44,6 +44,9 @@ public partial class MainWindow : Window {
     viewModel.VolumeFilesRequested += OpenVolumeFiles;
     viewModel.ShowRetainReclaim = ShowRetainReclaimAsync;
     viewModel.ShowDrainPreview = ShowDrainPreviewAsync;
+    viewModel.ConfirmLonghornAttach = dialog => LonghornAttachWindow.ShowAsync(this, dialog);
+    viewModel.ConfirmLonghornDetach = dialog => LonghornDetachWindow.ShowAsync(this, dialog);
+    viewModel.ConfirmLonghornBackupJob = dialog => LonghornBackupJobWindow.ShowAsync(this, dialog);
   }
 
   private void OnLogsClick(object? sender, RoutedEventArgs e) =>

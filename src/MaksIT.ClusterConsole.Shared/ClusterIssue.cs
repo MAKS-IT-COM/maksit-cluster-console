@@ -42,7 +42,9 @@ public static class ClusterIssues {
     IEnumerable<JsonObject> pods,
     DateTimeOffset? utcNow = null,
     IEnumerable<JsonObject>? services = null,
-    IEnumerable<JsonObject>? claims = null) {
+    IEnumerable<JsonObject>? claims = null,
+    IEnumerable<JsonObject>? volumes = null,
+    IEnumerable<JsonObject>? replicas = null) {
     var now = utcNow ?? DateTimeOffset.UtcNow;
     var podByUid = pods
       .Select(p => (Uid: JsonPath.Uid(p), Pod: p))
@@ -60,6 +62,13 @@ public static class ClusterIssues {
 
     foreach (var claim in claims ?? [])
       warnings.AddRange(ClaimWarnings(claim, now));
+
+    foreach (var issue in LonghornVolume.Issues(volumes ?? [], now, replicas)) {
+      if (issue.Severity == "Error")
+        errors.Add(issue);
+      else
+        warnings.Add(issue);
+    }
 
     foreach (var issue in EventIssues(events, podByUid, now)) {
       if (issue.Severity == "Error")

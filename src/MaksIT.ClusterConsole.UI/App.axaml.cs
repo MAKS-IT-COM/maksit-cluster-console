@@ -28,14 +28,16 @@ public partial class App : Application {
         && !ScreenshotTourOptions.TryParse(launch.Args, out tour, out var tourError))
       FailScreenshotTour(tourError);
 
+    var settingsPath = UserSettingsPath.Get(ConfigurationFileService.ProductFolder);
+    ConfigurationFileService.QuarantineIfCorrupt(settingsPath);
+    CloudCliSandbox.ApplyPath();
+    _ = CloudCliSetup.UpdateInstalledAsync();
+
     _host = Host.CreateDefaultBuilder()
       .ConfigureAppConfiguration(builder => {
         builder.SetBasePath(AppContext.BaseDirectory);
         builder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-        builder.AddJsonFile(
-          UserSettingsPath.Get(ConfigurationFileService.ProductFolder),
-          optional: true,
-          reloadOnChange: true);
+        builder.AddJsonFile(settingsPath, optional: true, reloadOnChange: false);
       })
       .ConfigureServices((_, services) => {
         services.AddSingleton(_ => new ConfigurationFileService());

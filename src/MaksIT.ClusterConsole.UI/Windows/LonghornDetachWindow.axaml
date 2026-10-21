@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Cluster"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.LonghornDetachWindow"
+        x:DataType="vm:LonghornDetachViewModel"
+        Title="Detach volume"
+        Icon="/Assets/icon.ico"
+        Width="560"
+        Height="380"
+        MinWidth="480"
+        MinHeight="280"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="Detach volume"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding VolumeNames}"
+               TextWrapping="Wrap"
+               Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Notice}"
+               Classes="warning"
+               TextWrapping="Wrap"
+               IsVisible="{Binding ShowNotice}"
+               Margin="0,0,0,12" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <StackPanel Spacing="8">
+      <CheckBox Content="Force detach"
+                IsChecked="{Binding ForceDetach}" />
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 Text="Force drops every attachment ticket, including one Kubernetes created. Use it when a degraded leftover stays attached after a normal detach." />
+    </StackPanel>
+  </DockPanel>
+</Window>

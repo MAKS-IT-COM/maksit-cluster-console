@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels.Storage"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.S3PromptWindow"
+        x:DataType="vm:S3PromptViewModel"
+        Title="{Binding Title}"
+        Icon="/Assets/icon.ico"
+        Width="520"
+        Height="280"
+        MinWidth="420"
+        MinHeight="220"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Title}"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+    <footer:WindowFooter x:Name="Actions"
+                         DockPanel.Dock="Bottom"
+                         Margin="0,12,0,0" />
+    <StackPanel Spacing="8">
+      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+      <TextBox Text="{Binding Value}" IsVisible="{Binding Ask}" />
+    </StackPanel>
+  </DockPanel>
+</Window>

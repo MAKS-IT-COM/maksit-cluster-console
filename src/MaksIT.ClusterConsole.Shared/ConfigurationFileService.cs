@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 
@@ -55,10 +56,40 @@ public sealed class ConfigurationFileService {
     if (!string.IsNullOrEmpty(dir))
       Directory.CreateDirectory(dir);
 
+    QuarantineIfCorrupt(FilePath);
     var root = ReadRoot(File.Exists(FilePath) ? FilePath : null) ?? [];
     root["Configuration"] = JsonSerializer.SerializeToNode(configuration, SerializerOptions);
-    File.WriteAllText(FilePath, root.ToJsonString(SerializerOptions));
+    ReplaceFile(FilePath, root.ToJsonString(SerializerOptions));
     _current = configuration;
+  }
+
+  /// <summary>
+  /// Moves an unreadable settings file aside so a truncated write cannot crash startup or a file watcher.
+  /// </summary>
+  public static bool QuarantineIfCorrupt(string path) {
+    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+      return false;
+
+    try {
+      using var document = JsonDocument.Parse(File.ReadAllText(path));
+      _ = document.RootElement;
+
+      return false;
+    }
+    catch (JsonException) {
+      var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+      var dest = path + ".corrupt-" + stamp;
+      var n = 0;
+
+      while (File.Exists(dest)) {
+        n++;
+        dest = path + ".corrupt-" + stamp + "-" + n.ToString(CultureInfo.InvariantCulture);
+      }
+
+      File.Move(path, dest);
+
+      return true;
+    }
   }
 
   private Configuration LoadFromDisk() {
@@ -67,15 +98,46 @@ public sealed class ConfigurationFileService {
     if (path is null)
       return new Configuration();
 
-    using var document = JsonDocument.Parse(File.ReadAllText(path));
+    string text;
 
-    if (!document.RootElement.TryGetProperty("Configuration", out var value))
+    try {
+      text = File.ReadAllText(path);
+    }
+    catch (IOException) {
       return new Configuration();
+    }
 
-    var configuration = JsonSerializer.Deserialize<Configuration>(value.GetRawText(), SerializerOptions) ?? new Configuration();
-    configuration.EnsureDefaults();
+    JsonDocument document;
 
-    return configuration;
+    try {
+      document = JsonDocument.Parse(text);
+    }
+    catch (JsonException) {
+      if (string.Equals(path, FilePath, StringComparison.OrdinalIgnoreCase))
+        QuarantineIfCorrupt(path);
+
+      return new Configuration();
+    }
+
+    using (document) {
+      if (!document.RootElement.TryGetProperty("Configuration", out var value))
+        return new Configuration();
+
+      var configuration = JsonSerializer.Deserialize<Configuration>(value.GetRawText(), SerializerOptions) ?? new Configuration();
+      configuration.EnsureDefaults();
+
+      return configuration;
+    }
+  }
+
+  private static void ReplaceFile(string path, string text) {
+    var temp = path + ".tmp";
+    File.WriteAllText(temp, text);
+
+    if (File.Exists(path))
+      File.Replace(temp, path, null);
+    else
+      File.Move(temp, path);
   }
 
   private static JsonObject? ReadRoot(string? path) {

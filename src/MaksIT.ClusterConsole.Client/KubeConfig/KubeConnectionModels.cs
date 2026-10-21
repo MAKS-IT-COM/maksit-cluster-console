@@ -48,5 +48,15 @@ public sealed class KubeConnectionRequest {
 
   public string? BasicPassword { get; init; }
 
+  public string? ExecPreset { get; init; }
+
+  public string? ExecCommand { get; init; }
+
+  public string? ExecArgument { get; init; }
+
+  public bool ExecProvideClusterInfo { get; init; }
+
+  public string? ExecInstallHint { get; init; }
+
   public bool UseAfterAdd { get; init; } = true;
 }
