@@ -25,8 +25,13 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
   private CancellationTokenSource? _watchCts;
   private DispatcherTimer? _refreshTimer;
   private bool _refreshBusy;
+  private bool _timerBusy;
   private bool _watchHealthy;
   private int _watchGeneration;
+  private DateTimeOffset _lastHeavyRefresh = DateTimeOffset.MinValue;
+  private DateTimeOffset _lastUsageSample = DateTimeOffset.MinValue;
+  private static readonly TimeSpan HeavyRefreshInterval = TimeSpan.FromSeconds(30);
+  private static readonly TimeSpan UsageSampleInterval = TimeSpan.FromSeconds(15);
   private bool _hasDaprCrd;
   private bool _hasLonghornCrd;
   private bool _hasCnpgCrd;
@@ -704,6 +709,9 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _refreshBusy = true;
     StopWatch();
 
+    if (!IsWatchable(SelectedDescriptor))
+      _lastHeavyRefresh = DateTimeOffset.UtcNow;
+
     try {
       if (SelectedNavItem.Id == ResourceCatalog.S3BrowserId) {
         await OpenS3BrowserAsync();
@@ -712,12 +720,16 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
         return;
       }
 
-      await Overview.SampleAsync();
-
       if (SelectedNavItem.Id == ResourceCatalog.OverviewId) {
         _listedRows.Clear();
         Rows.Clear();
-        await Overview.LoadIssuesAsync();
+        // Charts only need nodes + metrics-server; paint them before the heavier pod/RS + issues scan.
+        await Overview.SampleAsync(includeWorkloads: false);
+        _lastUsageSample = DateTimeOffset.UtcNow;
+        await Task.WhenAll(
+          Overview.SampleAsync(includeWorkloads: true),
+          Overview.LoadIssuesAsync());
+        _lastUsageSample = DateTimeOffset.UtcNow;
         _setStatus($"Overview · {Name}");
 
         return;
@@ -2866,22 +2878,44 @@ public partial class ClusterPageViewModel : ObservableObject, IDisposable {
     _ = RefreshFromTimerAsync();
 
   private async Task RefreshFromTimerAsync() {
+    if (_timerBusy || _refreshBusy)
+      return;
+
+    _timerBusy = true;
+
     try {
-      if (!_refreshBusy && SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId)
+      if (SelectedDescriptor?.Id == ResourceCatalog.LonghornBackupJobsId)
         await StampRecurringRunsAsync();
 
-      if (_watchHealthy && IsWatchable(SelectedDescriptor)) {
-        await Overview.SampleAsync();
-
-        return;
+      // Keep sparklines warm with a light metrics poll (nodes + metrics-server only).
+      if (UsageSampleDue()) {
+        await Overview.SampleAsync(includeWorkloads: false);
+        _lastUsageSample = DateTimeOffset.UtcNow;
       }
+
+      // Watch already keeps the table live; skip cluster-wide pod/RS + issue scans.
+      if (_watchHealthy && IsWatchable(SelectedDescriptor))
+        return;
+
+      // Overview / Workloads / other non-watch views: full list scans — throttle on low-RAM hosts.
+      if (!IsWatchable(SelectedDescriptor) && !HeavyRefreshDue())
+        return;
 
       await RefreshRowsAsync();
     }
     catch (Exception ex) when (ex is not OperationCanceledException) {
       _setStatus(ex.Message);
     }
+    finally {
+      _timerBusy = false;
+    }
   }
+
+  private bool HeavyRefreshDue() =>
+    DateTimeOffset.UtcNow - _lastHeavyRefresh >= HeavyRefreshInterval;
+
+  private bool UsageSampleDue() =>
+    DateTimeOffset.UtcNow - _lastUsageSample >= UsageSampleInterval;
 
   private void StartWatch(ResourceDescriptor? descriptor, string? resourceVersion) {
     StopWatch();

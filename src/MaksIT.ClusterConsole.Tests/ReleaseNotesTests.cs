@@ -74,24 +74,31 @@ public class ReleaseNotesTests {
   }
 
   [Fact]
-  public void Current_release_lists_0_9_0_notes() {
-    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.9.0");
+  public void Current_release_lists_0_9_1_notes() {
+    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: null, currentVersion: "0.9.1");
 
     var note = Assert.Single(notes);
-    Assert.Equal("0.9.0", note.Version);
-    Assert.Contains(note.Added, line => line.Contains("S3 Browser", StringComparison.Ordinal));
-    Assert.Contains(note.Added, line => line.Contains("Cloud adds", StringComparison.Ordinal));
-    Assert.Contains(note.Added, line => line.Contains("settings.json", StringComparison.Ordinal));
-    Assert.DoesNotContain(note.Added, line => line.Contains("Analyze issues", StringComparison.Ordinal));
+    Assert.Equal("0.9.1", note.Version);
+    Assert.Contains(note.Added, line => line.Contains("Connections rail", StringComparison.Ordinal));
+    Assert.Contains(note.Added, line => line.Contains("Overview charts show usage sooner", StringComparison.Ordinal));
+    Assert.Contains(note.Added, line => line.Contains("kubelogin", StringComparison.Ordinal));
+    Assert.DoesNotContain(note.Added, line => line.Contains("S3 Browser", StringComparison.Ordinal));
     Assert.DoesNotContain(note.Added, line => line.Contains("AppStream", StringComparison.Ordinal));
   }
 
   [Fact]
-  public void Upgrade_from_0_8_9_shows_only_0_9_0() {
-    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: "0.8.9", currentVersion: "0.9.0");
+  public void Upgrade_from_0_9_0_shows_only_0_9_1() {
+    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: "0.9.0", currentVersion: "0.9.1");
 
     var note = Assert.Single(notes);
-    Assert.Equal("0.9.0", note.Version);
+    Assert.Equal("0.9.1", note.Version);
+  }
+
+  [Fact]
+  public void Upgrade_from_0_8_9_includes_0_9_0_and_0_9_1() {
+    var notes = ReleaseNotes.AddedSince(ReleaseNotes.Text(), seenVersion: "0.8.9", currentVersion: "0.9.1");
+
+    Assert.Equal(["0.9.1", "0.9.0"], notes.Select(note => note.Version));
   }
 
   [Fact]

@@ -28,15 +28,31 @@
       <TextBlock Text="{Binding Status}" Classes="hint" VerticalAlignment="Center" />
     </Border>
 
-    <Grid Name="ShellGrid" ColumnDefinitions="248,4,228,4,*">
-      <DockPanel Name="CatalogPane" Background="#121416">
+    <Grid Name="ShellGrid"
+          ColumnDefinitions="248,4,228,4,*"
+          layout:ShoulderPane.Collapsed="{Binding CatalogCollapsed}"
+          layout:ShoulderPane.CollapsedWidth="40"
+          layout:ShoulderPane.ExpandedFallback="248"
+          layout:ShoulderPane.ContentColumn="0"
+          layout:ShoulderPane.SplitterColumn="1">
+      <DockPanel Name="CatalogPane"
+                 Background="#121416"
+                 IsVisible="{Binding !CatalogCollapsed}">
         <layout:LayoutMemento.Band>
           <layout:LayoutBand Slot="CatalogWidth" Min="120" Max="900" Fallback="248" />
         </layout:LayoutMemento.Band>
-        <StackPanel DockPanel.Dock="Top" Margin="12,12,12,8">
-          <TextBlock Text="{x:Static shared:AppInfo.ProductName}" FontSize="18" FontWeight="SemiBold" />
-          <TextBlock Text="Catalog" Classes="hint" Margin="0,4,0,0" />
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" Margin="12,12,12,8" ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="{x:Static shared:AppInfo.ProductName}" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="Catalog" Classes="hint" Margin="0,4,0,0" />
+          </StackPanel>
+          <Button Grid.Column="1"
+                  Classes="shoulder-toggle"
+                  Content="‹"
+                  VerticalAlignment="Top"
+                  Command="{Binding ToggleCatalogCommand}"
+                  ToolTip.Tip="Collapse" />
+        </Grid>
         <StackPanel DockPanel.Dock="Bottom" Margin="12" Spacing="6">
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsClusterOpen}" HorizontalAlignment="Stretch" />
           <Button Content="Connections…" Command="{Binding OpenConnectionsCommand}" HorizontalAlignment="Stretch" />
@@ -82,8 +98,12 @@
           </ItemsControl>
         </ScrollViewer>
       </DockPanel>
+      <views:CatalogRail />
 
-      <GridSplitter Grid.Column="1" Classes="shell-split" ResizeDirection="Columns" />
+      <GridSplitter Grid.Column="1"
+                    Classes="shell-split"
+                    ResizeDirection="Columns"
+                    IsVisible="{Binding !CatalogCollapsed}" />
 
       <DockPanel Name="NavigatorPane" Grid.Column="2" Background="#16181b" IsVisible="{Binding IsClusterOpen}">
         <layout:LayoutMemento.Band>

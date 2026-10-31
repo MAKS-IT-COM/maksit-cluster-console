@@ -251,7 +251,9 @@ internal sealed class FakeClusterSession : IClusterSession {
   public Task<Result<ClusterSummary>> GetSummaryAsync(CancellationToken cancellationToken = default) =>
     Task.FromResult(Result<ClusterSummary>.NotFound(null, "unused"));
 
-  public Task<Result<ClusterUsage>> GetClusterUsageAsync(CancellationToken cancellationToken = default) =>
+  public Task<Result<ClusterUsage>> GetClusterUsageAsync(
+    bool includeWorkloads = true,
+    CancellationToken cancellationToken = default) =>
     Task.FromResult(Result<ClusterUsage>.NotFound(null, "unused"));
 
   public Task<Result<double>> GetClusterCpuAllocatableAsync(CancellationToken cancellationToken = default) {

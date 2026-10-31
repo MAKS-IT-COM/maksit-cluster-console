@@ -301,8 +301,13 @@ function New-WixPackageXml {
     $null = $package.SetAttribute('Scope', $scope)
     $null = $wix.AppendChild($package)
 
+    # Install the new payload first, then remove the previous product. Early
+    # RemoveExistingProducts can leave a half-empty folder when a Burn/MSI run
+    # aborts after uninstalling the old product (sibling DLLs appear "missing").
     $major = $xml.CreateElement('MajorUpgrade', $ns)
     $null = $major.SetAttribute('DowngradeErrorMessage', 'A newer version is already installed.')
+    $null = $major.SetAttribute('Schedule', 'afterInstallExecute')
+    $null = $major.SetAttribute('AllowSameVersionUpgrades', 'yes')
     $null = $package.AppendChild($major)
 
     $media = $xml.CreateElement('MediaTemplate', $ns)
@@ -431,7 +436,11 @@ function New-WixPackageXml {
         $component = $xml.CreateElement('Component', $ns)
         $componentId = ConvertTo-WixIdentifier -Value $relative -Prefix 'c'
         $null = $component.SetAttribute('Id', $componentId)
-        $null = $component.SetAttribute('Guid', '*')
+        # Stable GUIDs across builds so upgrades/repairs replace the same
+        # logical file instead of orphaning Guid='*' components.
+        $null = $component.SetAttribute(
+            'Guid',
+            (Get-WixFileComponentGuid -UpgradeCode $UpgradeCode -RelativePath $relative).ToString('D'))
         $componentIds.Add($componentId)
         $fileNode = $xml.CreateElement('File', $ns)
         $null = $fileNode.SetAttribute('Id', (ConvertTo-WixIdentifier -Value $relative -Prefix 'f'))
@@ -939,6 +948,71 @@ function Get-DesktopShortcutComponentGuid {
     }
 
     return [guid]::new($hash)
+}
+
+function Get-WixFileComponentGuid {
+    param(
+        [Parameter(Mandatory = $true)]
+        [guid]$UpgradeCode,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RelativePath
+    )
+
+    $normalized = ($RelativePath -replace '\\', '/').Trim().ToLowerInvariant()
+    $identity = "maksit-wix-file|$($UpgradeCode.ToString('D'))|$normalized"
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    try {
+        $hash = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($identity))
+    }
+    finally {
+        $md5.Dispose()
+    }
+
+    return [guid]::new($hash)
+}
+
+function Assert-DesktopPublishFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublishDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$RequiredFileNames = @()
+    )
+
+    if (-not (Test-Path -LiteralPath $PublishDirectory -PathType Container)) {
+        throw "Desktop publish directory not found: $PublishDirectory"
+    }
+
+    $names = @(
+        $RequiredFileNames |
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            ForEach-Object { [string]$_.Trim() } |
+            Select-Object -Unique
+    )
+    if ($names.Count -eq 0) {
+        return
+    }
+
+    $missing = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $names) {
+        $direct = Join-Path $PublishDirectory $name
+        if (Test-Path -LiteralPath $direct -PathType Leaf) {
+            continue
+        }
+
+        $found = @(
+            Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File -Filter $name -ErrorAction SilentlyContinue
+        )
+        if ($found.Count -eq 0) {
+            $missing.Add($name)
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        throw "Desktop publish folder is missing required file(s) for packaging: $($missing -join ', '). Publish directory: $PublishDirectory"
+    }
 }
 
 function Get-DerivedBundleUpgradeCode {
@@ -1477,6 +1551,8 @@ Export-ModuleMember -Function `
     Get-PluginPropertyValue, `
     Resolve-DesktopPublishDirectory, `
     Resolve-DesktopExecutablePath, `
+    Get-WixFileComponentGuid, `
+    Assert-DesktopPublishFiles, `
     New-WixPackageXml, `
     ConvertTo-MsixPackageVersion, `
     Assert-MsixPackageName, `

@@ -4,7 +4,7 @@
 ![Branch Coverage](https://img.shields.io/badge/Branch%20Coverage-61.2%25-green)
 ![Method Coverage](https://img.shields.io/badge/Method%20Coverage-79.7%25-green)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
-![License](https://img.shields.io/badge/License-Apache%202.0-blue)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE.md)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)
 
 **MaksIT Cluster Console** is a native desktop app for a Kubernetes cluster you already run. Browse the API, apply YAML, follow logs, open a shell, and port-forward to localhost.

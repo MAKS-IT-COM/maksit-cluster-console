@@ -131,7 +131,18 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
     if (_grid is null)
       return;
 
-    var length = new GridLength(LayoutRange.Clamp(_read(layout), _min, _max, _fallback));
+    var saved = LayoutRange.Clamp(_read(layout), _min, _max, _fallback);
+
+    // Collapsed shoulder/catalog: keep the saved expanded width for reopen, do not
+    // push it onto the rail column (ShoulderPane owns that width).
+    if (_prefer is not null && !IsEffectivelyVisible(_prefer)) {
+      if (_column)
+        ShoulderPane.SeedExpandedWidth(_grid, saved);
+
+      return;
+    }
+
+    var length = new GridLength(saved);
 
     if (_column) {
       if (_index >= 0 && _index < _grid.ColumnDefinitions.Count)
@@ -150,11 +161,19 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
   }
 
   private double? Measure() {
-    if (_prefer is { IsVisible: true }) {
-      var extent = _column ? _prefer.Bounds.Width : _prefer.Bounds.Height;
+    // Prefer-controlled bands (catalog, details) must not fall through to the
+    // column definition while collapsed — that would persist the rail width.
+    if (_prefer is not null) {
+      if (!IsEffectivelyVisible(_prefer))
+        return null;
 
-      if (extent > 0)
-        return extent;
+      // Bounds exclude Margin; add it back so a padded pane does not shrink the saved width.
+      var margin = _prefer.Margin;
+      var extent = _column
+        ? _prefer.Bounds.Width + margin.Left + margin.Right
+        : _prefer.Bounds.Height + margin.Top + margin.Bottom;
+
+      return extent > 0 ? extent : null;
     }
 
     if (_grid is null)
@@ -182,6 +201,15 @@ internal sealed class GridBandOriginator : ILayoutOriginator {
     var row = _grid.RowDefinitions[_index];
 
     return row.Height.IsAbsolute ? row.Height.Value : null;
+  }
+
+  private static bool IsEffectivelyVisible(Visual visual) {
+    for (Visual? node = visual; node is not null; node = node.GetVisualParent()) {
+      if (node is Control { IsVisible: false })
+        return false;
+    }
+
+    return true;
   }
 }
 

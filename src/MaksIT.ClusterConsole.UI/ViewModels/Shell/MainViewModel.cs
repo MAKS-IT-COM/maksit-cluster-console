@@ -62,18 +62,41 @@ public partial class NodeUsageViewModel : ObservableObject {
     Cpu = usage.Cpu;
     Memory = usage.Memory;
     Pods = usage.Pods;
-    CpuPercent = usage.Cpu.Allocatable <= 0 ? 0 : Math.Clamp(usage.Cpu.Used / usage.Cpu.Allocatable * 100, 0, 100);
-    MemoryPercent = usage.Memory.Allocatable <= 0 ? 0 : Math.Clamp(usage.Memory.Used / usage.Memory.Allocatable * 100, 0, 100);
-    PodPercent = usage.Pods.Allocatable <= 0 ? 0 : Math.Clamp(usage.Pods.Used / usage.Pods.Allocatable * 100, 0, 100);
+    SetPercents(usage.Cpu, usage.Memory, usage.Pods);
 
     if (!sampleHistory)
       return;
 
+    AppendHistory(historyPoints);
+  }
+
+  public void UpdateUsed(NodeUsage usage, int historyPoints, bool sampleHistory) {
+    Cpu = WithUsed(Cpu, usage.Cpu);
+    Memory = WithUsed(Memory, usage.Memory);
+    Pods = WithUsed(Pods, usage.Pods);
+    SetPercents(Cpu, Memory, Pods);
+
+    if (!sampleHistory)
+      return;
+
+    AppendHistory(historyPoints);
+  }
+
+  private void SetPercents(ResourceSlice cpu, ResourceSlice memory, ResourceSlice pods) {
+    CpuPercent = cpu.Allocatable <= 0 ? 0 : Math.Clamp(cpu.Used / cpu.Allocatable * 100, 0, 100);
+    MemoryPercent = memory.Allocatable <= 0 ? 0 : Math.Clamp(memory.Used / memory.Allocatable * 100, 0, 100);
+    PodPercent = pods.Allocatable <= 0 ? 0 : Math.Clamp(pods.Used / pods.Allocatable * 100, 0, 100);
+  }
+
+  private void AppendHistory(int historyPoints) {
     Append(_cpuHistory, CpuPercent, historyPoints);
     Append(_memoryHistory, MemoryPercent, historyPoints);
     CpuHistory = _cpuHistory.ToArray();
     MemoryHistory = _memoryHistory.ToArray();
   }
+
+  private static ResourceSlice WithUsed(ResourceSlice current, ResourceSlice incoming) =>
+    new(incoming.Used, current.Requests, current.Limits, incoming.Allocatable, incoming.Capacity, incoming.Kind);
 
   private static void Append(List<double> history, double value, int historyPoints) {
     history.Add(value);
@@ -241,6 +264,7 @@ public partial class MainViewModel : ObservableObject, IDisposable {
     _sessions = sessions;
     _configuration = configuration;
     _ollama = ollama;
+    catalogCollapsed = _configuration.Current.Layout.CatalogCollapsed;
 
     if (tour is not null) {
       _configuration.Current.Layout.ClearFiltersAndSort();
@@ -278,6 +302,9 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   [ObservableProperty]
   private string status = "Select a cluster from the catalog.";
 
+  [ObservableProperty]
+  private bool catalogCollapsed;
+
   public bool IsClusterOpen => ActivePage is not null;
 
   public bool ShowChat => _configuration.Current.Ai.Enabled;
@@ -287,6 +314,20 @@ public partial class MainViewModel : ObservableObject, IDisposable {
   public NavigatorItem? SelectedNavItem => ActivePage?.SelectedNavItem;
 
   public ResourceDescriptor? SelectedDescriptor => ActivePage?.SelectedDescriptor;
+
+  partial void OnCatalogCollapsedChanged(bool value) {
+    var cfg = _configuration.Current;
+
+    if (cfg.Layout.CatalogCollapsed == value)
+      return;
+
+    cfg.Layout.CatalogCollapsed = value;
+    _configuration.Save(cfg);
+  }
+
+  [RelayCommand]
+  private void ToggleCatalog() =>
+    CatalogCollapsed = !CatalogCollapsed;
 
   partial void OnActivePageChanged(ClusterPageViewModel? oldValue, ClusterPageViewModel? newValue) {
     if (oldValue is not null)

@@ -219,10 +219,17 @@
     <Setter Property="VerticalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="Padding" Value="4,12" />
+    <Setter Property="Padding" Value="0,12" />
+    <Setter Property="Margin" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
   </Style>
+  <Style Selector="Button.shoulder-rail.catalog-rail">
+    <Setter Property="Background" Value="#121416" />
+  </Style>
   <Style Selector="Button.shoulder-rail:pointerover">
+    <Setter Property="Background" Value="#006199" />
+  </Style>
+  <Style Selector="Button.shoulder-rail.catalog-rail:pointerover">
     <Setter Property="Background" Value="#006199" />
   </Style>
   <Style Selector="Button.shoulder-toggle">

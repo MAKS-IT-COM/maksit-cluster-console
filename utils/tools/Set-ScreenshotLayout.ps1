@@ -7,7 +7,8 @@
 
 .DESCRIPTION
     Writes WindowWidth, WindowHeight, position, WindowState, CatalogWidth,
-    NavigatorWidth, DetailsWidth, and HelmHistoryHeight in
+    NavigatorWidth, DetailsWidth, HelmHistoryHeight, and CatalogCollapsed
+    (always false so the Connections catalog stays open) in
     %AppData%\MaksIT\Cluster Console\settings.json.
 
     The app reads that file when it opens and writes it again when it closes.
@@ -144,11 +145,12 @@ $layout["CatalogWidth"] = [System.Text.Json.Nodes.JsonValue]::Create([double]$Ca
 $layout["NavigatorWidth"] = [System.Text.Json.Nodes.JsonValue]::Create([double]$NavigatorWidth)
 $layout["DetailsWidth"] = [System.Text.Json.Nodes.JsonValue]::Create([double]$DetailsWidth)
 $layout["HelmHistoryHeight"] = [System.Text.Json.Nodes.JsonValue]::Create([double]$HelmHistoryHeight)
+$layout["CatalogCollapsed"] = [System.Text.Json.Nodes.JsonValue]::Create($false)
 
 Write-Settings $root
 
 Write-Host "Screenshot layout written to $settingsPath"
 Write-Host "  Window ${Width}x${Height} at ${X},${Y} (Normal)"
-Write-Host "  Catalog $CatalogWidth, navigator $NavigatorWidth, details $DetailsWidth, Helm history $HelmHistoryHeight"
+Write-Host "  Catalog $CatalogWidth (expanded), navigator $NavigatorWidth, details $DetailsWidth, Helm history $HelmHistoryHeight"
 Write-Host "Start Cluster Console and take the shots. Do not resize the window or the splitters."
 Write-Host "When you are done, close the app and run this script with -Restore."

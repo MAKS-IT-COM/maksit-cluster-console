@@ -6,13 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-31
+
+### Added
+
+- The cluster catalog can collapse to a narrow rail labeled Connections, the same way the details pane and overview chat collapse. Opening it restores the previous width. The choice is saved with the layout.
+
 ### Changed
 
 - The Linux Flatpak no longer ships kubelogin. Download CLI installs kubelogin into the app the same way as gcloud, az, aws, oci, doctl, and ibmcloud.
+- Overview charts show node usage from metrics-server first. The full pod list and the issues lists refresh less often when the app stays open.
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.9.1` release entry points at this version's changelog.
 
 ### Fixed
 
 - The Cloud window no longer says the Flatpak bundle includes doctl and kubelogin. Download CLI installs both.
+- While a resource watch is live, the app no longer lists every pod and ReplicaSet every five seconds for overview metrics.
 
 ## [0.9.0] - 2026-10-21
 

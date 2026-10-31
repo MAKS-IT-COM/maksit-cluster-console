@@ -19,6 +19,7 @@ public partial class ClusterOverviewViewModel : ObservableObject {
   private readonly Action<string> _setOverview;
   private readonly List<double> _cpuHistory = [];
   private readonly List<double> _memoryHistory = [];
+  private bool _sampleBusy;
 
   public ClusterOverviewViewModel(
     ClusterWorkspace workspace,
@@ -135,19 +136,26 @@ public partial class ClusterOverviewViewModel : ObservableObject {
   [RelayCommand]
   private void ShowNodesOverview() => OverviewPerNode = true;
 
-  public async Task SampleAsync() {
-    if (_workspace.Session is null)
+  public async Task SampleAsync(bool includeWorkloads = true) {
+    if (_sampleBusy || _workspace.Session is null)
       return;
 
-    var usage = await _workspace.Session.GetClusterUsageAsync();
+    _sampleBusy = true;
 
-    if (!usage.IsSuccess || usage.Value is null) {
-      MetricsHint = string.Join("; ", usage.Messages);
+    try {
+      var usage = await _workspace.Session.GetClusterUsageAsync(includeWorkloads);
 
-      return;
+      if (!usage.IsSuccess || usage.Value is null) {
+        MetricsHint = string.Join("; ", usage.Messages);
+
+        return;
+      }
+
+      ApplyUsage(usage.Value, includeWorkloads);
     }
-
-    ApplyUsage(usage.Value);
+    finally {
+      _sampleBusy = false;
+    }
   }
 
   public async Task LoadIssuesAsync() {
@@ -200,21 +208,34 @@ public partial class ClusterOverviewViewModel : ObservableObject {
       await ApplyLimitAsync(row);
   }
 
-  private void ApplyUsage(ClusterUsage usage) {
+  private void ApplyUsage(ClusterUsage usage, bool includeWorkloads) {
     if (_isDashboard())
       _setOverview($"Kubernetes {usage.GitVersion} ({usage.Platform})\nNodes: {usage.NodeCount}");
 
-    CpuSlice = usage.Cpu;
-    MemorySlice = usage.Memory;
-    PodSlice = usage.Pods;
-    CpuCaption = usage.CpuCaption;
-    MemoryCaption = usage.MemoryCaption;
-    PodCaption = usage.PodCaption;
-    CpuPercent = usage.CpuPercent;
-    MemoryPercent = usage.MemoryPercent;
-    PodPercent = usage.PodPercent;
-    ApplyNodeUsages(usage.Nodes, usage.MetricsAvailable);
-    ApplyLimitRows(usage.ContainerLimits);
+    var mergeUsed = !includeWorkloads && CpuSlice.Allocatable > 0;
+
+    if (mergeUsed) {
+      CpuSlice = WithUsed(CpuSlice, usage.Cpu);
+      MemorySlice = WithUsed(MemorySlice, usage.Memory);
+      // Keep prior pod counts; light samples do not list pods.
+    }
+    else {
+      CpuSlice = usage.Cpu;
+      MemorySlice = usage.Memory;
+      PodSlice = usage.Pods;
+    }
+
+    CpuCaption = CpuSlice.Caption;
+    MemoryCaption = MemorySlice.Caption;
+    PodCaption = PodSlice.Caption;
+    CpuPercent = Percent(CpuSlice);
+    MemoryPercent = Percent(MemorySlice);
+    PodPercent = Percent(PodSlice);
+    ApplyNodeUsages(usage.Nodes, usage.MetricsAvailable, mergeUsed);
+
+    if (includeWorkloads)
+      ApplyLimitRows(usage.ContainerLimits);
+
     MetricsHint = usage.MetricsAvailable
       ? "Live usage from metrics-server (metrics.k8s.io). Sparklines are sampled in this session."
       : usage.MetricsMessage ?? MetricsHint;
@@ -222,13 +243,16 @@ public partial class ClusterOverviewViewModel : ObservableObject {
     if (!usage.MetricsAvailable)
       return;
 
-    AppendHistory(_cpuHistory, usage.CpuPercent);
-    AppendHistory(_memoryHistory, usage.MemoryPercent);
+    AppendHistory(_cpuHistory, CpuPercent);
+    AppendHistory(_memoryHistory, MemoryPercent);
     CpuHistory = _cpuHistory.ToArray();
     MemoryHistory = _memoryHistory.ToArray();
   }
 
-  private void ApplyNodeUsages(IReadOnlyList<NodeUsage> nodes, bool sampleHistory) {
+  private static double Percent(ResourceSlice slice) =>
+    slice.Allocatable <= 0 ? 0 : Math.Clamp(slice.Used / slice.Allocatable * 100, 0, 100);
+
+  private void ApplyNodeUsages(IReadOnlyList<NodeUsage> nodes, bool sampleHistory, bool mergeUsed) {
     var existing = NodeUsages.ToDictionary(node => node.Name, StringComparer.Ordinal);
     var desired = new List<NodeUsageViewModel>(nodes.Count);
 
@@ -236,12 +260,19 @@ public partial class ClusterOverviewViewModel : ObservableObject {
       if (!existing.TryGetValue(node.Name, out var vm))
         vm = new NodeUsageViewModel { Name = node.Name };
 
-      vm.Update(node, HistoryPoints, sampleHistory);
+      if (mergeUsed)
+        vm.UpdateUsed(node, HistoryPoints, sampleHistory);
+      else
+        vm.Update(node, HistoryPoints, sampleHistory);
+
       desired.Add(vm);
     }
 
     CollectionSync.MergeByKey(NodeUsages, desired, node => node.Name);
   }
+
+  private static ResourceSlice WithUsed(ResourceSlice current, ResourceSlice incoming) =>
+    new(incoming.Used, current.Requests, current.Limits, incoming.Allocatable, incoming.Capacity, incoming.Kind);
 
   private void ApplyLimitRows(IReadOnlyList<WorkloadContainerLimit> limits) {
     var keep = SelectedLimitRow;

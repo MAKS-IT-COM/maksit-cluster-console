@@ -2,6 +2,12 @@
 
 Short notes shown in the app after an upgrade. The full history, including maintainer notes, is [CHANGELOG.md](CHANGELOG.md).
 
+## [0.9.1] - 2026-10-31
+
+- The cluster catalog can collapse to a Connections rail, the same way the details pane collapses. The choice is kept.
+- Overview charts show usage sooner. Leaving a watched table open no longer lists every pod every few seconds.
+- The Linux Flatpak no longer ships kubelogin. Download CLI installs it into the app with the other cloud CLIs.
+
 ## [0.9.0] - 2026-10-21
 
 - S3 Browser, under Longhorn, opens the default backup target and any other S3 targets. It lists every bucket those credentials can see, and opens, uploads, downloads, and edits objects.

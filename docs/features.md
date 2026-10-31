@@ -4,7 +4,7 @@ Screen notes for [MaksIT Cluster Console](../README.md). The README lists each a
 
 ## Cluster overview
 
-Click a catalog row to open that context. A green dot is a live session in this app. The radio is labeled **kubectl context** and only writes kubectl `current-context` for the command line. This app does not follow that field. Until a row is open, the window stays on the catalog and asks you to select a cluster. Open clusters stay connected until you disconnect them. **Connections…** and **Reload kubeconfig** sit under the catalog. The status line counts contexts in the kubeconfig and how many are connected here.
+Click a catalog row to open that context. A green dot is a live session in this app. The radio is labeled **kubectl context** and only writes kubectl `current-context` for the command line. This app does not follow that field. Until a row is open, the window stays on the catalog and asks you to select a cluster. Open clusters stay connected until you disconnect them. **Connections…** and **Reload kubeconfig** sit under the catalog. The catalog can collapse to a narrow rail labeled Connections; opening it restores the previous width. The choice is saved with the layout. The status line counts contexts in the kubeconfig and how many are connected here.
 
 ![Cluster catalog](../assets/screenshots/welcome.png)
 

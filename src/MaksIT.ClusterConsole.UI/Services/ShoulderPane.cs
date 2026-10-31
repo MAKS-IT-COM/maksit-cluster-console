@@ -19,6 +19,12 @@ public static class ShoulderPane {
   public static readonly AttachedProperty<int> SplitterColumnProperty =
     AvaloniaProperty.RegisterAttached<Grid, int>("SplitterColumn", typeof(ShoulderPane), 1);
 
+  public static readonly AttachedProperty<double> CollapsedWidthProperty =
+    AvaloniaProperty.RegisterAttached<Grid, double>("CollapsedWidth", typeof(ShoulderPane), RailWidth);
+
+  public static readonly AttachedProperty<double> ExpandedFallbackProperty =
+    AvaloniaProperty.RegisterAttached<Grid, double>("ExpandedFallback", typeof(ShoulderPane), 248);
+
   private static readonly AttachedProperty<double> ExpandedWidthProperty =
     AvaloniaProperty.RegisterAttached<Grid, double>("ExpandedWidth", typeof(ShoulderPane));
 
@@ -27,6 +33,7 @@ public static class ShoulderPane {
 
   static ShoulderPane() {
     CollapsedProperty.Changed.AddClassHandler<Grid>((grid, _) => Apply(grid));
+    CollapsedWidthProperty.Changed.AddClassHandler<Grid>((grid, _) => Apply(grid));
   }
 
   public static bool GetCollapsed(Grid grid) =>
@@ -47,6 +54,28 @@ public static class ShoulderPane {
   public static void SetSplitterColumn(Grid grid, int value) =>
     grid.SetValue(SplitterColumnProperty, value);
 
+  public static double GetCollapsedWidth(Grid grid) =>
+    grid.GetValue(CollapsedWidthProperty);
+
+  public static void SetCollapsedWidth(Grid grid, double value) =>
+    grid.SetValue(CollapsedWidthProperty, value);
+
+  public static double GetExpandedFallback(Grid grid) =>
+    grid.GetValue(ExpandedFallbackProperty);
+
+  public static void SetExpandedFallback(Grid grid, double value) =>
+    grid.SetValue(ExpandedFallbackProperty, value);
+
+  /// <summary>
+  /// Remembers the expanded column width from layout settings while the rail is showing.
+  /// </summary>
+  public static void SeedExpandedWidth(Grid grid, double width) {
+    if (width < 180)
+      return;
+
+    grid.SetValue(ExpandedWidthProperty, width);
+  }
+
   private static void Apply(Grid grid) {
     if (grid.ColumnDefinitions.Count == 0) {
       grid.AttachedToVisualTree -= OnAttached;
@@ -62,12 +91,16 @@ public static class ShoulderPane {
       return;
 
     var splitter = Column(grid, grid.GetValue(SplitterColumnProperty));
+    var rail = Rail(grid);
 
     if (!grid.GetValue(CollapsedProperty)) {
       var expanded = grid.GetValue(ExpandedWidthProperty);
 
+      if (expanded < 180 && content.Width.IsAbsolute && content.Width.Value > rail + 1)
+        expanded = content.Width.Value;
+
       if (expanded < 180)
-        return;
+        expanded = Fallback(grid);
 
       content.Width = new GridLength(expanded);
 
@@ -77,10 +110,10 @@ public static class ShoulderPane {
       return;
     }
 
-    if (content.Width.IsAbsolute && content.Width.Value > RailWidth + 1)
+    if (content.Width.IsAbsolute && content.Width.Value > rail + 1)
       grid.SetValue(ExpandedWidthProperty, content.Width.Value);
 
-    content.Width = new GridLength(RailWidth);
+    content.Width = new GridLength(rail);
 
     if (splitter is not null)
       splitter.Width = new GridLength(0);
@@ -105,14 +138,28 @@ public static class ShoulderPane {
       if (e.Property != ColumnDefinition.WidthProperty || !grid.GetValue(CollapsedProperty))
         return;
 
-      if (content.Width.IsAbsolute && Math.Abs(content.Width.Value - RailWidth) < 0.5)
+      var rail = Rail(grid);
+
+      if (content.Width.IsAbsolute && Math.Abs(content.Width.Value - rail) < 0.5)
         return;
 
-      if (content.Width.IsAbsolute && content.Width.Value > RailWidth + 1)
+      if (content.Width.IsAbsolute && content.Width.Value > rail + 1)
         grid.SetValue(ExpandedWidthProperty, content.Width.Value);
 
-      content.Width = new GridLength(RailWidth);
+      content.Width = new GridLength(rail);
     };
+  }
+
+  private static double Rail(Grid grid) {
+    var width = grid.GetValue(CollapsedWidthProperty);
+
+    return width > 0 ? width : RailWidth;
+  }
+
+  private static double Fallback(Grid grid) {
+    var width = grid.GetValue(ExpandedFallbackProperty);
+
+    return width >= 180 ? width : 248;
   }
 
   private static ColumnDefinition? Column(Grid grid, int index) =>

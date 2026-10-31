@@ -62,7 +62,11 @@
       "runtimeIdentifier": "win-x64",
       "installScope": "perMachine",
       "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.ico",
-      "exeNamePattern": "maksit-cluster-console-{version}.exe"
+      "exeNamePattern": "maksit-cluster-console-{version}.exe",
+      "requiredPublishFiles": [
+        "MaksIT.ClusterConsole.Client.dll",
+        "MaksIT.ClusterConsole.Shared.dll"
+      ]
     },
     {
       "name": "MsixPack",
@@ -72,10 +76,15 @@
       "publisher": "CN=FCC8C0E7-6D5F-4028-B8EE-903B88C0C8F9",
       "publisherDisplayName": "MaksIT",
       "displayName": "Cluster Console",
+      "description": "Kubernetes desktop console",
       "executableName": "MaksIT.ClusterConsole.UI.exe",
       "runtimeIdentifier": "win-x64",
       "iconPath": "..\\..\\..\\src\\MaksIT.ClusterConsole.UI\\Assets\\icon.png",
-      "msixNamePattern": "maksit-cluster-console-{version}.msix"
+      "msixNamePattern": "maksit-cluster-console-{version}.msix",
+      "requiredPublishFiles": [
+        "MaksIT.ClusterConsole.Client.dll",
+        "MaksIT.ClusterConsole.Shared.dll"
+      ]
     },
     {
       "name": "FlatpakPack",

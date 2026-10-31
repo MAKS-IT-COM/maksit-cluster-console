@@ -27,6 +27,7 @@ internal static class ScreenshotTour {
 
     try {
       Directory.CreateDirectory(options.Directory);
+      await EnsureCatalogExpandedAsync(model);
       var connected = false;
 
       foreach (var view in options.Views) {
@@ -119,10 +120,14 @@ internal static class ScreenshotTour {
 
     manifest.Context = context;
     model.ActivePage?.PausePolling();
+    await EnsureCatalogExpandedAsync(model);
     await SaveCatalogAsync(window, options, manifest);
 
     return true;
   }
+
+  private static async Task EnsureCatalogExpandedAsync(MainViewModel model) =>
+    await Dispatcher.UIThread.InvokeAsync(() => { model.CatalogCollapsed = false; });
 
   private static async Task CaptureAllFeaturesAsync(
     Window window,

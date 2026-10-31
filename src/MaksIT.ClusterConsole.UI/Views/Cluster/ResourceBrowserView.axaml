@@ -8,7 +8,9 @@
              x:DataType="vm:MainViewModel">
   <Grid Name="ResourceTableGrid"
         ColumnDefinitions="*,4,420"
-        layout:ShoulderPane.Collapsed="{Binding ActivePage.ShoulderCollapsed}">
+        layout:ShoulderPane.Collapsed="{Binding ActivePage.ShoulderCollapsed}"
+        layout:ShoulderPane.CollapsedWidth="40"
+        layout:ShoulderPane.ExpandedFallback="380">
     <DataGrid Name="ResourceGrid"
               layout:LayoutMemento.ResourceTable="True"
               grid:ResourceTable.Page="{Binding ActivePage}"

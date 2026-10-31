@@ -506,38 +506,70 @@ public sealed partial class ClusterSession : IClusterSession {
     }
   }
 
-  public async Task<Result<ClusterUsage>> GetClusterUsageAsync(CancellationToken cancellationToken = default) {
+  public async Task<Result<ClusterUsage>> GetClusterUsageAsync(
+    bool includeWorkloads = true,
+    CancellationToken cancellationToken = default) {
     try {
-      var version = await _client.Version.GetCodeAsync(cancellationToken).ConfigureAwait(false);
-      var nodes = await _client.CoreV1.ListNodeAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-      var pods = await _client.CoreV1.ListPodForAllNamespacesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-      var replicaSets = await _client.AppsV1.ListReplicaSetForAllNamespacesAsync(cancellationToken: cancellationToken)
-        .ConfigureAwait(false);
-      var metrics = await GetNodeMetricsAsync(cancellationToken).ConfigureAwait(false);
-      var metricsAvailable = metrics.IsSuccess && metrics.Value is { Count: > 0 };
-      var (cpu, memory, podSlice, nodeUsages) = ClusterMetrics.From(
-        nodes.Items,
-        pods.Items,
-        metricsAvailable ? metrics.Value : null);
-      var containerLimits = ContainerLimits.From(pods.Items, replicaSets.Items);
+      var versionTask = _client.Version.GetCodeAsync(cancellationToken);
+      var nodesTask = _client.CoreV1.ListNodeAsync(cancellationToken: cancellationToken);
+      var metricsTask = GetNodeMetricsAsync(cancellationToken);
 
-      return Result<ClusterUsage>.Ok(new ClusterUsage(
-        version.GitVersion,
-        version.Platform,
-        nodes.Items.Count,
-        cpu,
-        memory,
-        podSlice,
-        nodeUsages,
-        containerLimits,
-        metricsAvailable,
-        metricsAvailable
-          ? null
-          : "No live usage from metrics-server (metrics.k8s.io). Usage bars stay empty until it is installed. Requests/limits come from pod specs."));
+      if (includeWorkloads) {
+        var podsTask = _client.CoreV1.ListPodForAllNamespacesAsync(cancellationToken: cancellationToken);
+        var replicaSetsTask = _client.AppsV1.ListReplicaSetForAllNamespacesAsync(cancellationToken: cancellationToken);
+        await Task.WhenAll(versionTask, nodesTask, metricsTask, podsTask, replicaSetsTask).ConfigureAwait(false);
+
+        return BuildUsage(
+          await versionTask.ConfigureAwait(false),
+          await nodesTask.ConfigureAwait(false),
+          await podsTask.ConfigureAwait(false),
+          await replicaSetsTask.ConfigureAwait(false),
+          await metricsTask.ConfigureAwait(false));
+      }
+
+      await Task.WhenAll(versionTask, nodesTask, metricsTask).ConfigureAwait(false);
+
+      return BuildUsage(
+        await versionTask.ConfigureAwait(false),
+        await nodesTask.ConfigureAwait(false),
+        pods: null,
+        replicaSets: null,
+        await metricsTask.ConfigureAwait(false));
     }
     catch (Exception ex) {
       return KubernetesResult.Map<ClusterUsage>(ex);
     }
+  }
+
+  private static Result<ClusterUsage> BuildUsage(
+    VersionInfo version,
+    V1NodeList nodes,
+    V1PodList? pods,
+    V1ReplicaSetList? replicaSets,
+    Result<IReadOnlyDictionary<string, ResourceMetrics>> metrics) {
+    var metricsAvailable = metrics.IsSuccess && metrics.Value is { Count: > 0 };
+    var podItems = pods?.Items ?? [];
+    var (cpu, memory, podSlice, nodeUsages) = ClusterMetrics.From(
+      nodes.Items,
+      podItems,
+      metricsAvailable ? metrics.Value : null);
+    var containerLimits = replicaSets is null
+      ? Array.Empty<WorkloadContainerLimit>()
+      : ContainerLimits.From(podItems, replicaSets.Items);
+
+    return Result<ClusterUsage>.Ok(new ClusterUsage(
+      version.GitVersion,
+      version.Platform,
+      nodes.Items.Count,
+      cpu,
+      memory,
+      podSlice,
+      nodeUsages,
+      containerLimits,
+      metricsAvailable,
+      metricsAvailable
+        ? null
+        : "No live usage from metrics-server (metrics.k8s.io). Usage bars stay empty until it is installed. Requests/limits come from pod specs."));
   }
 
   public async Task<Result<double>> GetClusterCpuAllocatableAsync(CancellationToken cancellationToken = default) {

@@ -6,11 +6,11 @@
     Opens Cluster Console and saves PNGs of the main screens.
 
 .DESCRIPTION
-    Applies the screenshot window layout, launches the UI with --screenshots,
-    and writes one folder of PNGs plus manifest.json. Closes the app when the
-    tour finishes. Unless -KeepLayout is set, settings.json is put back to the
-    bytes from before this script ran, so the tour does not leave a different
-    page or window size behind.
+    Applies the screenshot window layout (including an expanded Connections
+    catalog), launches the UI with --screenshots, and writes one folder of PNGs
+    plus manifest.json. Closes the app when the tour finishes. Unless
+    -KeepLayout is set, settings.json is put back to the bytes from before this
+    script ran, so the tour does not leave a different page or window size behind.
 
     Close Cluster Console first. The capture uses a live kubeconfig context.
     Grids are shown unsorted and unfiltered, across all namespaces. Column widths stay as saved.

@@ -131,6 +131,7 @@ function Invoke-Plugin {
     Import-PluginDependency -ModuleName "EngineContext" -RequiredCommand "Set-EngineFact"
     Import-PluginDependency -ModuleName "ExternalCommandSupport" -RequiredCommand "Invoke-ExternalCommand"
     Import-PluginDependency -ModuleName "DesktopPackSupport" -RequiredCommand "New-MsixManifestXml"
+    Import-PluginDependency -ModuleName "DesktopPackSupport" -RequiredCommand "Assert-DesktopPublishFiles"
 
     if (-not $IsWindows -and -not (Test-ExternalCommandTestHandler)) {
         throw "MsixPack requires Windows (Windows SDK makeappx.exe and signtool.exe)."
@@ -190,6 +191,18 @@ function Invoke-Plugin {
         -RuntimeIdentifier $runtimeIdentifier `
         -PublishDir $publishDirSetting `
         -ScriptDir $scriptDir
+
+    $requiredPublishFiles = @(Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'requiredPublishFiles' -Default @())
+    $requiredPublishFiles = @(
+        $requiredPublishFiles |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if (-not [string]::IsNullOrWhiteSpace($executableName) -and ($requiredPublishFiles -notcontains $executableName)) {
+        $requiredPublishFiles = @($executableName) + $requiredPublishFiles
+    }
+
+    Assert-DesktopPublishFiles -PublishDirectory $publishDirectory -RequiredFileNames $requiredPublishFiles
 
     $null = Resolve-DesktopExecutablePath `
         -PublishDirectory $publishDirectory `

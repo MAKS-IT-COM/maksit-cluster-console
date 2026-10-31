@@ -5,9 +5,9 @@
              x:DataType="vm:MainViewModel"
              IsVisible="{Binding ActivePage.ShoulderCollapsed}"
              HorizontalAlignment="Stretch"
-             VerticalAlignment="Stretch"
-             Width="36">
+             VerticalAlignment="Stretch">
   <Button Classes="shoulder-rail"
+          Margin="0,0,4,0"
           Command="{Binding ActivePage.ToggleShoulderCommand}"
           ToolTip.Tip="Show">
     <StackPanel Spacing="10" HorizontalAlignment="Center">

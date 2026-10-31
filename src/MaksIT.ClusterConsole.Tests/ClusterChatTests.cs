@@ -418,7 +418,9 @@ public class ClusterChatTests {
     public Task<Result<ClusterSummary>> GetSummaryAsync(CancellationToken cancellationToken = default) =>
       Unused<Result<ClusterSummary>>();
 
-    public Task<Result<ClusterUsage>> GetClusterUsageAsync(CancellationToken cancellationToken = default) =>
+    public Task<Result<ClusterUsage>> GetClusterUsageAsync(
+      bool includeWorkloads = true,
+      CancellationToken cancellationToken = default) =>
       Unused<Result<ClusterUsage>>();
 
     public Task<Result<double>> GetClusterCpuAllocatableAsync(CancellationToken cancellationToken = default) =>

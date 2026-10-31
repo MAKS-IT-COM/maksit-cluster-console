@@ -85,6 +85,7 @@ function Invoke-Plugin {
     Import-PluginDependency -ModuleName "EngineContext" -RequiredCommand "Add-ReleaseAssetPaths"
     Import-PluginDependency -ModuleName "ExternalCommandSupport" -RequiredCommand "Invoke-ExternalCommand"
     Import-PluginDependency -ModuleName "DesktopPackSupport" -RequiredCommand "New-WixPackageXml"
+    Import-PluginDependency -ModuleName "DesktopPackSupport" -RequiredCommand "Assert-DesktopPublishFiles"
 
     $pluginSettings = $Settings
     $sharedSettings = $Settings.context
@@ -129,6 +130,18 @@ function Invoke-Plugin {
         -RuntimeIdentifier $runtimeIdentifier `
         -PublishDir $publishDirSetting `
         -ScriptDir $scriptDir
+
+    $requiredPublishFiles = @(Get-PluginPropertyValue -PluginSettings $pluginSettings -Name 'requiredPublishFiles' -Default @())
+    $requiredPublishFiles = @(
+        $requiredPublishFiles |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if (-not [string]::IsNullOrWhiteSpace($executableName) -and ($requiredPublishFiles -notcontains $executableName)) {
+        $requiredPublishFiles = @($executableName) + $requiredPublishFiles
+    }
+
+    Assert-DesktopPublishFiles -PublishDirectory $publishDirectory -RequiredFileNames $requiredPublishFiles
 
     $executablePath = Resolve-DesktopExecutablePath `
         -PublishDirectory $publishDirectory `
