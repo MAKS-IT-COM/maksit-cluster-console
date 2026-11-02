@@ -389,6 +389,23 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
   public event EventHandler? AiSettingsRequested;
 
+  [RelayCommand]
+  private void OpenScreenSaverSettings() =>
+    ScreenSaverSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+  public event EventHandler? ScreenSaverSettingsRequested;
+
+  public event Action? ScreenSaverSettingsChanged;
+
+  [ObservableProperty]
+  private bool isFullScreen;
+
+  [RelayCommand]
+  private void ToggleFullScreen() =>
+    FullScreenToggleRequested?.Invoke(this, EventArgs.Empty);
+
+  public event EventHandler? FullScreenToggleRequested;
+
   public event Action<VolumeFilesViewModel>? VolumeFilesRequested;
 
   public Func<RetainReclaimViewModel, Task>? ShowRetainReclaim { get; set; }
@@ -429,6 +446,24 @@ public partial class MainViewModel : ObservableObject, IDisposable {
 
     foreach (var page in _pages.Values)
       page.Chat.NotifySettingsChanged();
+  }
+
+  public ScreenSaverSettingsViewModel CreateScreenSaverSettingsViewModel() {
+    var cfg = _configuration.Current;
+
+    return new ScreenSaverSettingsViewModel(
+      cfg.ScreenSaver.Enabled,
+      cfg.ScreenSaver.IdleMinutes,
+      ApplyScreenSaverSettings);
+  }
+
+  private void ApplyScreenSaverSettings(bool enabled, int idleMinutes) {
+    var cfg = _configuration.Current;
+    cfg.ScreenSaver.Enabled = enabled;
+    cfg.ScreenSaver.IdleMinutes = idleMinutes;
+    cfg.EnsureDefaults();
+    _configuration.Save(cfg);
+    ScreenSaverSettingsChanged?.Invoke();
   }
 
   public Task ConnectNamedAsync(string name) {

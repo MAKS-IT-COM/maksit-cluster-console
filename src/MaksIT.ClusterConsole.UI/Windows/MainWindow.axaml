@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:MaksIT.ClusterConsole.UI.Controls"
         xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
         xmlns:layout="using:MaksIT.ClusterConsole.UI.Services"
         xmlns:shared="using:MaksIT.ClusterConsole.Shared"
@@ -14,10 +15,21 @@
         Height="860"
         MinWidth="960"
         MinHeight="640">
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F11" Command="{Binding ToggleFullScreenCommand}" />
+  </Window.KeyBindings>
+  <Grid>
   <DockPanel>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="Settings">
         <MenuItem Header="AI…" Command="{Binding OpenAiSettingsCommand}" />
+        <MenuItem Header="Screen saver…" Command="{Binding OpenScreenSaverSettingsCommand}" />
+      </MenuItem>
+      <MenuItem Header="View">
+        <MenuItem Header="Full screen"
+                  Command="{Binding ToggleFullScreenCommand}"
+                  ToggleType="CheckBox"
+                  IsChecked="{Binding IsFullScreen, Mode=OneWay}" />
       </MenuItem>
       <MenuItem Header="Help">
         <MenuItem Header="Logs" Click="OnLogsClick" />
@@ -228,4 +240,8 @@
       </Grid>
     </Grid>
   </DockPanel>
+    <controls:BubblesScreenSaverControl Name="ScreenSaverOverlay"
+                                        IsHitTestVisible="False"
+                                        IsVisible="False" />
+  </Grid>
 </Window>

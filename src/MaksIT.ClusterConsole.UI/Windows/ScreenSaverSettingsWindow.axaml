@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:footer="using:MaksIT.ClusterConsole.UI.Controls.Footer"
+        xmlns:vm="using:MaksIT.ClusterConsole.UI.ViewModels"
+        x:Class="MaksIT.ClusterConsole.UI.Windows.ScreenSaverSettingsWindow"
+        x:DataType="vm:ScreenSaverSettingsViewModel"
+        Title="Screen saver"
+        Icon="/Assets/icon.ico"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <StackPanel Margin="16" Spacing="10">
+    <TextBlock Text="Bubbles" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="When full screen is idle, translucent bubbles drift over the console so the display stays readable while the screen is protected. Desk use is unchanged until you enter full screen (View or F11)." />
+    <CheckBox Content="Enable screen saver" IsChecked="{Binding Enabled}" />
+    <Grid ColumnDefinitions="100,*" RowDefinitions="Auto" RowSpacing="8">
+      <TextBlock Text="Idle after" Classes="hint" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1"
+                     Value="{Binding IdleMinutes}"
+                     Minimum="1"
+                     Maximum="120"
+                     Increment="1"
+                     FormatString="0"
+                     IsEnabled="{Binding Enabled}"
+                     ToolTip.Tip="Minutes without mouse or keyboard while full screen before bubbles appear." />
+    </Grid>
+    <TextBlock Classes="hint" Text="Minutes. Only while full screen." />
+    <footer:WindowFooter Items="{Binding FooterItems}" Margin="0,8,0,0" Spacing="8" />
+  </StackPanel>
+</Window>

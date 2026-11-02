@@ -65,6 +65,12 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.2" date="2026-11-02">
+      <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.9.2/CHANGELOG.md</url>
+      <description>
+        <p>Full screen with F11. Optional idle bubbles screen saver while full screen.</p>
+      </description>
+    </release>
     <release version="0.9.1" date="2026-10-31">
       <url type="details">https://github.com/MAKS-IT-COM/maksit-cluster-console/blob/v0.9.1/CHANGELOG.md</url>
       <description>

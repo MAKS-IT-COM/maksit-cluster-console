@@ -48,6 +48,8 @@ public sealed class Configuration {
 
   public LayoutSettings Layout { get; set; } = new();
 
+  public ScreenSaverSettings ScreenSaver { get; set; } = new();
+
   public string? WhatsNewSeenVersion { get; set; }
 
   [JsonIgnore]
@@ -64,6 +66,8 @@ public sealed class Configuration {
     NavigatorExpanded ??= new Dictionary<string, bool>(StringComparer.Ordinal);
     Layout ??= new LayoutSettings();
     Layout.Normalize();
+    ScreenSaver ??= new ScreenSaverSettings();
+    ScreenSaver.Ensure();
     Forwards.Ensure();
     Ai.Ensure();
   }

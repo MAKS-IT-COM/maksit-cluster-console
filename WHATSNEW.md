@@ -2,6 +2,13 @@
 
 Short notes shown in the app after an upgrade. The full history, including maintainer notes, is [CHANGELOG.md](CHANGELOG.md).
 
+## [Unreleased]
+
+## [0.9.2] - 2026-11-02
+
+- View -> Full screen or F11 fills the display. Escape leaves full screen.
+- Settings -> Screen saver can show translucent bubbles after idle while full screen, so the console stays visible on a wall display.
+
 ## [0.9.1] - 2026-10-31
 
 - The cluster catalog can collapse to a Connections rail, the same way the details pane collapses. The choice is kept.

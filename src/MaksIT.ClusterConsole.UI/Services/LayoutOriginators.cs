@@ -36,7 +36,9 @@ internal sealed class WindowLayoutOriginator : ILayoutOriginator {
     if (layout.WindowX is int x && layout.WindowY is int y && IsOnScreen(x, y))
       _window.Position = new PixelPoint(x, y);
 
-    if (Enum.TryParse<WindowState>(layout.WindowState, true, out var state) && state != WindowState.Minimized)
+    if (Enum.TryParse<WindowState>(layout.WindowState, true, out var state)
+        && state != WindowState.Minimized
+        && state != WindowState.FullScreen)
       _window.WindowState = state;
   }
 
@@ -48,9 +50,11 @@ internal sealed class WindowLayoutOriginator : ILayoutOriginator {
       layout.WindowY = _window.Position.Y;
     }
 
-    layout.WindowState = _window.WindowState == WindowState.Minimized
-      ? WindowState.Normal.ToString()
-      : _window.WindowState.ToString();
+    layout.WindowState = _window.WindowState switch {
+      WindowState.Minimized => WindowState.Normal.ToString(),
+      WindowState.FullScreen => WindowState.Maximized.ToString(),
+      _ => _window.WindowState.ToString()
+    };
   }
 
   private bool IsOnScreen(int x, int y) {

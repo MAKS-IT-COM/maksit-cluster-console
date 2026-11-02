@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-02
+
+### Added
+
+- **View -> Full screen** or **F11** fills the display; **Escape** leaves full screen. Full screen is not restored on the next launch.
+- **Settings -> Screen saver** enables a bubbles overlay after idle minutes while full screen. The console stays readable under the bubbles. Any mouse or key press clears the overlay without leaving full screen.
+
+### Changed
+
+- AppStream screenshots stay on tag `v0.8.6`, where those images are stored. The `0.9.2` release entry points at this version's changelog.
+
 ## [0.9.1] - 2026-10-31
 
 ### Added
@@ -64,7 +75,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- When Settings → AI is on, Chat sits on the cluster overview beside Errors and Warnings. Analyze issues asks which objects are still failing and which events are leftover after the pods recovered. Those warnings and errors go with the question.
+- When Settings -> AI is on, Chat sits on the cluster overview beside Errors and Warnings. Analyze issues asks which objects are still failing and which events are leftover after the pods recovered. Those warnings and errors go with the question.
 
 ### Changed
 
@@ -133,8 +144,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The navigator adds admission policies, CSI objects, API services, flow schemas, priority levels, and dynamic resource allocation types. Custom resource tables use the CRD `additionalPrinterColumns`.
 - A list can send a label selector with the API request.
 - YAML apply falls back to create or replace when the API server rejects an apply patch.
-- Settings → AI sets the local Ollama endpoint and model. Chat stays read-only unless the agent is enabled; restart, pod delete, scale, and apply then wait for a confirmation.
-- Help → About shows the product, license, and contact.
+- Settings -> AI sets the local Ollama endpoint and model. Chat stays read-only unless the agent is enabled; restart, pod delete, scale, and apply then wait for a confirmation.
+- Help -> About shows the product, license, and contact.
 
 ### Fixed
 
@@ -161,7 +172,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Help → Logs shows the app log and crash reports, and an unhandled error opens a copyable debug window instead of closing the app.
+- Help -> Logs shows the app log and crash reports, and an unhandled error opens a copyable debug window instead of closing the app.
 - YAML view, volume files, and ConfigMap/Secret values highlight as JSON or YAML. A data key or file name uses its extension (`.json`, `.yaml`, `.yml`); a key without one stays plain. The resource YAML tab is always YAML.
 - Services table includes Status: Active when the load-balancer address is assigned, Pending when none is set, and Unreachable when a BGP or requested address is not the one in `status.loadBalancer.ingress` (or Cilium IPAM reports it unsatisfied).
 
@@ -228,7 +239,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Applications** table shows live **CPU** (% of cluster allocatable) and **Memory** (k8s `Mi`/`Gi`) from summed pod metrics when metrics-server is available.
 - **Deployments**, **StatefulSets**, and **DaemonSets** tables include **CPU** and **Memory** columns (millicores / `MiB`, summed from owned pods).
 - Applications metric **tooltips**: CPU in millicores; memory as `MiB` plus rounded `MB`.
-- Applications pod attribution matches instance labels, direct workload owners, and **ReplicaSet → Deployment** owners.
+- Applications pod attribution matches instance labels, direct workload owners, and **ReplicaSet -> Deployment** owners.
 - Transient Kubernetes API errors (for example HTTP/2 `ResponseEnded`) retry automatically; the client uses HTTP/1.1 for list traffic.
 
 ### Changed
@@ -283,12 +294,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Status-bar messages for port-forward start, stop, restore, and failure.
 - Local / Remote labels on the port-forward bar so the two port fields are explicit.
-- Rebind the host port of an existing forward from **Network → Port Forwarding** (Local field + Rebind).
-- Double-click a live port-forward in **Network → Port Forwarding** to open `http://127.0.0.1:{local}` in the default browser.
+- Rebind the host port of an existing forward from **Network -> Port Forwarding** (Local field + Rebind).
+- Double-click a live port-forward in **Network -> Port Forwarding** to open `http://127.0.0.1:{local}` in the default browser.
 
 ### Changed
 
-- Active port-forwards are listed in **Network → Port Forwarding** (stop from the table). They are no longer shown in the status bar.
+- Active port-forwards are listed in **Network -> Port Forwarding** (stop from the table). They are no longer shown in the status bar.
 - Resource table footer, YAML/Data edit bars, and workload limit apply buttons show only for a selected row that can use them. Empty toolbars are hidden.
 - Enabled port-forwards are saved in `appsettings.json` (`Configuration:PortForwards`) and restored when a cluster reconnects.
 

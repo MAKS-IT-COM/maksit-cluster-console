@@ -521,4 +521,50 @@ public class ConfigurationFileServiceTests {
     Assert.Equal(Configuration.AllNamespaces, cfg.NamespaceFor("prod"));
     Assert.Equal(Configuration.AllNamespaces, cfg.SelectedNamespace);
   }
+
+  [Fact]
+  public void ScreenSaver_defaults_and_clamps_idle_minutes() {
+    var settings = new ScreenSaverSettings();
+    Assert.False(settings.Enabled);
+    Assert.Equal(ScreenSaverSettings.DefaultIdleMinutes, settings.IdleMinutes);
+
+    settings.IdleMinutes = 0;
+    settings.Ensure();
+    Assert.Equal(ScreenSaverSettings.DefaultIdleMinutes, settings.IdleMinutes);
+
+    settings.IdleMinutes = 200;
+    settings.Ensure();
+    Assert.Equal(ScreenSaverSettings.DefaultIdleMinutes, settings.IdleMinutes);
+
+    settings.IdleMinutes = 15;
+    settings.Ensure();
+    Assert.Equal(15, settings.IdleMinutes);
+  }
+
+  [Fact]
+  public void Save_round_trips_screen_saver_settings() {
+    var path = Path.Combine(Path.GetTempPath(), $"maksit-cluster-console-{Guid.NewGuid():N}.json");
+    File.WriteAllText(path, """
+      {
+        "Logging": { "LogLevel": { "Default": "Information" } },
+        "Configuration": { "SelectedNamespace": "all" }
+      }
+      """);
+
+    try {
+      var service = new ConfigurationFileService(path);
+      var cfg = service.Current;
+      cfg.ScreenSaver.Enabled = true;
+      cfg.ScreenSaver.IdleMinutes = 10;
+      service.Save(cfg);
+
+      var reloaded = new ConfigurationFileService(path);
+      Assert.True(reloaded.Current.ScreenSaver.Enabled);
+      Assert.Equal(10, reloaded.Current.ScreenSaver.IdleMinutes);
+      Assert.Contains("\"ScreenSaver\"", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+    finally {
+      File.Delete(path);
+    }
+  }
 }

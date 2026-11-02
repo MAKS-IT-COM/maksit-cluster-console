@@ -62,7 +62,7 @@ Store listing copy:
 
 ### System requirements (Properties)
 
-Partner Center → **Properties** → **System requirements**. A blank cell stays unset. Minimum is what the Store may warn on; Recommended does not warn.
+Partner Center -> **Properties** -> **System requirements**. A blank cell stays unset. Minimum is what the Store may warn on; Recommended does not warn.
 
 The app is a win-x64 desktop console (tables, YAML, terminal). It does not use a camera, microphone, radio, gamepad, or a specific GPU.
 

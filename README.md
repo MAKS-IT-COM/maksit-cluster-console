@@ -11,7 +11,7 @@
 
 - Your kubeconfig and its RBAC are the access path. Click a catalog row to connect that context in this app. The radio writes kubectl `current-context` for the command line. This app does not read that field. Several contexts can stay connected.
 - Helm, Dapr, and Longhorn screens view and operate what is already installed. They do not install those systems.
-- **Cloud…** adds Google, Azure, Amazon, Oracle, DigitalOcean, or IBM by running that provider's CLI. **S3 Browser** opens a Longhorn backup target.
+- **Cloud...** adds Google, Azure, Amazon, Oracle, DigitalOcean, or IBM by running that provider's CLI. **S3 Browser** opens a Longhorn backup target.
 - Chat is optional local [Ollama](https://ollama.com). It is read-only by default. With changes allowed, each restart, pod delete, scale, and apply waits for Approve.
 - Windows, Linux, and macOS. [Apache 2.0](LICENSE.md).
 
@@ -48,28 +48,29 @@ If you find this project useful, please consider supporting its development:
 
 Each line links to the screen notes in [docs/features.md](docs/features.md).
 
-- [Cluster overview](docs/features.md#cluster-overview) — version, node count, CPU, memory, and pod charts, plus errors and warnings.
-- [Applications](docs/features.md#applications) — one row per app instance and namespace, with ready, CPU, and memory.
-- [Pods](docs/features.md#pods) — logs, shell, attach, a debug container, and port-forward.
-- [Chat](docs/features.md#chat) — local Ollama on the overview or the selection. Read-only by default.
-- [Volume files](docs/features.md#volume-files) — browse, edit, download, and upload files on a PV or claim.
-- [Dapr](docs/features.md#dapr) — components, configurations, subscriptions, sidecars, and the control plane.
-- [Port forwarding](docs/features.md#port-forwarding) — saved tunnels that restore on reconnect and open in the browser.
-- [Connections](docs/features.md#connections) — the kubeconfig on disk, **Add…**, and **Cloud…** for six providers.
-- [Navigator](docs/features.md#navigator) — cluster through custom resources. Longhorn and CloudNativePG appear when those APIs are installed.
-- [Longhorn](docs/features.md#longhorn) — attach, detach, recurring jobs, backups, and S3 Browser. Does not install Longhorn.
-- [Tables](docs/features.md#tables) — watch, search, label selector, and a footer action on the selection.
-- [YAML](docs/features.md#yaml) — view, apply, create, and delete.
-- [Workloads](docs/features.md#workloads) — scale, restart, rollout, and a CronJob trigger.
-- [Nodes](docs/features.md#nodes) — cordon, uncordon, and drain, with a preview of which pods move.
-- [Config](docs/features.md#config) — ConfigMaps, Secrets, quotas, autoscaling, and admission.
-- [Network](docs/features.md#network) — Services, ingress, and policies. A load balancer is Active, Pending, or Unreachable.
-- [Storage](docs/features.md#storage) — resize a claim, change reclaim policy, and browse volume files.
-- [Access](docs/features.md#access) — approve a certificate signing request, and create a ServiceAccount token shown once.
-- [Custom resources](docs/features.md#custom-resources) — extra columns from the CRD.
-- [Helm](docs/features.md#helm) — installed charts, revision history, and a values diff. Install and upgrade stay on the Helm CLI.
-- [Metrics](docs/features.md#metrics) — CPU and memory from metrics-server.
-- [Help](docs/features.md#help) — Hint on the kind, the app log, a copyable crash window, and What's New.
+- [Cluster overview](docs/features.md#cluster-overview) - version, node count, CPU, memory, and pod charts, plus errors and warnings.
+- [Applications](docs/features.md#applications) - one row per app instance and namespace, with ready, CPU, and memory.
+- [Pods](docs/features.md#pods) - logs, shell, attach, a debug container, and port-forward.
+- [Chat](docs/features.md#chat) - local Ollama on the overview or the selection. Read-only by default.
+- [Full screen and screen saver](docs/features.md#full-screen-and-screen-saver) - F11 full screen, and optional idle bubbles while full screen.
+- [Volume files](docs/features.md#volume-files) - browse, edit, download, and upload files on a PV or claim.
+- [Dapr](docs/features.md#dapr) - components, configurations, subscriptions, sidecars, and the control plane.
+- [Port forwarding](docs/features.md#port-forwarding) - saved tunnels that restore on reconnect and open in the browser.
+- [Connections](docs/features.md#connections) - the kubeconfig on disk, **Add...**, and **Cloud...** for six providers.
+- [Navigator](docs/features.md#navigator) - cluster through custom resources. Longhorn and CloudNativePG appear when those APIs are installed.
+- [Longhorn](docs/features.md#longhorn) - attach, detach, recurring jobs, backups, and S3 Browser. Does not install Longhorn.
+- [Tables](docs/features.md#tables) - watch, search, label selector, and a footer action on the selection.
+- [YAML](docs/features.md#yaml) - view, apply, create, and delete.
+- [Workloads](docs/features.md#workloads) - scale, restart, rollout, and a CronJob trigger.
+- [Nodes](docs/features.md#nodes) - cordon, uncordon, and drain, with a preview of which pods move.
+- [Config](docs/features.md#config) - ConfigMaps, Secrets, quotas, autoscaling, and admission.
+- [Network](docs/features.md#network) - Services, ingress, and policies. A load balancer is Active, Pending, or Unreachable.
+- [Storage](docs/features.md#storage) - resize a claim, change reclaim policy, and browse volume files.
+- [Access](docs/features.md#access) - approve a certificate signing request, and create a ServiceAccount token shown once.
+- [Custom resources](docs/features.md#custom-resources) - extra columns from the CRD.
+- [Helm](docs/features.md#helm) - installed charts, revision history, and a values diff. Install and upgrade stay on the Helm CLI.
+- [Metrics](docs/features.md#metrics) - CPU and memory from metrics-server.
+- [Help](docs/features.md#help) - Hint on the kind, the app log, a copyable crash window, and What's New.
 
 ## Requirements
 
@@ -122,13 +123,16 @@ Operator layout, open clusters, port-forwards, and Chat settings are stored in `
 
 | Key | Role |
 |-----|------|
-| `AiEnabled` | Chat tab. Off until enabled under Settings → AI |
+| `AiEnabled` | Chat tab. Off until enabled under Settings -> AI |
 | `AiAgentEnabled` | With chat on, restart, pod delete, scale, and apply run only after you approve each one |
 | `OllamaEndpoint` | Local Ollama API, default `http://127.0.0.1:11434` |
 | `OllamaModel` | Local Ollama model, default `qwen3:8b`. A larger model (`qwen3:14b`, `qwen3:32b`, `qwen3-coder:30b`) is a better fit once changes are allowed |
-| `OllamaTimeoutSeconds` | How long one Chat reply may run, in seconds. Default 240. Settings → AI shows this as Timeout |
+| `OllamaTimeoutSeconds` | How long one Chat reply may run, in seconds. Default 240. Settings -> AI shows this as Timeout |
+| `ScreenSaver` | Bubbles overlay while full screen is idle. `Enabled` (off by default) and `IdleMinutes` (default 5). Settings -> Screen saver |
 | `PortForwards` | Enabled localhost forwards; restored on reconnect |
 | `Layout` | Window, panes, last navigator item, per-cluster tables |
+
+**View -> Full screen** or **F11** fills the display. **Escape** leaves full screen. When the screen saver is on, idle only while full screen shows translucent bubbles over the live UI; the first mouse or key press clears the bubbles and keeps full screen. Full screen is not restored on the next launch.
 
 Chat stays read-only until **Allow the assistant to change the cluster** is on. Those changes still wait for Approve. The model box accepts any local Ollama model; larger models handle restart, scale, delete, and apply more reliably than `qwen3:8b`.
 
@@ -141,13 +145,13 @@ Yes. It is a native desktop Kubernetes GUI (operator console) for Windows, Linux
 Yes. `KUBECONFIG` or `~/.kube/config`. RBAC is whatever that identity already has. Clicking a catalog row connects that context in this app. The radio only writes kubectl `current-context` so your command line can use the same cluster. This app does not read that field.
 
 **Does Chat send cluster data to a cloud AI?**  
-No. Chat is optional [Ollama](https://ollama.com) on the same machine. The model is whatever you set under Settings → AI. By default the tools only read issues, YAML, logs, and events. Turn on **Allow the assistant to change the cluster** and the same chat can restart, delete a pod, scale, or apply YAML, each after you approve it. A larger local model is the better choice for that.
+No. Chat is optional [Ollama](https://ollama.com) on the same machine. The model is whatever you set under Settings -> AI. By default the tools only read issues, YAML, logs, and events. Turn on **Allow the assistant to change the cluster** and the same chat can restart, delete a pod, scale, or apply YAML, each after you approve it. A larger local model is the better choice for that.
 
 **Can Flatpak run a cloud exec plugin?**  
 Yes. **Download CLI** installs gcloud, az, aws, oci, doctl, ibmcloud, or kubelogin into the app. The sandbox starts that copy, including the exec plugin a kubeconfig names. A CLI installed on the host is not visible inside the sandbox. A certificate or token needs no CLI.
 
 **Does it have a Cloud window and an S3 browser?**  
-Yes. **Cloud…** adds Google, Azure, Amazon, Oracle, DigitalOcean, or IBM by running that provider's CLI, which writes the API server, certificate, and login. **S3 Browser**, under Longhorn, opens the default backup target and any other S3 targets.
+Yes. **Cloud...** adds Google, Azure, Amazon, Oracle, DigitalOcean, or IBM by running that provider's CLI, which writes the API server, certificate, and login. **S3 Browser**, under Longhorn, opens the default backup target and any other S3 targets.
 
 **Can it install a cluster, Helm charts, Dapr, or Longhorn?**  
 No. It talks to an existing Kubernetes API. Helm, Dapr, and Longhorn screens view and operate objects that are already there. They do not install those systems. Adding a Longhorn backup target writes that target and its credential secret. S3 Browser opens a target those credentials can already reach.
@@ -165,11 +169,11 @@ Or `dotnet test MaksIT.ClusterConsole.Tests` from `src/`. Tests use kubeconfig f
 
 ## Scope
 
-Desktop operator console for the Kubernetes API. Not a CLI, cluster installer, GitOps, or secret-management system. Helm, Dapr, and Longhorn screens view and operate objects already in the cluster. They do not install those systems. Adding a Longhorn backup target writes that target and its credential secret. **Cloud…** writes a kubeconfig context by running a provider CLI. **S3 Browser** opens a Longhorn backup target.
+Desktop operator console for the Kubernetes API. Not a CLI, cluster installer, GitOps, or secret-management system. Helm, Dapr, and Longhorn screens view and operate objects already in the cluster. They do not install those systems. Adding a Longhorn backup target writes that target and its credential secret. **Cloud...** writes a kubeconfig context by running a provider CLI. **S3 Browser** opens a Longhorn backup target.
 
 ## License
 
-Apache 2.0 — see [LICENSE.md](LICENSE.md).
+Apache 2.0 - see [LICENSE.md](LICENSE.md).
 
 © Maksym Sadovnychyy (MAKS-IT)
 
