@@ -1,5 +1,5 @@
 {
-  "Context": "production",
+  "Context": "staging",
   "Catalog": "catalog.png",
   "Shots": [
     {
@@ -115,6 +115,18 @@
       "Window": "controllerrevisions-events.png"
     },
     {
+      "Id": "cronjobs",
+      "Window": "cronjobs.png"
+    },
+    {
+      "Id": "cronjobs-yaml",
+      "Window": "cronjobs-yaml.png"
+    },
+    {
+      "Id": "cronjobs-events",
+      "Window": "cronjobs-events.png"
+    },
+    {
       "Id": "daemonsets",
       "Window": "daemonsets.png"
     },
@@ -161,6 +173,30 @@
     {
       "Id": "deployments-terminal",
       "Window": "deployments-terminal.png"
+    },
+    {
+      "Id": "jobs",
+      "Window": "jobs.png"
+    },
+    {
+      "Id": "jobs-yaml",
+      "Window": "jobs-yaml.png"
+    },
+    {
+      "Id": "jobs-events",
+      "Window": "jobs-events.png"
+    },
+    {
+      "Id": "jobs-pods",
+      "Window": "jobs-pods.png"
+    },
+    {
+      "Id": "jobs-logs",
+      "Window": "jobs-logs.png"
+    },
+    {
+      "Id": "jobs-terminal",
+      "Window": "jobs-terminal.png"
     },
     {
       "Id": "pods",
@@ -407,6 +443,18 @@
       "Window": "services-pods.png"
     },
     {
+      "Id": "csidrivers",
+      "Window": "csidrivers.png"
+    },
+    {
+      "Id": "csidrivers-yaml",
+      "Window": "csidrivers-yaml.png"
+    },
+    {
+      "Id": "csidrivers-events",
+      "Window": "csidrivers-events.png"
+    },
+    {
       "Id": "csinodes",
       "Window": "csinodes.png"
     },
@@ -459,6 +507,34 @@
       "Window": "storageclasses-events.png"
     },
     {
+      "Id": "volumeattachments",
+      "Window": "volumeattachments.png"
+    },
+    {
+      "Id": "volumeattachments-yaml",
+      "Window": "volumeattachments-yaml.png"
+    },
+    {
+      "Id": "volumeattachments-events",
+      "Window": "volumeattachments-events.png"
+    },
+    {
+      "Id": "s3-browser",
+      "Window": "s3-browser.png"
+    },
+    {
+      "Id": "longhorn-volumes",
+      "Window": "longhorn-volumes.png"
+    },
+    {
+      "Id": "longhorn-volumes-yaml",
+      "Window": "longhorn-volumes-yaml.png"
+    },
+    {
+      "Id": "longhorn-volumes-events",
+      "Window": "longhorn-volumes-events.png"
+    },
+    {
       "Id": "namespaces",
       "Window": "namespaces.png"
     },
@@ -469,6 +545,14 @@
     {
       "Id": "namespaces-events",
       "Window": "namespaces-events.png"
+    },
+    {
+      "Id": "events",
+      "Window": "events.png"
+    },
+    {
+      "Id": "events-yaml",
+      "Window": "events-yaml.png"
     },
     {
       "Id": "helm-charts",
@@ -561,6 +645,18 @@
     {
       "Id": "configurations-events",
       "Window": "configurations-events.png"
+    },
+    {
+      "Id": "subscriptions",
+      "Window": "subscriptions.png"
+    },
+    {
+      "Id": "subscriptions-yaml",
+      "Window": "subscriptions-yaml.png"
+    },
+    {
+      "Id": "subscriptions-events",
+      "Window": "subscriptions-events.png"
     },
     {
       "Id": "cnpg-clusters",
@@ -657,14 +753,6 @@
       "Reason": "No rows."
     },
     {
-      "Id": "cronjobs",
-      "Reason": "No rows."
-    },
-    {
-      "Id": "jobs",
-      "Reason": "No rows."
-    },
-    {
       "Id": "replicationcontrollers",
       "Reason": "No rows."
     },
@@ -725,15 +813,7 @@
       "Reason": "No rows."
     },
     {
-      "Id": "csidrivers",
-      "Reason": "No rows."
-    },
-    {
       "Id": "csistoragecapacities",
-      "Reason": "No rows."
-    },
-    {
-      "Id": "volumeattachments",
       "Reason": "No rows."
     },
     {
@@ -741,7 +821,15 @@
       "Reason": "No rows."
     },
     {
-      "Id": "events",
+      "Id": "longhorn-backups",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "longhorn-nodes",
+      "Reason": "No rows."
+    },
+    {
+      "Id": "longhorn-backup-jobs",
       "Reason": "No rows."
     },
     {
@@ -750,10 +838,6 @@
     },
     {
       "Id": "resiliencies",
-      "Reason": "No rows."
-    },
-    {
-      "Id": "subscriptions",
       "Reason": "No rows."
     },
     {

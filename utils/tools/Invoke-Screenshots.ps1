@@ -108,7 +108,9 @@ function Resolve-ConsoleExe {
     }
 
     if ($Build -or $found.Count -eq 0 -or $stale) {
-        & dotnet build $project -c Debug --nologo
+        # Out-Host keeps build text visible without adding it to this function's
+        # success output (which would make $exePath an Object[] for Start-Process).
+        & dotnet build $project -c Debug --nologo | Out-Host
 
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Build failed."
@@ -121,7 +123,9 @@ function Resolve-ConsoleExe {
         Write-Error "Could not find MaksIT.ClusterConsole.UI.exe. Pass -Build or -Exe."
     }
 
-    return ($found | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+    $exe = ($found | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+
+    return [string]$exe
 }
 
 function Test-UiSourcesNewer([string]$exePath) {

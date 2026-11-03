@@ -54,6 +54,7 @@ internal sealed class ScreenSaverController : IDisposable {
     _attached = false;
     _idleTimer.Stop();
     _overlay.Stop();
+    _window.ClearValue(InputElement.CursorProperty);
     _window.PropertyChanged -= OnWindowPropertyChanged;
     _window.RemoveHandler(InputElement.PointerMovedEvent, OnPointerActivity);
     _window.RemoveHandler(InputElement.PointerPressedEvent, OnPointerPressed);
@@ -154,6 +155,7 @@ internal sealed class ScreenSaverController : IDisposable {
 
     _active = true;
     _overlay.Start();
+    _window.Cursor = new Cursor(StandardCursorType.None);
   }
 
   private void Dismiss() {
@@ -162,6 +164,7 @@ internal sealed class ScreenSaverController : IDisposable {
 
     _active = false;
     _overlay.Stop();
+    _window.ClearValue(InputElement.CursorProperty);
     RestartIdleIfNeeded();
   }
 }

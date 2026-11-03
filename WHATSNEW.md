@@ -4,6 +4,10 @@ Short notes shown in the app after an upgrade. The full history, including maint
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-03
+
+- The mouse pointer is hidden while the bubbles screen saver is showing.
+
 ## [0.9.2] - 2026-11-02
 
 - View -> Full screen or F11 fills the display. Escape leaves full screen.
